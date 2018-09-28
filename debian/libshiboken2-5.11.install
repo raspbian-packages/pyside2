@@ -1,0 +1,2 @@
+#!/usr/bin/dh-exec
+pyside2_install/py2*-relwithdebinfo/lib/libshiboken2-python2*.so.* usr/lib/${DEB_HOST_MULTIARCH}
