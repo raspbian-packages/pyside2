@@ -1,0 +1,8 @@
+#!/usr/bin/dh-exec --with=subst
+pyside2_install/py2*-relwithdebinfo/include/PySide2 usr/include
+pyside2_install/py2*-relwithdebinfo/share/PySide2 usr/share
+pyside2_install/py*-relwithdebinfo/lib/pkgconfig/pyside2.pc usr/lib/${DEB_HOST_MULTIARCH}/pkgconfig
+pyside2_install/py2*-relwithdebinfo/lib/libpyside2-python*.so usr/lib/${DEB_HOST_MULTIARCH}
+pyside3_install/py3*-relwithdebinfo/lib/libpyside2*.so usr/lib/${DEB_HOST_MULTIARCH}
+pyside2_install/py2*-relwithdebinfo/lib/cmake/PySide2* usr/lib/${DEB_HOST_MULTIARCH}/cmake
+pyside3_install/py3*-relwithdebinfo/lib/cmake/PySide2*/PySide2Config.cpython* usr/lib/${DEB_HOST_MULTIARCH}/cmake/PySide2-${MAIN_VERSION_UPSTREAM}

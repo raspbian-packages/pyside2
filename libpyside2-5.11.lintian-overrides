@@ -1,0 +1,2 @@
+# We ship compiled versions for each supported python version, with a symlink to the default version
+libpyside2-5.11: package-name-doesnt-match-sonames libpyside2-python2.7.x86-64-linux-gnu5.11
