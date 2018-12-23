@@ -1130,7 +1130,7 @@ bool Handler::startElement(const QStringRef &n, const QXmlStreamAttributes &atts
             } else if (modeName == QLatin1String("replace")) {
                 mode = TypeSystem::DocModificationReplace;
             } else {
-                m_error = QLatin1String("Unknow documentation injection mode: ") + modeName;
+                m_error = QLatin1String("Unknown documentation injection mode: ") + modeName;
                 return false;
             }
 
