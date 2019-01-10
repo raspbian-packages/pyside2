@@ -1,0 +1,45 @@
+Description: Fix spelling errors
+Author: Sophie Brun <sophie@freexian.com>
+Last-Update: 2018-07-12
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/sources/pyside2/libpyside/pysideproperty.cpp
++++ b/sources/pyside2/libpyside/pysideproperty.cpp
+@@ -243,7 +243,7 @@ PyObject* qPropertySetter(PyObject* self
+         Py_INCREF(callback);
+         return callback;
+     } else {
+-        PyErr_SetString(PyExc_TypeError, "Invalid property setter agument.");
++        PyErr_SetString(PyExc_TypeError, "Invalid property setter argument.");
+         return 0;
+     }
+ }
+@@ -260,7 +260,7 @@ PyObject* qPropertyGetter(PyObject* self
+         Py_INCREF(callback);
+         return callback;
+     } else {
+-        PyErr_SetString(PyExc_TypeError, "Invalid property getter agument.");
++        PyErr_SetString(PyExc_TypeError, "Invalid property getter argument.");
+         return 0;
+     }
+ }
+@@ -360,7 +360,7 @@ int setValue(PySideProperty* self, PyObj
+         Shiboken::AutoDecRef result(PyObject_CallObject(fset, args));
+         return (result.isNull() ? -1 : 0);
+     } else {
+-        PyErr_SetString(PyExc_AttributeError, "Attibute read only");
++        PyErr_SetString(PyExc_AttributeError, "Attribute read only");
+     }
+     return -1;
+ }
+--- a/sources/shiboken2/ApiExtractor/typesystem.cpp
++++ b/sources/shiboken2/ApiExtractor/typesystem.cpp
+@@ -1130,7 +1130,7 @@ bool Handler::startElement(const QString
+             } else if (modeName == QLatin1String("replace")) {
+                 mode = TypeSystem::DocModificationReplace;
+             } else {
+-                m_error = QLatin1String("Unknow documentation injection mode: ") + modeName;
++                m_error = QLatin1String("Unknown documentation injection mode: ") + modeName;
+                 return false;
+             }
+ 
