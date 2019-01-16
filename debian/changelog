@@ -1,0 +1,68 @@
+pyside2 (5.11.2-3) unstable; urgency=medium
+
+  [ Sébastien Delafond ]
+  * Do not build-depends on patchelf on mips and mipsel (Closes: #917199)
+
+ -- Sebastien Delafond <seb@debian.org>  Wed, 16 Jan 2019 16:30:16 +0100
+
+pyside2 (5.11.2-2) unstable; urgency=medium
+
+  [ Sébastien Delafond ]
+  * Add myself to uploaders
+  * Do not build-depends on patchelf on mips64el (Closes: #917200)
+
+ -- Sebastien Delafond <seb@debian.org>  Thu, 10 Jan 2019 09:21:43 +0100
+
+pyside2 (5.11.2-1) unstable; urgency=medium
+
+  [ Raphaël Hertzog ]
+  * New upstream version 5.11.2
+  * Remove patches merged upstream
+  * Merge fix-PAGESIZE.patch into update-patchelf.patch
+  * Add patchelf to Build-Depends
+  * Bump Standards-Version to 4.2.1
+
+  [ Frédéric Bonnard ]
+  * Fix hardcoded PAGESIZE for patchelf.cc. Closes: #909265
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Fri, 28 Sep 2018 15:09:34 +0200
+
+pyside2 (5.11.0-4) unstable; urgency=medium
+
+  * Use default llvm-dev and libclang-dev (Closes: #906168)
+  * Add Cmake config files for Python3 (Closes: #906020)
+  * Fix debian/libpyside2-5.11.install for triplets that are not *-linux-gnu
+    (thanks to Adrian Bunk)
+  * Add an upstream patch to fix build on armel/armhf
+
+ -- Sophie Brun <sophie@freexian.com>  Mon, 27 Aug 2018 12:53:29 +0200
+
+pyside2 (5.11.0-3) unstable; urgency=medium
+
+  * More fixes for builds building only arch any or only arch all.
+  * Really fix the build with dpkg-buildpackage -A.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Tue, 31 Jul 2018 21:33:04 +0200
+
+pyside2 (5.11.0-2) unstable; urgency=medium
+
+  [ Raphaël Hertzog ]
+  * Fix build with dpkg-buildpackage -A. Closes: #904892
+  * Fix python-pyside2 dependencies. Replace python-pyside2.widgets by
+    python-pyside2.qtwidgets.
+
+  [ Sophie Brun ]
+  * Drop useless "Testsuite: autopkgtest-pkg-python".
+  * Enable parallel build.
+  * Limit QtWebEngine packages to amd64 arm64 armhf i386 mipsel.
+  * Remove unused lintian-overrides.
+  * Use python2 only in pyside2-tools.
+  * Remove big metapackages python-pyside2 and python3-pyside2.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Tue, 31 Jul 2018 16:37:40 +0200
+
+pyside2 (5.11.0-1) unstable; urgency=medium
+
+  * Initial release (Closes: #877871)
+
+ -- Sophie Brun <sophie@freexian.com>  Thu, 26 Jul 2018 17:47:45 +0200

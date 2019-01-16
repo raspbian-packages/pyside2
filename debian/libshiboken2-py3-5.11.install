@@ -1,0 +1,2 @@
+#!/usr/bin/dh-exec
+pyside3_install/py3*-relwithdebinfo/lib/libshiboken2*.so.* usr/lib/${DEB_HOST_MULTIARCH}
