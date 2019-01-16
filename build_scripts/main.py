@@ -305,9 +305,9 @@ def get_qt_version():
     return qt_version
 
 def prepare_build():
-    if (os.path.isdir(".git") and not OPTION_IGNOREGIT and
-            not OPTION_ONLYPACKAGE and not OPTION_REUSE_BUILD):
-        prepare_sub_modules()
+    #if (os.path.isdir(".git") and not OPTION_IGNOREGIT and
+    #        not OPTION_ONLYPACKAGE and not OPTION_REUSE_BUILD):
+    #    prepare_sub_modules()
     # Clean up temp and package folders
     for n in [pyside_package_dir_name, "build"]:
         d = os.path.join(setup_script_dir, n)
