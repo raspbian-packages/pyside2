@@ -1,0 +1,57 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/pkg-info.mk
+
+# Safety measure to ensure package names match SONAMEs
+PYSIDE_MAJOR := $(shell echo $(DEB_VERSION_UPSTREAM) | cut -d. -f1-2)
+ifeq ($(shell awk '/Package:/ {print $$2}' debian/control | grep -- -$(PYSIDE_MAJOR)$$),)
+    $(error Please update package names for major version $(PYSIDE_MAJOR))
+endif
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+    OPTION_JOBS = --jobs=$(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+endif
+
+export PYBUILD_NAME=pyside2
+export PYBUILD_BUILD_ARGS=--relwithdebinfo --verbose-build --no-examples $(OPTION_JOBS)
+
+export MAIN_VERSION_UPSTREAM := $(shell echo $(DEB_VERSION_UPSTREAM))
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+# Add CPPFLAGS to CXXFLAGS as CMake ignores CPPFLAGS by default
+CXXFLAGS+=$(CPPFLAGS)
+
+# Until https://bugreports.qt.io/browse/PYSIDE-741 is fixed
+export PYBUILD_DISABLE_python3.7=test
+
+%:
+	dh $@ --with python2,python3,sphinxdoc --buildsystem=pybuild
+
+override_dh_auto_build:
+	dh_auto_build
+	PYTHONPATH=. http_proxy='127.0.0.1:9' sphinx-build -N -bhtml docs/ build/html # HTML generator
+
+override_dh_auto_install:
+	# Don't use pybuild install process, we take over this step to
+	# split files in the way we want it. But we echo the list of files
+	# built to make it easier to update *.install files.
+	echo ">>> In pyside*_{package,install}"
+	-find pyside_package pyside*_install
+
+override_dh_makeshlibs:
+	dh_makeshlibs -VUpstream-Version
+
+override_dh_install-indep:
+	dh_install -X.doctrees
+	# drop specific Python2 or Python code in packages. Otherwise it
+	# will fail during the packages installation
+	rm -r debian/python-pyside2uic/usr/lib/python2.7/dist-packages/pyside2uic/port_v3
+	rm -r debian/python3-pyside2uic/usr/lib/python3/dist-packages/pyside2uic/port_v2
+
+override_dh_install-arch:
+	dh_install
+	# remove RUNPATH setup in shiboken2
+	chrpath -d debian/shiboken2/usr/bin/shiboken2
+	# change the library path in pkg-info/*.pc and in *.cmake files:
+	# during the build the path is setup to the build dir
+	# /build/pyside2* (required to find lib during the build) but it's
+	# not what we need
+	debian/set-paths

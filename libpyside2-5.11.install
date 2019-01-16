@@ -1,0 +1,5 @@
+#!/usr/bin/dh-exec
+pyside2_install/py*-relwithdebinfo/lib/libpyside2-python2.7.${DEB_HOST_MULTIARCH}.so.* usr/lib/${DEB_HOST_MULTIARCH}/
+pyside2_install/py2*-relwithdebinfo/lib/python2.7/site-packages/PySide2/_git_pyside_version.py usr/lib/python2.7/dist-packages/PySide2
+pyside2_install/py2*-relwithdebinfo/lib/python2.7/site-packages/PySide2/__init__.py usr/lib/python2.7/dist-packages/PySide2
+pyside2_install/py2*-relwithdebinfo/lib/python2.7/site-packages/PySide2/_config.py usr/lib/python2.7/dist-packages/PySide2
