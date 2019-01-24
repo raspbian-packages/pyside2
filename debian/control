@@ -3,7 +3,8 @@ Section: python
 Priority: optional
 Maintainer: Debian Qt/KDE Maintainers <debian-qt-kde@lists.debian.org>
 Uploaders: Sophie Brun <sophie@freexian.com>,
-           Raphaël Hertzog <hertzog@debian.org>
+           Raphaël Hertzog <hertzog@debian.org>,
+	   Sebastien Delafond <seb@debian.org>
 Build-Depends: chrpath,
                cmake (>= 3.1),
                debhelper (>= 11),
@@ -23,7 +24,7 @@ Build-Depends: chrpath,
                libxml2-dev,
                libxslt1-dev,
                llvm-dev,
-	       patchelf,
+	       patchelf [!mips64el !mipsel !mips],
                pyqt5-dev (>=5.6),
                python-all-dev,
                python-setuptools,

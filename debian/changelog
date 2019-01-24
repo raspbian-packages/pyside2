@@ -1,9 +1,25 @@
-pyside2 (5.11.2-1+rpi1) buster-staging; urgency=medium
+pyside2 (5.11.2-3+rpi1) buster-staging; urgency=medium
 
+  [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
   * Fix clean target.
 
- -- Peter Michael Green <plugwash@raspbian.org>  Sun, 23 Dec 2018 23:25:45 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Thu, 24 Jan 2019 17:32:39 +0000
+
+pyside2 (5.11.2-3) unstable; urgency=medium
+
+  [ Sébastien Delafond ]
+  * Do not build-depends on patchelf on mips and mipsel (Closes: #917199)
+
+ -- Sebastien Delafond <seb@debian.org>  Wed, 16 Jan 2019 16:30:16 +0100
+
+pyside2 (5.11.2-2) unstable; urgency=medium
+
+  [ Sébastien Delafond ]
+  * Add myself to uploaders
+  * Do not build-depends on patchelf on mips64el (Closes: #917200)
+
+ -- Sebastien Delafond <seb@debian.org>  Thu, 10 Jan 2019 09:21:43 +0100
 
 pyside2 (5.11.2-1) unstable; urgency=medium
 
