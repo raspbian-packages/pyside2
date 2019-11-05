@@ -242,7 +242,7 @@ PyObject *qPropertySetter(PyObject *self, PyObject *callback)
         Py_INCREF(callback);
         return callback;
     }
-    PyErr_SetString(PyExc_TypeError, "Invalid property setter agument.");
+    PyErr_SetString(PyExc_TypeError, "Invalid property setter argument.");
     return nullptr;
 }
 
@@ -258,7 +258,7 @@ PyObject *qPropertyGetter(PyObject *self, PyObject *callback)
         Py_INCREF(callback);
         return callback;
     }
-    PyErr_SetString(PyExc_TypeError, "Invalid property getter agument.");
+    PyErr_SetString(PyExc_TypeError, "Invalid property getter argument.");
     return nullptr;
 }
 
@@ -365,7 +365,7 @@ int setValue(PySideProperty *self, PyObject *source, PyObject *value)
         Shiboken::AutoDecRef result(PyObject_CallObject(fset, args));
         return (result.isNull() ? -1 : 0);
     } else {
-        PyErr_SetString(PyExc_AttributeError, "Attibute read only");
+        PyErr_SetString(PyExc_AttributeError, "Attribute read only");
     }
     return -1;
 }
