@@ -873,7 +873,18 @@ class PysideBuild(_build):
             return
         log.info("Building patchelf...")
         module_src_dir = os.path.join(self.sources_dir, "patchelf")
-        build_cmd = ["g++", "{}/patchelf.cc".format(module_src_dir), "-o", "patchelf"]
+        import subprocess
+        pagesize = subprocess.check_output("getconf PAGESIZE", shell=True).decode('utf-8').rstrip()
+        build_cmd = [
+            "g++",
+            "-std=c++11",
+            "-DPAGESIZE=%s" % (pagesize),
+            '-DPACKAGE_STRING="patchelf"',
+            "-D_FILE_OFFSET_BITS=64",
+            "{}/patchelf.cc".format(module_src_dir),
+            "-o",
+            "patchelf",
+        ]
         if run_process(build_cmd) != 0:
             raise DistutilsSetupError("Error building patchelf")
         self._patchelf_path = os.path.join(self.script_dir, "patchelf")
