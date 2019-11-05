@@ -519,7 +519,7 @@ int setValue(PySideProperty *self, PyObject *source, PyObject *value)
         Shiboken::AutoDecRef result(PyObject_CallObject(fdel, args));
         return (result.isNull() ? -1 : 0);
     }
-    PyErr_SetString(PyExc_AttributeError, "Attibute read only");
+    PyErr_SetString(PyExc_AttributeError, "Attribute read only");
     return -1;
 }
 
