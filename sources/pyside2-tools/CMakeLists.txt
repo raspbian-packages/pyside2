@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.1)
 project(pyside2-tools)
 
+# Don't display "up-to-date / install" messages when installing, to reduce visual clutter.
+if (QUIET_BUILD)
+    set(CMAKE_INSTALL_MESSAGE NEVER)
+endif()
+
 find_package(Shiboken2 2.0.0 REQUIRED)
 find_package(Qt5 REQUIRED Core)
 find_package(PySide2 2.0.0 REQUIRED)
@@ -43,12 +48,6 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/pyside2-uic
         GROUP_EXECUTE GROUP_READ
         WORLD_EXECUTE WORLD_READ)
 
-# on win32 we cannot rely on the shebang for the shell to interpret the pyside2-uic command
-if (WIN32)
-    file (WRITE ${CMAKE_CURRENT_BINARY_DIR}/pyside2-uic.bat "python %~dp0pyside2-uic %*\n")
-    install (FILES ${CMAKE_CURRENT_BINARY_DIR}/pyside2-uic.bat DESTINATION bin)
-endif ()
-
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyside2uic/__init__.py"
         DESTINATION "${SITE_PACKAGE}/pyside2uic")
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pyside2uic
@@ -68,9 +67,15 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake"
                "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
                IMMEDIATE @ONLY)
 
-add_custom_target(uninstall "${CMAKE_COMMAND}"
-                  -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake")
+# When opening super project, prevent redefinition of uninstall target.
+if (NOT TARGET uninstall)
+    add_custom_target(uninstall "${CMAKE_COMMAND}"
+                      -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake")
+endif()
 
+
+# Does not work with ninja on Win32.
+if (NOT (WIN32 AND CMAKE_GENERATOR STREQUAL "Ninja"))
 set(ARCHIVE_NAME ${CMAKE_PROJECT_NAME}-${pyside2_tools_VERSION})
 add_custom_target(dist
     COMMAND mkdir -p "${CMAKE_BINARY_DIR}/${ARCHIVE_NAME}" &&
@@ -80,10 +85,19 @@ add_custom_target(dist
             bzip2 -f9 "${CMAKE_BINARY_DIR}/${ARCHIVE_NAME}.tar" &&
             echo "Source package created at ${CMAKE_BINARY_DIR}/${ARCHIVE_NAME}.tar.bz2.\n"
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+endif()
 
 set(PYSIDE2RCC_EXECUTABLE ${CMAKE_CURRENT_BINARY_DIR}/pyrcc/pyside2-rcc)
 add_subdirectory(pyrcc)
 add_subdirectory(pylupdate)
+
+# pyside2-rcc, shiboken and pyside2-lupdate entrypoints
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/pyside_tool.py
+        DESTINATION bin
+        PERMISSIONS
+        OWNER_EXECUTE OWNER_WRITE OWNER_READ
+        GROUP_EXECUTE GROUP_READ
+        WORLD_EXECUTE WORLD_READ)
 
 if (BUILD_TESTS)
     enable_testing()

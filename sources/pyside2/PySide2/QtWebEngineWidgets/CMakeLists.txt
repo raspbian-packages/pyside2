@@ -3,7 +3,7 @@ project(QtWebEngineWidgets)
 set(QtWebEngineWidgets_SRC
 ${QtWebEngineWidgets_GEN_DIR}/qwebenginecertificateerror_wrapper.cpp
 ${QtWebEngineWidgets_GEN_DIR}/qwebenginedownloaditem_wrapper.cpp
-#${QtWebEngineWidgets_GEN_DIR}/qwebenginehistory_wrapper.cpp
+${QtWebEngineWidgets_GEN_DIR}/qwebenginehistory_wrapper.cpp
 ${QtWebEngineWidgets_GEN_DIR}/qwebenginehistoryitem_wrapper.cpp
 ${QtWebEngineWidgets_GEN_DIR}/qwebenginepage_wrapper.cpp
 ${QtWebEngineWidgets_GEN_DIR}/qwebengineprofile_wrapper.cpp
@@ -26,9 +26,7 @@ set(QtWebEngineWidgets_include_dirs
                             ${Qt5Network_INCLUDE_DIRS}
                             ${Qt5WebChannel_INCLUDE_DIRS}
                             ${Qt5WebEngineWidgets_INCLUDE_DIRS}
-                            ${SHIBOKEN_INCLUDE_DIR}
                             ${libpyside_SOURCE_DIR}
-                            ${SHIBOKEN_PYTHON_INCLUDE_DIR}
                             ${QtCore_GEN_DIR}
                             ${QtGui_GEN_DIR}
                             ${QtWidgets_GEN_DIR}
@@ -36,23 +34,22 @@ set(QtWebEngineWidgets_include_dirs
                             ${QtNetwork_GEN_DIR}
                             ${QtWebChannel_GEN_DIR}
                             ${QtWebEngineCore_GEN_DIR}
+                            ${QtPrintSupport_GEN_DIR}
                             )
 set(QtWebEngineWidgets_libraries      pyside2
-                            ${SHIBOKEN_PYTHON_LIBRARIES}
-                            ${SHIBOKEN_LIBRARY}
                             ${Qt5WebEngineWidgets_LIBRARIES}
                             ${Qt5Network_LIBRARIES}
                             ${Qt5WebChannel_LIBRARIES}
                             ${Qt5Widgets_LIBRARIES}
                             ${Qt5Gui_LIBRARIES}
                             ${Qt5Core_LIBRARIES}
+                            ${Qt5PrintSupport_LIBRARIES}
                             )
-set(QtWebEngineWidgets_deps QtGui QtWidgets QtNetwork QtWebChannel)
-create_pyside_module(QtWebEngineWidgets
-                     QtWebEngineWidgets_include_dirs
-                     QtWebEngineWidgets_libraries
-                     QtWebEngineWidgets_deps
-                     QtWebEngineWidgets_SOURCE_DIR
-                     QtWebEngineWidgets_SRC
-                     "")
+set(QtWebEngineWidgets_deps QtGui QtWidgets QtNetwork QtWebChannel QtPrintSupport)
+create_pyside_module(NAME QtWebEngineWidgets
+                     INCLUDE_DIRS QtWebEngineWidgets_include_dirs
+                     LIBRARIES QtWebEngineWidgets_libraries
+                     DEPS QtWebEngineWidgets_deps
+                     TYPESYSTEM_PATH QtWebEngineWidgets_SOURCE_DIR
+                     SOURCES QtWebEngineWidgets_SRC)
 

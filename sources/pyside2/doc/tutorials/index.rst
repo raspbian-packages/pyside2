@@ -1,5 +1,5 @@
-PySide examples and tutorials
-*****************************
+Qt for Python examples and tutorials
+*************************************
 
 A collection of examples and tutorials with "walkthrough" guides are
 provided with |project| to help new users get started. These
@@ -14,6 +14,7 @@ Examples and demos
    :maxdepth: 1
 
    examples/tabbedbrowser.rst
+   ../pyside-examples/all-pyside-examples.rst
 
 Tutorials
 ==========
@@ -21,5 +22,13 @@ Tutorials
 .. toctree::
     :maxdepth: 2
 
-    qmltutorial/index.rst
-    qmladvancedtutorial/index.rst
+    basictutorial/widgets.rst
+    basictutorial/qml.rst
+    basictutorial/clickablebutton.rst
+    basictutorial/dialog.rst
+    basictutorial/uifiles.rst
+    datavisualize/index.rst
+    expenses/expenses.rst
+    qmlapp/qmlapplication.rst
+    qmlintegration/qmlintegration.rst
+    portingguide/index.rst

@@ -17,6 +17,7 @@ if(${Qt5Quick_FOUND})
     endif()
 endif()
 
+set(QML_PRIVATE_API_SUPPORT 0)
 if(Qt5Qml_FOUND)
     # Used for registering custom QQuickItem classes defined in Python code.
     set(QML_SUPPORT 1)
@@ -28,7 +29,6 @@ if(Qt5Qml_FOUND)
         set(QML_PRIVATE_API_SUPPORT 1)
         set(QML_INCLUDES ${QML_INCLUDES} ${Qt5Qml_PRIVATE_INCLUDE_DIRS})
     else()
-        set(QML_PRIVATE_API_SUPPORT 0)
         message(WARNING "QML private API include files could not be found, support for catching QML exceptions inside Python code will not work.")
     endif()
 else()
@@ -40,14 +40,10 @@ endif()
 
 qt5_wrap_cpp(DESTROYLISTENER_MOC "destroylistener.h")
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/signalmanager.cpp.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/signalmanager.cpp" @ONLY)
-
 set(libpyside_SRC
     dynamicqmetaobject.cpp
     destroylistener.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/signalmanager.cpp
-    globalreceiver.cpp
+    signalmanager.cpp
     globalreceiverv2.cpp
     pysideclassinfo.cpp
     pysidemetafunction.cpp
@@ -82,17 +78,24 @@ file(GLOB setup_folder_py_files "../../../*.py")
 set(other_files ${pyside_folder_py_files} ${setup_folder_py_files})
 add_other_files(${other_files})
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}
-                    ${SHIBOKEN_INCLUDE_DIR}
-                    ${SHIBOKEN_PYTHON_INCLUDE_DIR}
-                    ${QML_INCLUDES}
-                    ${Qt5Core_INCLUDE_DIRS})
 add_library(pyside2 SHARED ${libpyside_SRC} ${other_files})
+add_library(PySide2::pyside2 ALIAS pyside2)
+
+target_include_directories(pyside2 PRIVATE
+    ${QML_INCLUDES}
+    ${Qt5Core_PRIVATE_INCLUDE_DIRS}
+    ${Qt5Core_INCLUDE_DIRS}
+)
+
+target_include_directories(pyside2 PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<INSTALL_INTERFACE:include/PySide2>
+)
+
 target_link_libraries(pyside2
-                      ${SHIBOKEN_PYTHON_LIBRARIES}
-                      ${SHIBOKEN_LIBRARY}
-                      ${QML_LIBRARIES}
-                      ${Qt5Core_LIBRARIES})
+                      PRIVATE Shiboken2::libshiboken
+                      PRIVATE ${QML_LIBRARIES}
+                      PRIVATE ${Qt5Core_LIBRARIES})
 
 set_target_properties(pyside2 PROPERTIES
                       VERSION ${BINDING_API_VERSION}
@@ -107,6 +110,7 @@ endif()
 if(QML_SUPPORT)
     target_compile_definitions(pyside2 PUBLIC PYSIDE_QML_SUPPORT=1)
 endif()
+target_compile_definitions(pyside2 PRIVATE PYSIDE_QML_PRIVATE_API_SUPPORT=${QML_PRIVATE_API_SUPPORT})
 
 if(PYSIDE_QT_CONF_PREFIX)
     set_property(SOURCE pyside.cpp
@@ -122,7 +126,6 @@ endif()
 set(libpyside_HEADERS
     destroylistener.h
     dynamicqmetaobject.h
-    globalreceiver.h
     pysideclassinfo.h
     pysidemacros.h
     signalmanager.h
@@ -145,25 +148,58 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D QT_NO_CAST_FROM_ASCII -D QT_NO_CAST_T
 # create pkg-config file
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pyside2.pc.in"
                "${CMAKE_CURRENT_BINARY_DIR}/pyside2${pyside2_SUFFIX}.pc" @ONLY)
-# create cmake-config files
+
+# for creating cmake-config files
+include(CMakePackageConfigHelpers)
+
+# Build-tree / super project package config file.
+set(PYSIDE_PYTHONPATH "${pysidebindings_BINARY_DIR}/PySide2")
+set(PYSIDE_TYPESYSTEMS "${pysidebindings_SOURCE_DIR}/PySide2/templates/")
+set(PYSIDE_GLUE "${pysidebindings_SOURCE_DIR}/PySide2/glue")
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/PySide2Config-spec.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/PySide2Config${SHIBOKEN_PYTHON_CONFIG_SUFFIX}.cmake"
+     INSTALL_DESTINATION "${CMAKE_CURRENT_BINARY_DIR}"
+     PATH_VARS PYSIDE_PYTHONPATH PYSIDE_TYPESYSTEMS PYSIDE_GLUE
+     INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}"
+)
+
+set(PYSIDE_PYTHONPATH "${PYTHON_SITE_PACKAGES}/PySide2")
+set(PYSIDE_TYPESYSTEMS "${CMAKE_INSTALL_PREFIX}/share/PySide2${pyside2_SUFFIX}/typesystems")
+set(PYSIDE_GLUE "${CMAKE_INSTALL_PREFIX}/share/PySide2${pyside2_SUFFIX}/glue")
+
+# Install-tree / relocatable package config file.
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/PySide2Config-spec.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/install/PySide2Config${SHIBOKEN_PYTHON_CONFIG_SUFFIX}.cmake"
+     INSTALL_DESTINATION "${LIB_INSTALL_DIR}/cmake/PySide2-${BINDING_API_VERSION}"
+     PATH_VARS PYSIDE_PYTHONPATH PYSIDE_TYPESYSTEMS PYSIDE_GLUE
+)
+
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/PySide2Config.cmake.in"
                "${CMAKE_CURRENT_BINARY_DIR}/PySide2Config.cmake" @ONLY)
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/PySide2Config-spec.cmake.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/PySide2Config${SHIBOKEN_PYTHON_CONFIG_SUFFIX}.cmake" @ONLY)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/PySide2ConfigVersion.cmake.in"
                "${CMAKE_CURRENT_BINARY_DIR}/PySide2ConfigVersion.cmake" @ONLY)
 
 install(FILES ${libpyside_HEADERS}
         DESTINATION include/${BINDING_NAME}${pyside2_SUFFIX})
-install(TARGETS pyside2 EXPORT pyside2
+
+install(TARGETS pyside2 EXPORT PySide2Targets
                         LIBRARY DESTINATION "${LIB_INSTALL_DIR}"
                         ARCHIVE DESTINATION "${LIB_INSTALL_DIR}"
                         RUNTIME DESTINATION bin)
+install(EXPORT PySide2Targets NAMESPACE PySide2::
+        DESTINATION "${LIB_INSTALL_DIR}/cmake/PySide2-${BINDING_API_VERSION}")
+
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyside2${pyside2_SUFFIX}.pc"
         DESTINATION "${LIB_INSTALL_DIR}/pkgconfig")
+
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/PySide2Config.cmake"
         DESTINATION "${LIB_INSTALL_DIR}/cmake/PySide2-${BINDING_API_VERSION}")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/PySide2Config${SHIBOKEN_PYTHON_CONFIG_SUFFIX}.cmake"
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/install/PySide2Config${SHIBOKEN_PYTHON_CONFIG_SUFFIX}.cmake"
         DESTINATION "${LIB_INSTALL_DIR}/cmake/PySide2-${BINDING_API_VERSION}")
+
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/PySide2ConfigVersion.cmake"
         DESTINATION "${LIB_INSTALL_DIR}/cmake/PySide2-${BINDING_API_VERSION}")

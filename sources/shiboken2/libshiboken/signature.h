@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2018 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of Qt for Python.
@@ -45,8 +45,11 @@
 extern "C"
 {
 
-LIBSHIBOKEN_API int SbkSpecial_Type_Ready(PyObject *, PyTypeObject *, const char*);
-LIBSHIBOKEN_API void FinishSignatureInitialization(PyObject *, const char*);
+LIBSHIBOKEN_API int SbkSpecial_Type_Ready(PyObject *, PyTypeObject *, const char *[]);
+LIBSHIBOKEN_API void FinishSignatureInitialization(PyObject *, const char *[]);
+LIBSHIBOKEN_API void SetError_Argument(PyObject *, const char *);
+LIBSHIBOKEN_API PyObject *Sbk_TypeGet___signature__(PyObject *, const char *);
+LIBSHIBOKEN_API PyObject *Sbk_TypeGet___doc__(PyObject *);
 
 } // extern "C"
 

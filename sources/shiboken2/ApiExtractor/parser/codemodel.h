@@ -36,6 +36,7 @@
 #include "enumvalue.h"
 
 #include <QtCore/QHash>
+#include <QtCore/QPair>
 #include <QtCore/QSet>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
@@ -49,6 +50,8 @@ QT_FORWARD_DECLARE_CLASS(QDebug)
 class CodeModel
 {
 public:
+    Q_DISABLE_COPY(CodeModel)
+
     enum AccessPolicy {
         Public,
         Protected,
@@ -78,18 +81,14 @@ public:
     FileList files() const { return m_files; }
     NamespaceModelItem globalNamespace() const;
 
-    void addFile(FileModelItem item);
+    void addFile(const FileModelItem &item);
     FileModelItem findFile(const QString &name) const;
 
-    CodeModelItem findItem(const QStringList &qualifiedName, CodeModelItem scope) const;
+    CodeModelItem findItem(const QStringList &qualifiedName, const ScopeModelItem &scope) const;
 
 private:
     FileList m_files;
     NamespaceModelItem m_globalNamespace;
-
-private:
-    CodeModel(const CodeModel &other);
-    void operator = (const CodeModel &other);
 };
 
 #ifndef QT_NO_DEBUG_STREAM
@@ -100,6 +99,8 @@ class TypeInfo
 {
     friend class TypeParser;
 public:
+    using Indirections = QVector<Indirection>;
+
     TypeInfo() : flags(0), m_referenceType(NoReference) {}
 
     QStringList qualifiedName() const
@@ -137,14 +138,16 @@ public:
     ReferenceType referenceType() const { return m_referenceType; }
     void setReferenceType(ReferenceType r) { m_referenceType = r; }
 
-    int indirections() const
-    {
-        return m_indirections;
-    }
+    Indirections indirectionsV() const { return m_indirections; }
+    void setIndirectionsV(const Indirections &i) { m_indirections = i; }
+    void addIndirection(Indirection i) { m_indirections.append(i); }
+
+    // "Legacy", rename?
+    int indirections() const { return m_indirections.size(); }
 
     void setIndirections(int indirections)
     {
-        m_indirections = indirections;
+        m_indirections = Indirections(indirections, Indirection::Pointer);
     }
 
     bool isFunctionPointer() const
@@ -165,6 +168,8 @@ public:
         m_arrayElements = arrayElements;
     }
 
+    void addArrayElement(const QString &a) { m_arrayElements.append(a); }
+
     QVector<TypeInfo> arguments() const { return m_arguments; }
 
     void setArguments(const QVector<TypeInfo> &arguments);
@@ -173,6 +178,15 @@ public:
     {
         m_arguments.append(arg);
     }
+
+    QVector<TypeInfo> instantiations() const { return m_instantiations; }
+    void setInstantiations(const QVector<TypeInfo> &i) { m_instantiations = i; }
+    void addInstantiation(const TypeInfo &i) { m_instantiations.append(i); }
+    void clearInstantiations() { m_instantiations.clear(); }
+
+    bool isStdType() const;
+
+    QPair<int, int> parseTemplateArgumentList(const QString &l, int from = 0);
 
     bool operator==(const TypeInfo &other) const;
 
@@ -185,21 +199,32 @@ public:
 
     QString toString() const;
 
-    QStringList instantiationName() const;
-
     static TypeInfo combine(const TypeInfo &__lhs, const TypeInfo &__rhs);
-    static TypeInfo resolveType(TypeInfo const &__type, CodeModelItem __scope);
+    static TypeInfo resolveType(TypeInfo const &__type, const ScopeModelItem &__scope);
 
 #ifndef QT_NO_DEBUG_STREAM
     void formatDebug(QDebug &d) const;
 #endif
 
+    static QString indirectionKeyword(Indirection i);
+
+    static bool stripLeadingConst(QString *s);
+    static bool stripLeadingVolatile(QString *s);
+    static bool stripLeadingQualifier(const QString &qualifier, QString *s);
+    static void stripQualifiers(QString *s);
+
+    void simplifyStdType();
+
 private:
-    static TypeInfo resolveType(CodeModelItem item, TypeInfo const &__type, CodeModelItem __scope);
+    friend class TypeInfoTemplateArgumentHandler;
+
+    static TypeInfo resolveType(CodeModelItem item, TypeInfo const &__type, const ScopeModelItem &__scope);
 
     QStringList m_qualifiedName;
     QStringList m_arrayElements;
     QVector<TypeInfo> m_arguments;
+    QVector<TypeInfo> m_instantiations;
+    Indirections m_indirections;
 
     union {
         uint flags;
@@ -208,8 +233,7 @@ private:
             uint m_constant: 1;
             uint m_volatile: 1;
             uint m_functionPointer: 1;
-            uint m_indirections: 6;
-            uint m_padding: 23;
+            uint m_padding: 29;
         };
     };
 
@@ -263,6 +287,7 @@ public:
     FileModelItem file() const;
 
     void getStartPosition(int *line, int *column);
+    int startLine() const { return m_startLine; }
     void setStartPosition(int line, int column);
 
     void getEndPosition(int *line, int *column);
@@ -308,11 +333,11 @@ public:
     TypeDefList typeDefs() const { return m_typeDefs; }
     VariableList variables() const { return m_variables; }
 
-    void addClass(ClassModelItem item);
-    void addEnum(EnumModelItem item);
-    void addFunction(FunctionModelItem item);
-    void addTypeDef(TypeDefModelItem item);
-    void addVariable(VariableModelItem item);
+    void addClass(const ClassModelItem &item);
+    void addEnum(const EnumModelItem &item);
+    void addFunction(const FunctionModelItem &item);
+    void addTypeDef(const TypeDefModelItem &item);
+    void addVariable(const VariableModelItem &item);
 
     ClassModelItem findClass(const QString &name) const;
     EnumModelItem findEnum(const QString &name) const;
@@ -323,7 +348,7 @@ public:
     void addEnumsDeclaration(const QString &enumsDeclaration);
     QStringList enumsDeclarations() const { return m_enumsDeclarations; }
 
-    FunctionModelItem declaredFunction(FunctionModelItem item);
+    FunctionModelItem declaredFunction(const FunctionModelItem &item);
 
 #ifndef QT_NO_DEBUG_STREAM
     void formatDebug(QDebug &d) const override;
@@ -334,6 +359,8 @@ protected:
         : _CodeModelItem(model, kind) {}
     explicit _ScopeModelItem(CodeModel *model, const QString &name, int kind = __node_kind)
         : _CodeModelItem(model, name, kind) {}
+
+    void appendScope(const _ScopeModelItem &other);
 
 #ifndef QT_NO_DEBUG_STREAM
     void formatScopeItemsDebug(QDebug &d) const;
@@ -409,12 +436,13 @@ public:
         : _ScopeModelItem(model, name, kind) {}
     ~_NamespaceModelItem();
 
-    NamespaceList namespaces() const { return m_namespaces; }
-    QSet<NamespaceModelItem> uniqueNamespaces() const;
+    const NamespaceList &namespaces() const { return m_namespaces; }
 
     void addNamespace(NamespaceModelItem item);
 
     NamespaceModelItem findNamespace(const QString &name) const;
+
+    void appendNamespace(const _NamespaceModelItem &other);
 
 #ifndef QT_NO_DEBUG_STREAM
     void formatDebug(QDebug &d) const override;
@@ -547,7 +575,7 @@ public:
 
     ArgumentList arguments() const;
 
-    void addArgument(ArgumentModelItem item);
+    void addArgument(const ArgumentModelItem& item);
 
     CodeModel::FunctionType functionType() const;
     void setFunctionType(CodeModel::FunctionType functionType);
@@ -582,7 +610,13 @@ public:
     bool isVariadics() const;
     void setVariadics(bool isVariadics);
 
-    bool isSimilar(FunctionModelItem other) const;
+
+    bool isSimilar(const FunctionModelItem &other) const;
+
+    bool isNoExcept() const;
+
+    ExceptionSpecification exceptionSpecification() const;
+    void setExceptionSpecification(ExceptionSpecification e);
 
 #ifndef QT_NO_DEBUG_STREAM
     void formatDebug(QDebug &d) const override;
@@ -606,6 +640,7 @@ private:
         };
         uint m_flags;
     };
+    ExceptionSpecification m_exceptionSpecification = ExceptionSpecification::Unknown;
 };
 
 class _VariableModelItem: public _MemberModelItem
@@ -656,7 +691,7 @@ public:
 
     bool hasValues() const { return !m_enumerators.isEmpty(); }
     EnumeratorList enumerators() const;
-    void addEnumerator(EnumeratorModelItem item);
+    void addEnumerator(const EnumeratorModelItem &item);
 
     EnumKind enumKind() const { return m_enumKind; }
     void setEnumKind(EnumKind kind) { m_enumKind = kind; }

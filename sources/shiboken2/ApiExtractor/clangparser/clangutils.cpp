@@ -46,6 +46,18 @@ uint qHash(const CXCursor &c, uint seed)
         ^ qHash(c.data[1])  ^ qHash(c.data[2]) ^ seed;
 }
 
+bool operator==(const CXType &t1, const CXType &t2)
+{
+    return t1.kind == t2.kind && t1.data[0] == t2.data[0]
+        && t1.data[1] == t2.data[1];
+}
+
+uint qHash(const CXType &ct, uint seed)
+{
+    return uint(ct.kind) ^ uint(0xFFFFFFFF & quintptr(ct.data[0]))
+        ^ uint(0xFFFFFFFF & quintptr(ct.data[1])) ^ seed;
+}
+
 namespace clang {
 
 SourceLocation getExpansionLocation(const CXSourceLocation &location)
@@ -158,6 +170,43 @@ QVector<Diagnostic> getDiagnostics(CXTranslationUnit tu)
         clang_disposeDiagnostic(d);
     }
     return result;
+}
+
+QPair<int, int> parseTemplateArgumentList(const QString &l,
+                                          const TemplateArgumentHandler &handler,
+                                          int from)
+{
+    const int ltPos = l.indexOf(QLatin1Char('<'), from);
+    if (ltPos == - 1)
+        return qMakePair(-1, -1);
+    int startPos = ltPos + 1;
+    int level = 1;
+    for (int p = startPos, end = l.size(); p < end; ) {
+        const char c = l.at(p).toLatin1();
+        switch (c) {
+        case ',':
+        case '>':
+            handler(level, l.midRef(startPos, p - startPos).trimmed());
+            ++p;
+            if (c == '>') {
+                if (--level == 0)
+                    return qMakePair(ltPos, p);
+                // Skip over next ',': "a<b<c,d>,e>"
+                for (; p < end && (l.at(p).isSpace() || l.at(p) == QLatin1Char(',')); ++p) {}
+            }
+            startPos = p;
+            break;
+        case '<':
+            handler(level, l.midRef(startPos, p - startPos).trimmed());
+            ++level;
+            startPos = ++p;
+            break;
+        default:
+             ++p;
+            break;
+        }
+    }
+    return qMakePair(-1, -1);
 }
 
 CXDiagnosticSeverity maxSeverity(const QVector<Diagnostic> &ds)

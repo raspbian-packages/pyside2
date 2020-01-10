@@ -58,6 +58,8 @@ QT_END_NAMESPACE
 class ApiExtractor
 {
 public:
+    Q_DISABLE_COPY(ApiExtractor)
+
     ApiExtractor();
     ~ApiExtractor();
 
@@ -66,6 +68,7 @@ public:
     void setCppFileName(const QString& cppFileName);
     QString cppFileName() const { return m_cppFileName; }
     void setDebugLevel(ReportHandler::DebugLevel debugLevel);
+    void setSkipDeprecated(bool value);
     void setSuppressWarnings(bool value);
     void setSilent(bool value);
     void addTypesystemSearchPath(const QString& path);
@@ -77,7 +80,7 @@ public:
     bool setApiVersion(const QString& package, const QString& version);
     void setDropTypeEntries(QString dropEntries);
     LanguageLevel languageLevel() const;
-    void setLanguageLevel(const LanguageLevel languageLevel);
+    void setLanguageLevel(LanguageLevel languageLevel);
 
     AbstractMetaEnumList globalEnums() const;
     AbstractMetaFunctionList globalFunctions() const;
@@ -87,10 +90,7 @@ public:
     PrimitiveTypeEntryList primitiveTypes() const;
     ContainerTypeEntryList containerTypes() const;
 
-    const AbstractMetaEnum* findAbstractMetaEnum(const EnumTypeEntry* typeEntry) const;
     const AbstractMetaEnum* findAbstractMetaEnum(const TypeEntry* typeEntry) const;
-    const AbstractMetaEnum* findAbstractMetaEnum(const FlagsTypeEntry* typeEntry) const;
-    const AbstractMetaEnum* findAbstractMetaEnum(const AbstractMetaType* metaType) const;
 
     int classCount() const;
 
@@ -99,16 +99,15 @@ private:
     QString m_typeSystemFileName;
     QString m_cppFileName;
     HeaderPaths m_includePaths;
-    AbstractMetaBuilder* m_builder;
+    AbstractMetaBuilder* m_builder = nullptr;
     QString m_logDirectory;
     LanguageLevel m_languageLevel = LanguageLevel::Default;
+    bool m_skipDeprecated = false;
 
-    // disable copy
-    ApiExtractor(const ApiExtractor&);
-    ApiExtractor& operator=(const ApiExtractor&);
 #ifndef QT_NO_DEBUG_STREAM
     friend QDebug operator<<(QDebug d, const ApiExtractor &ae);
 #endif
 };
 
 #endif // APIEXTRACTOR_H
+

@@ -28,6 +28,8 @@ configure_file("pyside-config.qdocconf.in" "${CMAKE_CURRENT_LIST_DIR}/pyside-con
 file(READ "${pyside2_BINARY_DIR}/pyside2_global.h" docHeaderContents)
 file(READ "typesystem_doc.xml.in" typeSystemDocXmlContents)
 
+set(HAS_WEBENGINE_WIDGETS 0)
+
 foreach(moduleIn ${all_module_shortnames})
     string(TOLOWER "${moduleIn}" lowerModuleIn)
     set(docConf "${CMAKE_CURRENT_LIST_DIR}/qtmodules/pyside-qt${lowerModuleIn}.qdocconf.in")
@@ -45,6 +47,7 @@ foreach(moduleIn ${all_module_shortnames})
             set(modules Multimedia "${moduleIn}")
         elseif ("${moduleIn}" STREQUAL "WebEngineWidgets")
             set(modules WebEngine WebEngineCore "${moduleIn}")
+            set(HAS_WEBENGINE_WIDGETS 1)
         else()
             set(modules "${moduleIn}")
         endif()
@@ -67,6 +70,11 @@ foreach(moduleIn ${all_module_shortnames})
     endif()
 endforeach()
 
+#Appending the additional qdocconf that describes the pyside-examples
+#doc project.
+configure_file("qtmodules/pyside-examples.qdocconf.in" "${CMAKE_CURRENT_LIST_DIR}/qtmodules/pyside-examples.qdocconf" @ONLY)
+file(APPEND "pyside.qdocconf.in" "\@CMAKE_CURRENT_LIST_DIR\@/qtmodules/pyside-examples.qdocconf\n")
+
 set(typeSystemDocXmlContents "${typeSystemDocXmlContents}\n</typesystem>\n")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/typesystem_doc.xml" "${typeSystemDocXmlContents}")
 
@@ -79,7 +87,10 @@ set(QDOC_TYPESYSTEM_PATH "${pyside2_SOURCE_DIR}${PATH_SEP}${pyside2_BINARY_DIR}"
 
 add_custom_target(qdoc
                 # Use dummy Qt version information, QDoc needs it but has no effect on WebXML output
-                COMMAND ${CMAKE_COMMAND} -E env BUILDDIR=${CMAKE_CURRENT_LIST_DIR}/src QT_INSTALL_DOCS=${QT_SRC_DIR}/doc QT_VERSION=1.0.0 QT_VER=1.0 QT_VERSION_TAG=100
+                COMMAND ${CMAKE_COMMAND} -E env BUILDDIR=${CMAKE_CURRENT_LIST_DIR}/src QT_INSTALL_DOCS=${QT_SRC_DIR}/doc
+                QT_VERSION=${QT_VERSION_MAJOR}.${QT_VERSION_MINOR}.${QT_VERSION_PATCH}
+                QT_VER=${QT_VERSION_MAJOR}.${QT_VERSION_MINOR}
+                QT_VERSION_TAG=${QT_VERSION_MAJOR}.${QT_VERSION_MINOR}.${QT_VERSION_PATCH}
                 qdoc pyside.qdocconf -single-exec -installdir ${DOC_DATA_DIR} -outputdir ${DOC_DATA_DIR}
                 COMMENT "Running qdoc against Qt source code..."
                 SOURCE "pyside.qdocconf")
@@ -87,13 +98,19 @@ add_custom_target(qdoc
 add_custom_target(apidoc
                   COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/rst
                   COMMAND ${SHIBOKEN_PYTHON_INTERPRETER} ${SPHINX_BUILD} -b html  ${CMAKE_CURRENT_BINARY_DIR}/rst html
+                  #copying shiboken2 (including ApiExtractor) doc htmls
+                  COMMENT "Copying over the Shiboken2 doc HTMLs..."
+                  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/html/shiboken2
+                  COMMAND ${CMAKE_COMMAND} -E copy_directory
+                          ${CMAKE_CURRENT_BINARY_DIR}/../../shiboken2/doc/html
+                          ${CMAKE_CURRENT_BINARY_DIR}/html/shiboken2
                  )
 
 # create conf.py based on conf.py.in
 configure_file("conf.py.in" "rst/conf.py" @ONLY)
 
 add_custom_target("docrsts"
-    COMMAND ${SHIBOKEN_BINARY} --generator-set=qtdoc ${docHeader}
+    COMMAND Shiboken2::shiboken2 --generator-set=qtdoc ${docHeader}
             --include-paths="${QT_INCLUDE_DIR}${PATH_SEP}${pyside2_SOURCE_DIR}${PATH_SEP}${TS_ROOT}"
             --api-version=${SUPPORTED_QT_VERSION}
             --typesystem-paths="${QDOC_TYPESYSTEM_PATH}"
@@ -128,7 +145,6 @@ add_dependencies(docrsts qdoc)
 #     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_INSTALL_PREFIX}/share/devhelp/books"
 #     COMMAND ${CMAKE_COMMAND} -E create_symlink "${CMAKE_INSTALL_PREFIX}/share/doc/${BINDING_NAME}/html" "${CMAKE_INSTALL_PREFIX}/share/devhelp/books/${BINDING_NAME}"
 # )
-
 #install files
 add_custom_target(apidocinstall
     COMMAND mkdir -p ${CMAKE_INSTALL_PREFIX}/share/doc/PySide2-${BINDING_API_VERSION} && cp -rv ${CMAKE_CURRENT_BINARY_DIR}/html/* ${CMAKE_INSTALL_PREFIX}/share/doc/PySide-${BINDING_API_VERSION}

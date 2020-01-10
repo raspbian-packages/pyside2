@@ -28,30 +28,25 @@
 
 #include "doxygenparser.h"
 #include "abstractmetalang.h"
+#include "messages.h"
 #include "reporthandler.h"
 #include "typesystem.h"
+#include "xmlutils.h"
 
-#include <QtXmlPatterns/QXmlQuery>
 #include <QtCore/QFile>
 #include <QtCore/QDir>
 
-namespace
+static QString getSectionKindAttr(const AbstractMetaFunction *func)
 {
-
-QString getSectionKindAttr(const AbstractMetaFunction* func)
-{
-    if (func->isSignal()) {
+    if (func->isSignal())
         return QLatin1String("signal");
-    } else {
-        QString kind = func->isPublic() ? QLatin1String("public") : QLatin1String("protected");
-        if (func->isStatic())
-            kind += QLatin1String("-static");
-        else if (func->isSlot())
-            kind += QLatin1String("-slot");
-        return kind;
-    }
-}
-
+    QString kind = func->isPublic()
+        ? QLatin1String("public") : QLatin1String("protected");
+    if (func->isStatic())
+        kind += QLatin1String("-static");
+    else if (func->isSlot())
+        kind += QLatin1String("-slot");
+    return kind;
 }
 
 Documentation DoxygenParser::retrieveModuleDocumentation()
@@ -73,13 +68,12 @@ void DoxygenParser::fillDocumentation(AbstractMetaClass* metaClass)
     doxyFileSuffix += QLatin1String(".xml");
 
     const char* prefixes[] = { "class", "struct", "namespace" };
-    const int numPrefixes = sizeof(prefixes) / sizeof(const char*);
     bool isProperty = false;
 
     QString doxyFilePath;
-    for (int i = 0; i < numPrefixes; ++i) {
+    for (const char *prefix : prefixes) {
         doxyFilePath = documentationDataDirectory() + QLatin1Char('/')
-                       + QLatin1String(prefixes[i]) + doxyFileSuffix;
+                       + QLatin1String(prefix) + doxyFileSuffix;
         if (QFile::exists(doxyFilePath))
             break;
         doxyFilePath.clear();
@@ -92,8 +86,13 @@ void DoxygenParser::fillDocumentation(AbstractMetaClass* metaClass)
             <<  "/{struct|class|namespace}"<< doxyFileSuffix;
         return;
     }
-    QXmlQuery xquery;
-    xquery.setFocus(QUrl(doxyFilePath));
+
+    QString errorMessage;
+    XQueryPtr xquery = XQuery::create(doxyFilePath, &errorMessage);
+    if (xquery.isNull()) {
+        qCWarning(lcShiboken, "%s", qPrintable(errorMessage));
+        return;
+    }
 
     // Get class documentation
     const QString classQuery = QLatin1String("/doxygen/compounddef/detaileddescription");
@@ -196,8 +195,12 @@ Documentation DoxygenParser::retrieveModuleDocumentation(const QString& name){
         return Documentation();
     }
 
-    QXmlQuery xquery;
-    xquery.setFocus(QUrl(sourceFile));
+    QString errorMessage;
+    XQueryPtr xquery = XQuery::create(sourceFile, &errorMessage);
+    if (xquery.isNull()) {
+        qCWarning(lcShiboken, "%s", qPrintable(errorMessage));
+        return {};
+    }
 
     // Module documentation
     QString query = QLatin1String("/doxygen/compounddef/detaileddescription");

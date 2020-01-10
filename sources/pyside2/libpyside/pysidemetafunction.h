@@ -40,12 +40,11 @@
 #ifndef PYSIDE_METAFUNCTION_H
 #define PYSIDE_METAFUNCTION_H
 
-#include <QObject>
-#include <QString>
-#include <QStringList>
-
 #include <pysidemacros.h>
+
 #include <sbkpython.h>
+
+#include <QtCore/QObject>
 
 extern "C"
 {
@@ -55,7 +54,7 @@ extern "C"
     struct PYSIDE_API PySideMetaFunction
     {
         PyObject_HEAD
-        PySideMetaFunctionPrivate* d;
+        PySideMetaFunctionPrivate *d;
     };
 }; //extern "C"
 
@@ -68,7 +67,7 @@ namespace PySide { namespace MetaFunction {
  * @param   methodIndex The index of this function on MetaObject
  * @return  Return a new reference of PySideMetaFunction
  **/
-PYSIDE_API PySideMetaFunction*  newObject(QObject* obj, int methodIndex);
+PYSIDE_API PySideMetaFunction *newObject(QObject *obj, int methodIndex);
 
 } //namespace MetaFunction
 } //namespace PySide

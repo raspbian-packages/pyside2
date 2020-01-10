@@ -41,10 +41,12 @@
 #define SIGNALMANAGER_H
 
 #include "pysidemacros.h"
+
 #include <sbkpython.h>
-#include <Qt>
-#include <QStringList>
-#include <QMetaMethod>
+
+#include <QtCore/QMetaMethod>
+
+QT_FORWARD_DECLARE_CLASS(QDataStream)
 
 namespace PySide
 {
@@ -53,12 +55,19 @@ namespace PySide
 class PYSIDE_API PyObjectWrapper
 {
 public:
+    PyObjectWrapper(PyObjectWrapper&&) = delete;
+    PyObjectWrapper& operator=(PyObjectWrapper &&) = delete;
+
     PyObjectWrapper();
-    PyObjectWrapper(PyObject* me);
+    explicit PyObjectWrapper(PyObject* me);
     PyObjectWrapper(const PyObjectWrapper &other);
+    PyObjectWrapper& operator=(const PyObjectWrapper &other);
+
+    void reset(PyObject *o);
+
     ~PyObjectWrapper();
     operator PyObject*() const;
-    PyObjectWrapper& operator=(const PyObjectWrapper &other);
+
 private:
     PyObject* m_me;
 };
@@ -68,6 +77,7 @@ PYSIDE_API QDataStream &operator>>(QDataStream& in, PyObjectWrapper& myObj);
 
 class PYSIDE_API SignalManager
 {
+    Q_DISABLE_COPY(SignalManager)
 public:
     static SignalManager& instance();
 
@@ -84,7 +94,7 @@ public:
     static int registerMetaMethodGetIndex(QObject* source, const char* signature, QMetaMethod::MethodType type);
 
     // used to discovery metaobject
-    static const QMetaObject* retriveMetaObject(PyObject* self);
+    static const QMetaObject* retrieveMetaObject(PyObject* self);
 
     // Used to discovery if SignalManager was connected with object "destroyed()" signal.
     int countConnectionsWith(const QObject *object);
@@ -95,24 +105,12 @@ public:
     // Utility function to call a python method usign args received in qt_metacall
     static int callPythonMetaMethod(const QMetaMethod& method, void** args, PyObject* obj, bool isShortCuit);
 
-    PYSIDE_DEPRECATED(QObject* globalReceiver());
-    PYSIDE_DEPRECATED(void addGlobalSlot(const char* slot, PyObject* callback));
-    PYSIDE_DEPRECATED(int addGlobalSlotGetIndex(const char* slot, PyObject* callback));
-
-    PYSIDE_DEPRECATED(void globalReceiverConnectNotify(QObject *sender, int slotIndex));
-    PYSIDE_DEPRECATED(void globalReceiverDisconnectNotify(QObject *sender, int slotIndex));
-    PYSIDE_DEPRECATED(bool hasConnectionWith(const QObject *object));
-
 private:
     struct SignalManagerPrivate;
     SignalManagerPrivate* m_d;
 
     SignalManager();
     ~SignalManager();
-
-    // disable copy
-    SignalManager(const SignalManager&);
-    SignalManager operator=(const SignalManager&);
 };
 
 }

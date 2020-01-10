@@ -42,19 +42,65 @@
 
 #include "sbkversion.h"
 
+// Qt's "slots" macro collides with the "slots" member variables
+// used in some Python structs. For compilers that support push_macro,
+// temporarily undefine it.
+#if defined(slots) && (defined(__GNUC__) || defined(_MSC_VER) || defined(__clang__))
+#  pragma push_macro("slots")
+#  undef slots
 /*
  * Python 2 has function _Py_Mangle directly in Python.h .
  * This creates wrong language binding unless we define 'extern "C"' here.
  */
 extern "C" {
-#include <Python.h>
+/*
+ * Python 2 uses the "register" keyword, which is deprecated in C++ 11
+ * and forbidden in C++17.
+ */
+#  if defined(__clang__)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wdeprecated-register"
+#  endif
+
+#  include <Python.h>
+
+#  if defined(__clang__)
+#    pragma clang diagnostic pop
+#  endif
 }
-#include <structmember.h>
+#  include <structmember.h>
 // Now we have the usual variables from Python.h .
-#include "python25compat.h"
-#include "shibokenmacros.h"
-#include "pep384impl.h"
-#include "typespec.h"
+#  include "python25compat.h"
+#  include "shibokenmacros.h"
+#  include "pep384impl.h"
+#  include "typespec.h"
+#  pragma pop_macro("slots")
+
+#else
+
+extern "C" {
+/*
+ * Python 2 uses the "register" keyword, which is deprecated in C++ 11
+ * and forbidden in C++17.
+ */
+#  if defined(__clang__)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wdeprecated-register"
+#  endif
+
+#  include <Python.h>
+
+#  if defined(__clang__)
+#    pragma clang diagnostic pop
+#  endif
+}
+#  include <structmember.h>
+// Now we have the usual variables from Python.h .
+#  include "python25compat.h"
+#  include "shibokenmacros.h"
+#  include "pep384impl.h"
+#  include "typespec.h"
+#endif
 
 #if PY_MAJOR_VERSION >= 3
     #define IS_PY3K

@@ -4,12 +4,14 @@
 .. toctree::
     :maxdepth: 2
 
+    overview.rst
+    faq.rst
     gettingstarted.rst
-    modules.rst
     tutorials/index.rst
+    deployment.rst
     pysideapi2.rst
-    pysideversion.rst
     licenses.rst
+    modules.rst
 
 Module Index
 ============

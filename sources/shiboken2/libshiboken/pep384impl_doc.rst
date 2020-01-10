@@ -70,7 +70,8 @@ supported. We redefined it as macro ``Py_VerboseFlag`` which calls ``Pep_Verbose
 unicodeobject.h
 ---------------
 
-The macro ``PyUnicode_GET_SIZE`` was redefined to call into ``PyUnicode_GetSize``.
+The macro ``PyUnicode_GET_SIZE`` was redefined to call into ``PyUnicode_GetSize``
+for Python 2, and ``PyUnicode_GetLength`` for Python 3.
 Function ``_PyUnicode_AsString`` is unavailable and was replaced by a macro
 that calls ``_PepUnicode_AsString``. The implementation was a bit involved,
 and it would be better to change the code and replace this function.
@@ -283,7 +284,9 @@ written that skips over dotted name parts.
 
 Finally, the function ``_PyObject_Dump`` was excluded from the limited API.
 This is a useful debugging aid that we always want to have available,
-so it is added back, again.
+so it is added back, again. Anyway, we did not reimplement it, and so
+Windows is not supported.
+Therefore, a forgotten debugging call of this functions will break COIN. :-)
 
 
 Using The New Type API
@@ -426,11 +429,16 @@ many headaches::
         type->tp_dealloc = subtype_dealloc;
     }
 
-So, if you think you have no ``tp_dealloc`` field set, you will unwantedly
-get ``subtype_dealloc``, which in the case of PySide always was wrong!
+In fact, before the move to the new API, the ``PyType_Ready`` function
+filled empty ``tp_dealloc`` fields with ``object_dealloc``. And the code
+that has been written with that in mind now becomes pretty wrong if suddenly
+``subtype_dealloc`` is used.
 
-The way out was to use a dummy function that has no effect other than
-being something not NULL.
+The way out was to explicitly provide an ``object_dealloc`` function.
+This would then again impose a problem, because ``object_dealloc`` is not
+public. Writing our own version is easy, but it again needs access to
+type objects. But fortunately, we have broken this rule, already...
+
 
 * The new types are only partially allocated
 

@@ -40,7 +40,7 @@
 #ifndef TYPESPEC_H
 #define TYPESPEC_H
 
-#include <Python.h>
+#include "sbkpython.h"
 #include "shibokenmacros.h"
 
 #if PY_MAJOR_VERSION < 3
@@ -48,24 +48,24 @@ extern "C"
 {
 
 typedef struct{
-    int slot_; // slot is somehow reserved in Qt   /* slot id, see below */
+    int slot; // slot is somehow reserved in Qt   /* slot id, see below */
     void *pfunc; /* function pointer */
 } PyType_Slot;
 
 typedef struct{
-    const char* name;
+    const char *name;
     int basicsize;
     int itemsize;
     unsigned int flags;
     PyType_Slot *slots; /* terminated by slot==0. */
 } PyType_Spec;
 
-LIBSHIBOKEN_API PyObject *PyType_FromSpec(PyType_Spec*);
+LIBSHIBOKEN_API PyObject *PyType_FromSpec(PyType_Spec *);
 #if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x03030000
-LIBSHIBOKEN_API PyObject *PyType_FromSpecWithBases(PyType_Spec*, PyObject*);
+LIBSHIBOKEN_API PyObject *PyType_FromSpecWithBases(PyType_Spec *, PyObject *);
 #endif
 #if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x03040000
-LIBSHIBOKEN_API void* PyType_GetSlot(PyTypeObject*, int);
+LIBSHIBOKEN_API void *PyType_GetSlot(PyTypeObject *, int);
 #endif
 
 // from typeslots.h

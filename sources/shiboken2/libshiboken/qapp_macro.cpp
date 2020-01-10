@@ -38,6 +38,7 @@
 ****************************************************************************/
 
 #include "basewrapper.h"
+#include "autodecref.h"
 
 extern "C"
 {
@@ -67,7 +68,9 @@ qApp_module_index(PyObject *module)
     return ret;
 }
 
-#define Py_NONE_TYPE Py_TYPE(Py_None)
+#define PYTHON_IS_PYTHON3               (PY_VERSION_HEX >= 0x03000000)
+#define PYTHON_IS_PYTHON2               (!PYTHON_IS_PYTHON3)
+#define Py_NONE_TYPE                    Py_TYPE(Py_None)
 
 #if PYTHON_IS_PYTHON3
 #  define BRACE_OPEN {
@@ -84,20 +87,21 @@ static SbkObject _Py_ChameleonQAppWrapper_Struct = {
     BRACE_CLOSE
 };
 
-static PyObject *qApp_var = NULL;
-static PyObject *qApp_content = (PyObject *)&_Py_ChameleonQAppWrapper_Struct;
-static PyObject *qApp_moduledicts[5] = {0, 0, 0, 0, 0};
+static PyObject *qApp_var = nullptr;
+static PyObject *qApp_content = reinterpret_cast<PyObject *>(&_Py_ChameleonQAppWrapper_Struct);
+static PyObject *qApp_moduledicts[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
 static int qApp_var_ref = 0;
 static int qApp_content_ref = 0;
 
 static int
-reset_qApp_var()
+reset_qApp_var(void)
 {
     PyObject **mod_ptr;
 
-    for (mod_ptr = qApp_moduledicts; *mod_ptr != NULL; mod_ptr++) {
+    for (mod_ptr = qApp_moduledicts; *mod_ptr != nullptr; mod_ptr++) {
         // We respect whatever the user may have set.
-        if (PyDict_GetItem(*mod_ptr, qApp_var) == NULL) {
+        PyObject *existing = PyDict_GetItem(*mod_ptr, qApp_var);
+        if (existing == nullptr || Py_TYPE(existing) == Py_NONE_TYPE) {
             if (PyDict_SetItem(*mod_ptr, qApp_var, qApp_content) < 0)
                 return -1;
         }
@@ -116,26 +120,35 @@ reset_qApp_var()
 PyObject *
 MakeSingletonQAppWrapper(PyTypeObject *type)
 {
-    if (type == NULL)
+    static bool app_created = false;
+    if (type == nullptr)
         type = Py_NONE_TYPE;
     if (!(type == Py_NONE_TYPE || Py_TYPE(qApp_content) == Py_NONE_TYPE)) {
         const char *res_name = PepType_GetNameStr(Py_TYPE(qApp_content));
         const char *type_name = PepType_GetNameStr(type);
         PyErr_Format(PyExc_RuntimeError, "Please destroy the %s singleton before"
             " creating a new %s instance.", res_name, type_name);
-        return NULL;
+        return nullptr;
     }
     if (reset_qApp_var() < 0)
-        return NULL;
+        return nullptr;
     // always know the max of the refs
     if (Py_REFCNT(qApp_var) > qApp_var_ref)
         qApp_var_ref = Py_REFCNT(qApp_var);
     if (Py_REFCNT(qApp_content) > qApp_content_ref)
         qApp_content_ref = Py_REFCNT(qApp_content);
 
-    if (Py_TYPE(qApp_content) != Py_NONE_TYPE)
+    if (Py_TYPE(qApp_content) != Py_NONE_TYPE) {
+        // Remove the "_" variable which might hold a reference to qApp.
+        Shiboken::AutoDecRef pymain(PyImport_ImportModule("__main__"));
+        if (pymain.object() && PyObject_HasAttrString(pymain.object(), "_"))
+            PyObject_DelAttrString(pymain.object(), "_");
         Py_REFCNT(qApp_var) = 1; // fuse is armed...
+    }
     if (type == Py_NONE_TYPE) {
+        // PYSIDE-1093: Ignore None when no instance has ever been created.
+        if (!app_created)
+            Py_RETURN_NONE;
         // Debug mode showed that we need to do more than just remove the
         // reference. To keep everything in the right order, it is easiest
         // to do a full shutdown, using QtCore.__moduleShutdown().
@@ -147,14 +160,40 @@ MakeSingletonQAppWrapper(PyTypeObject *type)
         Py_TYPE(qApp_content) = Py_NONE_TYPE;
         Py_REFCNT(qApp_var) = qApp_var_ref;
         Py_REFCNT(qApp_content) = Py_REFCNT(Py_None);
-        if (__moduleShutdown != NULL)
-            Py_DECREF(PyObject_CallFunction(__moduleShutdown, (char *)"()"));
+        if (__moduleShutdown != nullptr)
+            Py_XDECREF(PyObject_CallFunction(__moduleShutdown, const_cast<char *>("()")));
+    } else {
+        PyObject_INIT(qApp_content, type);
+        app_created = true;
     }
-    else
-        (void)PyObject_INIT(qApp_content, type);
     Py_INCREF(qApp_content);
     return qApp_content;
 }
+
+#if PYTHON_IS_PYTHON2
+
+// Install support in Py_NONE_TYPE for Python 2: 'bool(qApp) == False'.
+static int
+none_bool(PyObject *v)
+{
+    return 0;
+}
+
+static PyNumberMethods none_as_number = {
+    nullptr,                                            /* nb_add */
+    nullptr,                                            /* nb_subtract */
+    nullptr,                                            /* nb_multiply */
+    nullptr,                                            /* nb_divide */
+    nullptr,                                            /* nb_remainder */
+    nullptr,                                            /* nb_divmod */
+    nullptr,                                            /* nb_power */
+    nullptr,                                            /* nb_negative */
+    nullptr,                                            /* nb_positive */
+    nullptr,                                            /* nb_absolute */
+    reinterpret_cast<inquiry>(none_bool),               /* nb_nonzero */
+};
+
+#endif
 
 static int
 setup_qApp_var(PyObject *module)
@@ -163,8 +202,11 @@ setup_qApp_var(PyObject *module)
     static int init_done = 0;
 
     if (!init_done) {
+#if PYTHON_IS_PYTHON2
+        Py_NONE_TYPE->tp_as_number = &none_as_number;
+#endif
         qApp_var = Py_BuildValue("s", "qApp");
-        if (qApp_var == NULL)
+        if (qApp_var == nullptr)
             return -1;
         // This is a borrowed reference
         qApp_moduledicts[0] = PyEval_GetBuiltins();
@@ -186,9 +228,31 @@ setup_qApp_var(PyObject *module)
 }
 
 void
-NotifyModuleForQApp(PyObject *module)
+NotifyModuleForQApp(PyObject *module, void *qApp)
 {
     setup_qApp_var(module);
+    /*
+     * PYSIDE-571: Check if an QApplication instance exists before the import.
+     * This happens in scriptableapplication and application_test.py .
+     *
+     * Crucial Observation
+     * ===================
+     *
+     * A Q*Application object from C++ does not have a wrapper or constructor
+     * like instances created by Python. It makes no sense to support
+     * deletion or special features like qApp resurrection.
+     *
+     * Therefore, the implementation is very simple and just redirects the
+     * qApp_contents variable and assigns the instance, instead of vice-versa.
+     */
+    PyObject *coreDict = qApp_moduledicts[1];
+    if (qApp != nullptr && coreDict != nullptr) {
+        PyObject *coreApp = PyDict_GetItemString(coreDict, "QCoreApplication");
+        if (coreApp != nullptr) {
+            qApp_content = PyObject_CallMethod(coreApp, "instance", "");
+            reset_qApp_var();
+        }
+    }
 }
 
 

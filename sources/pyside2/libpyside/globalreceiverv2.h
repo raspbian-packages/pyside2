@@ -41,14 +41,13 @@
 #define GLOBALRECEIVER_V2_H
 
 #include <sbkpython.h>
-#include <QObject>
-#include <QHash>
-#include <QSet>
-#include <QSharedPointer>
-#include <QLinkedList>
-#include <QByteArray>
 
 #include "dynamicqmetaobject.h"
+
+#include <QtCore/QByteArray>
+#include <QtCore/QObject>
+#include <QtCore/QMap>
+#include <QtCore/QSharedPointer>
 
 namespace PySide
 {
@@ -78,13 +77,13 @@ public:
     /**
      * Destructor
      **/
-    ~GlobalReceiverV2();
+    ~GlobalReceiverV2() override;
 
     /**
      * Reimplemented function from QObject
      **/
-    int qt_metacall(QMetaObject::Call call, int id, void** args);
-    const QMetaObject* metaObject() const;
+    int qt_metacall(QMetaObject::Call call, int id, void **args) override;
+    const QMetaObject *metaObject() const override;
 
     /**
      * Add a extra slot to this object
@@ -92,7 +91,7 @@ public:
      * @param   signature   The signature of the slot to be added
      * @return  The index of this slot on metaobject
      **/
-    int addSlot(const char* signature);
+    int addSlot(const char *signature);
 
     /**
      * Notify to GlobalReceiver about when a new connection was made
@@ -104,14 +103,14 @@ public:
      *
      * @param   link    This is a optional paramenter used to link the ref to some QObject life
      **/
-    void incRef(const QObject* link = 0);
+    void incRef(const QObject *link = nullptr);
 
     /**
      * Used to decrement the reference of the GlobalReceiver object
      *
      * @param   link    This is a optional paramenter used to dismiss the link ref to some QObject
      **/
-    void decRef(const QObject* link = 0);
+    void decRef(const QObject *link = nullptr);
 
     /*
      * Return the count of refs which the GlobalReceiver has
@@ -119,27 +118,30 @@ public:
      * @param   link    If any QObject was passed, the function return the number of references relative to this 'link' object
      * @return  The number of references
      **/
-    int refCount(const QObject* link) const;
+    int refCount(const QObject *link) const;
 
     /**
-     * Use to retrive the unique hash of this GlobalReceiver object
+     * Use to retrieve the unique hash of this GlobalReceiver object
      *
      * @return  a string with a unique id based on GlobalReceiver contents
      **/
     QByteArray hash() const;
 
     /**
-     * Use to retrive the unique hash of the PyObject based on GlobalReceiver rules
+     * Use to retrieve the unique hash of the PyObject based on GlobalReceiver rules
      *
      * @param   callback The Python callable object used to calculate the id
      * @return  a string with a unique id based on GlobalReceiver contents
      **/
-    static QByteArray hash(PyObject* callback);
+    static QByteArray hash(PyObject *callback);
+
+    const MetaObjectBuilder &metaObjectBuilder() const { return m_metaObject; }
+    MetaObjectBuilder &metaObjectBuilder() { return m_metaObject; }
 
 private:
-    DynamicQMetaObject m_metaObject;
+    MetaObjectBuilder m_metaObject;
     DynamicSlotDataV2 *m_data;
-    QList<const QObject*> m_refs;
+    QList<const QObject *> m_refs;
     SharedMap m_sharedMap;
 };
 

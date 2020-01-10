@@ -43,7 +43,7 @@
 #include "typedatabase.h"
 #include "typesystem.h"
 
-ApiExtractor::ApiExtractor() : m_builder(0)
+ApiExtractor::ApiExtractor()
 {
     // Environment TYPESYSTEMPATH
     QString envTypesystemPaths = QFile::decodeName(qgetenv("TYPESYSTEMPATH"));
@@ -97,6 +97,13 @@ void ApiExtractor::setDebugLevel(ReportHandler::DebugLevel debugLevel)
     ReportHandler::setDebugLevel(debugLevel);
 }
 
+void ApiExtractor::setSkipDeprecated(bool value)
+{
+    m_skipDeprecated = value;
+    if (m_builder)
+        m_builder->setSkipDeprecated(m_skipDeprecated);
+}
+
 void ApiExtractor::setSuppressWarnings ( bool value )
 {
     TypeDatabase::instance()->setSuppressWarnings(value);
@@ -109,7 +116,7 @@ void ApiExtractor::setSilent ( bool value )
 
 bool ApiExtractor::setApiVersion(const QString& package, const QString &version)
 {
-    return TypeDatabase::instance()->setApiVersion(package, version);
+    return TypeDatabase::setApiVersion(package, version);
 }
 
 void ApiExtractor::setDropTypeEntries(QString dropEntries)
@@ -146,7 +153,7 @@ AbstractMetaClassList ApiExtractor::smartPointers() const
 AbstractMetaClassList ApiExtractor::classesTopologicalSorted(const Dependencies &additionalDependencies) const
 {
     Q_ASSERT(m_builder);
-    return m_builder->classesTopologicalSorted(Q_NULLPTR, additionalDependencies);
+    return m_builder->classesTopologicalSorted(m_builder->classes(), additionalDependencies);
 }
 
 PrimitiveTypeEntryList ApiExtractor::primitiveTypes() const
@@ -161,7 +168,7 @@ ContainerTypeEntryList ApiExtractor::containerTypes() const
 
 static const AbstractMetaEnum* findEnumOnClasses(AbstractMetaClassList metaClasses, const EnumTypeEntry* typeEntry)
 {
-    const AbstractMetaEnum* result = 0;
+    const AbstractMetaEnum *result = nullptr;
     for (const AbstractMetaClass* metaClass : qAsConst(metaClasses)) {
         const AbstractMetaEnumList &enums = metaClass->enums();
         for (const AbstractMetaEnum *metaEnum : enums) {
@@ -177,41 +184,9 @@ static const AbstractMetaEnum* findEnumOnClasses(AbstractMetaClassList metaClass
     return result;
 }
 
-const AbstractMetaEnum* ApiExtractor::findAbstractMetaEnum(const EnumTypeEntry* typeEntry) const
-{
-    if (!typeEntry)
-        return 0;
-    const AbstractMetaEnumList &globalEnums = m_builder->globalEnums();
-    for (AbstractMetaEnum* metaEnum : globalEnums) {
-        if (metaEnum->typeEntry() == typeEntry)
-            return metaEnum;
-    }
-    return findEnumOnClasses(m_builder->classes(), typeEntry);
-}
-
 const AbstractMetaEnum* ApiExtractor::findAbstractMetaEnum(const TypeEntry* typeEntry) const
 {
-    if (!typeEntry)
-        return 0;
-    if (typeEntry->isFlags())
-        return findAbstractMetaEnum(reinterpret_cast<const FlagsTypeEntry*>(typeEntry));
-    if (typeEntry->isEnum())
-        return findAbstractMetaEnum(reinterpret_cast<const EnumTypeEntry*>(typeEntry));
-    return 0;
-}
-
-const AbstractMetaEnum* ApiExtractor::findAbstractMetaEnum(const FlagsTypeEntry* typeEntry) const
-{
-    if (!typeEntry)
-        return 0;
-    return findAbstractMetaEnum(typeEntry->originator());
-}
-
-const AbstractMetaEnum* ApiExtractor::findAbstractMetaEnum(const AbstractMetaType* metaType) const
-{
-    if (!metaType)
-        return 0;
-    return findAbstractMetaEnum(metaType->typeEntry());
+    return m_builder->findEnum(typeEntry);
 }
 
 int ApiExtractor::classCount() const
@@ -248,6 +223,8 @@ bool ApiExtractor::run()
     m_builder = new AbstractMetaBuilder;
     m_builder->setLogDirectory(m_logDirectory);
     m_builder->setGlobalHeader(m_cppFileName);
+    m_builder->setSkipDeprecated(m_skipDeprecated);
+    m_builder->setHeaderPaths(m_includePaths);
     QByteArrayList arguments;
     arguments.reserve(m_includePaths.size() + 1);
     for (const HeaderPath &headerPath : qAsConst(m_includePaths))
@@ -270,7 +247,7 @@ LanguageLevel ApiExtractor::languageLevel() const
     return m_languageLevel;
 }
 
-void ApiExtractor::setLanguageLevel(const LanguageLevel languageLevel)
+void ApiExtractor::setLanguageLevel(LanguageLevel languageLevel)
 {
     m_languageLevel = languageLevel;
 }
@@ -279,13 +256,11 @@ void ApiExtractor::setLanguageLevel(const LanguageLevel languageLevel)
 template <class Container>
 static void debugFormatSequence(QDebug &d, const char *key, const Container& c)
 {
-    typedef typename Container::const_iterator ConstIt;
     if (c.isEmpty())
         return;
-    const ConstIt begin = c.begin();
-    const ConstIt end = c.end();
+    const auto begin = c.begin();
     d << "\n  " << key << '[' << c.size() << "]=(";
-    for (ConstIt it = begin; it != end; ++it) {
+    for (auto it = begin, end = c.end(); it != end; ++it) {
         if (it != begin)
             d << ", ";
         d << *it;

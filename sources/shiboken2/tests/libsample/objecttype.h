@@ -63,15 +63,15 @@ private:
 
 class ObjectTypeLayout;
 class ObjectType;
-typedef std::list<ObjectType*> ObjectTypeList;
+using ObjectTypeList = std::list<ObjectType*>;
 
 class LIBSAMPLE_API ObjectType
 {
 public:
     // ### Fixme: Use uintptr_t in C++ 11
-    typedef size_t Identifier;
+    using Identifier = size_t;
 
-    explicit ObjectType(ObjectType* parent = 0);
+    explicit ObjectType(ObjectType *parent = nullptr);
     virtual ~ObjectType();
 
     // factory method

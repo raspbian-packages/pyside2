@@ -60,7 +60,7 @@ class qmetaobject_test(unittest.TestCase):
         f = QFile()
         fm = f.metaObject()
         self.assertEqual(m.methodCount(), fm.methodCount())
-    """        
+    """
 
     def test_DynamicSlotSignal(self):
         o = DynObject()
@@ -78,6 +78,12 @@ class qmetaobject_test(unittest.TestCase):
 
         #self.assertTrue(slot_index != signal_index)
 
+    # PYSIDE-784, plain Qt objects should not have intermediary
+    # metaObjects.
+    def test_PlainQObject(self):
+        timer = QTimer()
+        self.assertEqual(timer.metaObject().superClass().className(),
+                         "QObject")
 
 if __name__ == '__main__':
     unittest.main()

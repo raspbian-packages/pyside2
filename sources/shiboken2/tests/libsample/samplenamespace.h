@@ -92,13 +92,15 @@ inline double powerOfTwo(double num) {
     return num * num;
 }
 
-LIBSAMPLE_API void doSomethingWithArray(const unsigned char* data, unsigned int size, const char* format = 0);
+LIBSAMPLE_API void doSomethingWithArray(const unsigned char *data, unsigned int size, const char *format = nullptr);
 
 LIBSAMPLE_API int enumItemAsDefaultValueToIntArgument(int value = ZeroIn);
 
-class SomeClass
+class LIBSAMPLE_API SomeClass
 {
 public:
+    enum class PublicScopedEnum { v1, v2 };
+
     class SomeInnerClass
     {
     public:
@@ -131,6 +133,8 @@ protected:
         ProtectedItem0,
         ProtectedItem1
     };
+
+    PublicScopedEnum protectedMethodReturningPublicScopedEnum() const;
 };
 
 class DerivedFromNamespace : public SomeClass::SomeInnerClass::OkThisIsRecursiveEnough
@@ -141,19 +145,19 @@ public:
 //    enum SampleNamespace {
 //    };
     virtual OkThisIsRecursiveEnough* someVirtualMethod(OkThisIsRecursiveEnough* arg) { return arg; }
-    inline OkThisIsRecursiveEnough* methodReturningTypeFromParentScope() { return 0; }
+    inline OkThisIsRecursiveEnough *methodReturningTypeFromParentScope() { return nullptr; }
 };
 
 // The combination of the following two overloaded methods could trigger a
 // problematic behaviour on the overload decisor, if it isn't working properly.
-LIBSAMPLE_API void forceDecisorSideA(ObjectType* object = 0);
+LIBSAMPLE_API void forceDecisorSideA(ObjectType *object = nullptr);
 LIBSAMPLE_API void forceDecisorSideA(const Point& pt, const Str& text, ObjectType* object = 0);
 
 // The combination of the following two overloaded methods could trigger a
 // problematic behaviour on the overload decisor, if it isn't working properly.
 // This is a variation of forceDecisorSideB.
-LIBSAMPLE_API void forceDecisorSideB(int a, ObjectType* object = 0);
-LIBSAMPLE_API void forceDecisorSideB(int a, const Point& pt, const Str& text, ObjectType* object = 0);
+LIBSAMPLE_API void forceDecisorSideB(int a, ObjectType *object = nullptr);
+LIBSAMPLE_API void forceDecisorSideB(int a, const Point &pt, const Str &text, ObjectType *object = nullptr);
 
 // Add a new signature on type system with only a Point value as parameter.
 LIBSAMPLE_API double passReferenceToValueType(const Point& point, double multiplier);

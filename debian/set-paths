@@ -7,6 +7,10 @@ for directory in "cmake/Shiboken2-$MAIN_VERSION_UPSTREAM" "pkgconfig"; do
 	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
         sed -i "s|build.*relwithdebinfo|usr|" \
 	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${PACKAGE_PREFIX_DIR}|/usr|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${_IMPORT_PREFIX}/lib|\${_IMPORT_PREFIX}/$DEB_HOST_MULTIARCH|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
 done
 
 package="libpyside2-dev"
@@ -15,18 +19,16 @@ for directory in "pkgconfig" "cmake/PySide2-$MAIN_VERSION_UPSTREAM"; do
 	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
         sed -i "s|build.*relwithdebinfo|usr|" \
 	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${PACKAGE_PREFIX_DIR}|/usr|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${_IMPORT_PREFIX}/lib|\${_IMPORT_PREFIX}/$DEB_HOST_MULTIARCH|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
 done
 
-# Set correctly the python path for pyside2 (Python2 for now)
-sed -i "s|^pythonpath=.*|pythonpath=/usr/lib/python2.7/dist-packages|" \
-    debian/libpyside2-dev/usr/lib/$DEB_HOST_MULTIARCH/pkgconfig/pyside2.pc
-
-sed -i "s|^SET(PYSIDE_PYTHONPATH.*|SET(PYSIDE_PYTHONPATH \"/usr/lib/python2.7/dist-packages\")|" \
-    debian/libpyside2-dev/usr/lib/$DEB_HOST_MULTIARCH/cmake/PySide2-$MAIN_VERSION_UPSTREAM/PySide2Config-python2.7.$DEB_HOST_MULTIARCH.cmake
-
 # Set correctly the python path for pyside2 (Python3)
-sed -i "s|^SET(PYSIDE_PYTHONPATH.*|SET(PYSIDE_PYTHONPATH \"/usr/lib/python3/dist-packages\")|" \
-    debian/libpyside2-dev/usr/lib/$DEB_HOST_MULTIARCH/cmake/PySide2-$MAIN_VERSION_UPSTREAM/PySide2Config.cpython-3*m-$DEB_HOST_MULTIARCH.cmake
+sed -i "s|^set_and_check(PYSIDE_PYTHONPATH.*|set_and_check(PYSIDE_PYTHONPATH \"/usr/lib/python3/dist-packages/PySide2\")|" \
+    debian/libpyside2-dev/usr/lib/$DEB_HOST_MULTIARCH/cmake/PySide2-$MAIN_VERSION_UPSTREAM/PySide2Config.cpython-3*-$DEB_HOST_MULTIARCH.cmake
 
-#sed -i "s|^SET(PYSIDE_PYTHONPATH.*|SET(PYSIDE_PYTHONPATH \"/usr/lib/python3/dist-packages\")|" \
-#    debian/libpyside2-dev/usr/lib/$DEB_HOST_MULTIARCH/cmake/PySide2-$MAIN_VERSION_UPSTREAM/PySide2Config.cpython-37m-$DEB_HOST_MULTIARCH.cmake
+# Set correctly the python path for shiboken2 (Python3)
+sed -i "s|^set_and_check(SHIBOKEN_PYTHON_MODULE_DIR.*|set_and_check(SHIBOKEN_PYTHON_MODULE_DIR \"/usr/lib/python3/dist-packages/shiboken2\")|" \
+    debian/libshiboken2-dev/usr/lib/$DEB_HOST_MULTIARCH/cmake/Shiboken2-$MAIN_VERSION_UPSTREAM/Shiboken2Config.cpython-3*-$DEB_HOST_MULTIARCH.cmake

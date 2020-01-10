@@ -55,6 +55,13 @@ enum Language {
     TargetLangAndNativeCode   = TargetLangCode | NativeCode
 };
 
+enum class AllowThread {
+    Allow,
+    Disallow,
+    Auto,
+    Unspecified
+};
+
 enum Ownership {
     InvalidOwnership,
     DefaultOwnership,
@@ -71,14 +78,24 @@ enum CodeSnipPosition {
     CodeSnipPositionPrototypeInitialization,
     CodeSnipPositionConstructorInitialization,
     CodeSnipPositionConstructor,
-    CodeSnipPositionAny
+    CodeSnipPositionAny,
+    CodeSnipPositionInvalid
 };
 
 enum DocModificationMode {
     DocModificationAppend,
     DocModificationPrepend,
     DocModificationReplace,
-    DocModificationXPathReplace
+    DocModificationXPathReplace,
+    DocModificationInvalid
+};
+
+enum class ExceptionHandling {
+    Unspecified,
+    Off,
+    AutoDefaultToOff,
+    AutoDefaultToOn,
+    On
 };
 
 } // namespace TypeSystem

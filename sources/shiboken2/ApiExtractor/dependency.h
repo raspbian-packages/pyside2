@@ -29,15 +29,19 @@
 #ifndef DEPENDENCY_H
 #define DEPENDENCY_H
 
-#include <QtCore/QString>
 #include <QtCore/QVector>
 
+#include <utility>
+
 // Dependencies for topologically sorting classes
+
+class AbstractMetaClass;
+
 struct Dependency {
-    QString parent;
-    QString child;
+    AbstractMetaClass *parent;
+    AbstractMetaClass *child;
 };
 
-typedef QVector<Dependency> Dependencies;
+using Dependencies = QVector<Dependency>;
 
 #endif // DEPENDENCY_H

@@ -1,21 +1,29 @@
-Description: Drop git requirement
- Only to allow local build without git.
-Author: Sophie Brun <sophie@freexian.com>
+From: Sophie Brun <sophie@freexian.com>
+Date: Tue, 5 Nov 2019 10:39:14 +0100
+Subject: Drop git requirement
+
+Last-Update: 2018-07-06
+
+Only to allow local build without git.
 Last-Update: 2018-07-06
 ---
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+ build_scripts/main.py | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/build_scripts/main.py b/build_scripts/main.py
+index 5f53679..8b0f3de 100644
 --- a/build_scripts/main.py
 +++ b/build_scripts/main.py
-@@ -305,9 +305,9 @@ def get_qt_version():
-     return qt_version
+@@ -299,9 +299,9 @@ def get_qt_version():
+ 
  
  def prepare_build():
 -    if (os.path.isdir(".git") and not OPTION_IGNOREGIT and
 -            not OPTION_ONLYPACKAGE and not OPTION_REUSE_BUILD):
 -        prepare_sub_modules()
-+    #if (os.path.isdir(".git") and not OPTION_IGNOREGIT and
-+    #        not OPTION_ONLYPACKAGE and not OPTION_REUSE_BUILD):
-+    #    prepare_sub_modules()
-     # Clean up temp and package folders
-     for n in [pyside_package_dir_name, "build"]:
++#    if (os.path.isdir(".git") and not OPTION_IGNOREGIT and
++#            not OPTION_ONLYPACKAGE and not OPTION_REUSE_BUILD):
++#        prepare_sub_modules()
+     # Clean up temp build folder.
+     for n in ["build"]:
          d = os.path.join(setup_script_dir, n)

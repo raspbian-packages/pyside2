@@ -136,7 +136,8 @@ void TestModifyFunction::invalidateAfterUse()
         </object-type>\n\
         <object-type name='E' />\n\
     </typesystem>\n";
-    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode, false, "0.1"));
+    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode,
+                                                                false, QLatin1String("0.1")));
     QVERIFY(!builder.isNull());
     AbstractMetaClassList classes = builder->classes();
     const AbstractMetaClass *classB = AbstractMetaClass::findClass(classes, QLatin1String("B"));
@@ -208,7 +209,8 @@ void TestModifyFunction::testWithApiVersion()
         </modify-function>\n\
         </object-type>\n\
     </typesystem>\n";
-    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode, false, "0.1"));
+    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode,
+                                                                false, QLatin1String("0.1")));
     QVERIFY(!builder.isNull());
     AbstractMetaClassList classes = builder->classes();
     AbstractMetaClass* classB = AbstractMetaClass::findClass(classes, QLatin1String("B"));
@@ -218,6 +220,63 @@ void TestModifyFunction::testWithApiVersion()
 
     func = classB->findFunction(QLatin1String("methodB"));
     QVERIFY(func->ownership(func->ownerClass(), TypeSystem::TargetLangCode, 0) != TypeSystem::CppOwnership);
+}
+
+// Modifications on class/typesystem level are tested below
+// in testScopedModifications().
+void TestModifyFunction::testAllowThread()
+{
+    const char cppCode[] =R"CPP(\
+struct A {
+    void f1();
+    void f2();
+    void f3();
+    int getter1() const;
+    int getter2() const;
+};
+)CPP";
+
+    const char xmlCode[] = R"XML(
+<typesystem package='Foo'>
+    <primitive-type name='int'/>
+    <object-type name='A'>
+        <modify-function signature='f2()' allow-thread='auto'/>
+        <modify-function signature='f3()' allow-thread='no'/>
+        <modify-function signature='getter2()const' allow-thread='yes'/>
+    </object-type>
+</typesystem>
+)XML";
+    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode,
+                                                                false, QLatin1String("0.1")));
+    QVERIFY(!builder.isNull());
+    AbstractMetaClassList classes = builder->classes();
+    const AbstractMetaClass *classA = AbstractMetaClass::findClass(classes, QLatin1String("A"));
+    QVERIFY(classA);
+
+    // Nothing specified, true
+    const AbstractMetaFunction *f1 = classA->findFunction(QLatin1String("f1"));
+    QVERIFY(f1);
+    QVERIFY(f1->allowThread());
+
+    // 'auto' specified, should be true for nontrivial function
+    const AbstractMetaFunction *f2 = classA->findFunction(QLatin1String("f2"));
+    QVERIFY(f2);
+    QVERIFY(f2->allowThread());
+
+    // 'no' specified, should be false
+    const AbstractMetaFunction *f3 = classA->findFunction(QLatin1String("f3"));
+    QVERIFY(f3);
+    QVERIFY(!f3->allowThread());
+
+    // Nothing specified, should be false for simple getter
+    const AbstractMetaFunction *getter1 = classA->findFunction(QLatin1String("getter1"));
+    QVERIFY(getter1);
+    QVERIFY(!getter1->allowThread());
+
+    // Forced to true simple getter
+    const AbstractMetaFunction *getter2 = classA->findFunction(QLatin1String("getter2"));
+    QVERIFY(getter2);
+    QVERIFY(getter2->allowThread()); // Forced to true simple getter
 }
 
 void TestModifyFunction::testGlobalFunctionModification()
@@ -256,6 +315,152 @@ void TestModifyFunction::testGlobalFunctionModification()
     QCOMPARE(arg->type()->cppSignature(), QLatin1String("A *"));
     QCOMPARE(arg->originalDefaultValueExpression(), QLatin1String("0"));
     QCOMPARE(arg->defaultValueExpression(), QLatin1String("A()"));
+}
+
+// Tests modifications of exception handling and allow-thread
+// on various levels.
+void TestModifyFunction::testScopedModifications_data()
+{
+    QTest::addColumn<QByteArray>("cppCode");
+    QTest::addColumn<QByteArray>("xmlCode");
+    QTest::addColumn<bool>("expectedGenerateUnspecified");
+    QTest::addColumn<bool>("expectedGenerateNonThrowing");
+    QTest::addColumn<bool>("expectedGenerateThrowing");
+    QTest::addColumn<bool>("expectedAllowThread");
+
+    const QByteArray cppCode = R"CPP(
+struct Base {
+};
+
+struct A : public Base {
+    void unspecified();
+    void nonThrowing() noexcept;
+    void throwing() throw(int);
+};
+)CPP";
+
+    // Default: Off
+    QTest::newRow("none")
+        << cppCode
+        << QByteArray(R"XML(
+<typesystem package= 'Foo'>
+    <primitive-type name='int'/>
+    <object-type name='Base'/>
+    <object-type name='A'/>
+</typesystem>)XML")
+         << false << false << false // exception
+         << true; // allowthread
+
+    // Modify one function
+    QTest::newRow("modify-function1")
+        << cppCode
+        << QByteArray(R"XML(
+<typesystem package='Foo'>
+    <primitive-type name='int'/>
+    <object-type name='Base'/>
+    <object-type name='A'>
+        <modify-function signature='throwing()' exception-handling='auto-on'/>
+    </object-type>
+</typesystem>)XML")
+         << false << false << true // exception
+         << true; // allowthread
+
+    // Flip defaults by modifying functions
+    QTest::newRow("modify-function2")
+        << cppCode
+        << QByteArray(R"XML(
+<typesystem package='Foo'>
+    <primitive-type name='int'/>
+    <object-type name='Base'/>
+    <object-type name='A'>
+        <modify-function signature='unspecified()' exception-handling='auto-on'/>
+        <modify-function signature='throwing()' exception-handling='off'/>
+    </object-type>
+</typesystem>)XML")
+         << true << false << false // exception
+         << true; // allowthread
+
+    // Activate on type system level
+    QTest::newRow("typesystem-on")
+        << cppCode
+        << QByteArray(R"XML(
+<typesystem package='Foo' exception-handling='auto-on' allow-thread='no'>
+    <primitive-type name='int'/>
+    <object-type name='Base'/>
+    <object-type name='A'/>
+</typesystem>)XML")
+         << true << false << true // exception
+         << false; // allowthread
+
+    // Activate on class level
+    QTest::newRow("class-on")
+        << cppCode
+        << QByteArray(R"XML(
+<typesystem package='Foo'>
+    <primitive-type name='int'/>
+    <object-type name='Base'/>
+    <object-type name='A' exception-handling='auto-on' allow-thread='no'/>
+</typesystem>)XML")
+         << true << false << true // exception
+         << false; // allowthread
+
+    // Activate on base class level
+    QTest::newRow("baseclass-on")
+        << cppCode
+        << QByteArray(R"XML(
+<typesystem package='Foo'>
+    <primitive-type name='int'/>
+    <object-type name='Base' exception-handling='auto-on' allow-thread='no'/>
+    <object-type name='A'/>
+</typesystem>)XML")
+         << true << false << true // exception
+         << false; // allowthread
+
+    // Override value on class level
+    QTest::newRow("override-class-on")
+        << cppCode
+        << QByteArray(R"XML(
+<typesystem package='Foo'>
+    <primitive-type name='int'/>
+    <object-type name='Base'/>
+    <object-type name='A' exception-handling='auto-on'>
+        <modify-function signature='throwing()' exception-handling='no'/>
+    </object-type>
+</typesystem>)XML")
+         << true << false << false // exception
+         << true; // allowthread
+}
+
+void TestModifyFunction::testScopedModifications()
+{
+    QFETCH(QByteArray, cppCode);
+    QFETCH(QByteArray, xmlCode);
+    QFETCH(bool, expectedGenerateUnspecified);
+    QFETCH(bool, expectedGenerateNonThrowing);
+    QFETCH(bool, expectedGenerateThrowing);
+    QFETCH(bool, expectedAllowThread);
+
+    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode.constData(), xmlCode.constData(), false));
+    QVERIFY(!builder.isNull());
+
+    const AbstractMetaClass *classA = AbstractMetaClass::findClass(builder->classes(), QLatin1String("A"));
+    QVERIFY(classA);
+
+    const AbstractMetaFunction *f = classA->findFunction(QStringLiteral("unspecified"));
+    QVERIFY(f);
+    QCOMPARE(f->exceptionSpecification(), ExceptionSpecification::Unknown);
+    QCOMPARE(f->generateExceptionHandling(), expectedGenerateUnspecified);
+    QCOMPARE(f->allowThread(), expectedAllowThread);
+
+    f = classA->findFunction(QStringLiteral("nonThrowing"));
+    QVERIFY(f);
+    QCOMPARE(f->exceptionSpecification(), ExceptionSpecification::NoExcept);
+    QCOMPARE(f->generateExceptionHandling(), expectedGenerateNonThrowing);
+
+    f = classA->findFunction(QStringLiteral("throwing"));
+    QVERIFY(f);
+    QCOMPARE(f->exceptionSpecification(), ExceptionSpecification::Throws);
+    QCOMPARE(f->generateExceptionHandling(), expectedGenerateThrowing);
 }
 
 QTEST_APPLESS_MAIN(TestModifyFunction)

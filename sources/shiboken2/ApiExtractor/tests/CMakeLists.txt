@@ -1,28 +1,21 @@
-find_package(Qt5Core)
-find_package(Qt5Gui)
-find_package(Qt5Test)
-find_package(Qt5Xml)
-find_package(Qt5XmlPatterns)
+set(CMAKE_AUTORCC ON)
 
 macro(declare_test testname)
     # gone: qt4_automoc("${testname}.cpp")
-    if (EXISTS "${testname}.h")
-        add_executable(${testname} "${testname}.h ${testname}.cpp")
-    else ()
-        add_executable(${testname} "${testname}.cpp")
+    set(SOURCES "${testname}.cpp")
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${testname}.h")
+        list(APPEND SOURCES "${testname}.h")
     endif ()
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}
-                        ${CMAKE_CURRENT_BINARY_DIR}
-                        ${apiextractor_SOURCE_DIR}
-                        ${Qt5Test_INCLUDE_DIRS}
-                        )
-    link_directories(${APIEXTRACTOR_EXTRA_LINK_DIRECTORIES})
-    target_link_libraries(${testname}
-                          ${Qt5XmlPatterns_LIBRARIES}
-                          ${Qt5Test_LIBRARIES}
-                          ${Qt5Core_LIBRARIES}
-                          ${Qt5Gui_LIBRARIES}
-                          apiextractor)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${testname}.qrc")
+        list(APPEND SOURCES "${testname}.qrc")
+    endif ()
+
+    add_executable(${testname} ${SOURCES})
+    target_include_directories(${testname} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+                                                   ${CMAKE_CURRENT_BINARY_DIR}
+                                                   ${apiextractor_SOURCE_DIR}
+                                                   )
+    target_link_libraries(${testname} PRIVATE apiextractor Qt5::Test)
     add_test(${testname} ${testname})
     if (INSTALL_TESTS)
         install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${testname}
@@ -35,8 +28,6 @@ declare_test(testabstractmetatype)
 declare_test(testaddfunction)
 declare_test(testarrayargument)
 declare_test(testcodeinjection)
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/utf8code.txt"
-                "${CMAKE_CURRENT_BINARY_DIR}/utf8code.txt" COPYONLY)
 declare_test(testcontainer)
 declare_test(testconversionoperator)
 declare_test(testconversionruletag)
@@ -68,7 +59,5 @@ declare_test(testvoidarg)
 declare_test(testtyperevision)
 if (NOT DISABLE_DOCSTRINGS)
     declare_test(testmodifydocumentation)
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/a.xml"
-                   "${CMAKE_CURRENT_BINARY_DIR}/a.xml" COPYONLY)
 endif()
 

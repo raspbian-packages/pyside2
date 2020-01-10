@@ -6,9 +6,8 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/global.h.in"
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/__init__.py.in"
                "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" @ONLY)
-
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/_config.py.in"
-              "${CMAKE_CURRENT_BINARY_DIR}/_config.py" @ONLY)
+               "${CMAKE_CURRENT_BINARY_DIR}/_config.py" @ONLY)
 
 # Use absolute path instead of relative path, to avoid ninja build errors due to
 # duplicate file dependency inconsistency.
@@ -38,28 +37,17 @@ endif()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/support/__init__.py"
                "${CMAKE_CURRENT_BINARY_DIR}/support/__init__.py" COPYONLY)
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/support/signature/__init__.py"
-               "${CMAKE_CURRENT_BINARY_DIR}/support/signature/__init__.py" COPYONLY)
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/support/signature/loader.py"
-               "${CMAKE_CURRENT_BINARY_DIR}/support/signature/loader.py" COPYONLY)
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/support/signature/mapping.py"
-               "${CMAKE_CURRENT_BINARY_DIR}/support/signature/mapping.py" COPYONLY)
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/support/signature/parser.py"
-               "${CMAKE_CURRENT_BINARY_DIR}/support/signature/parser.py" COPYONLY)
-if (PYTHON_VERSION_MAJOR EQUAL 3)
-else()
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/support/signature/backport_inspect.py"
-                   "${CMAKE_CURRENT_BINARY_DIR}/support/signature/backport_inspect.py" COPYONLY)
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/support/signature/typing27.py"
-                   "${CMAKE_CURRENT_BINARY_DIR}/support/signature/typing.py" COPYONLY)
-endif()
 
 # now compile all modules.
 file(READ "${CMAKE_CURRENT_BINARY_DIR}/pyside2_global.h" pyside2_global_contents)
 
 foreach(shortname IN LISTS all_module_shortnames)
     set(name "Qt5${shortname}")
-    HAS_QT_MODULE(${name}_FOUND Qt${shortname})
+    set(_qt_module_name "${name}")
+    if ("${shortname}" STREQUAL "OpenGLFunctions")
+        set(_qt_module_name "Qt5Gui")
+    endif()
+    HAS_QT_MODULE(${_qt_module_name}_FOUND Qt${shortname})
 
     # Create a module header consisting of pyside2_global.h and the module
     # include. Note: The contents of pyside2_global.h must be copied instead of
@@ -75,7 +63,7 @@ foreach(shortname IN LISTS all_module_shortnames)
     endif()
     set(module_header_content "${module_header_content}\n${pyside2_global_contents}")
     # AxContainer/AxServer from Active Qt do not have module headers
-    if(NOT "${shortname}" STREQUAL "AxContainer")
+    if(NOT "${shortname}" STREQUAL "AxContainer" AND NOT "${shortname}" STREQUAL "OpenGLFunctions")
         set(module_header_content "${module_header_content}\n#include <Qt${shortname}/Qt${shortname}>")
     endif()
     set(post_header "${CMAKE_CURRENT_BINARY_DIR}/Qt${shortname}/Qt${shortname}_global.post.h")
@@ -93,8 +81,21 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/_config.py"
         DESTINATION "${PYTHON_SITE_PACKAGES}/${BINDING_NAME}${pyside2_SUFFIX}")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/_git_pyside_version.py"
         DESTINATION "${PYTHON_SITE_PACKAGES}/${BINDING_NAME}${pyside2_SUFFIX}")
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/typesystem_templates.xml
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/templates/core_common.xml
+        DESTINATION share/PySide2${pyside_SUFFIX}/typesystems)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/templates/gui_common.xml
+        DESTINATION share/PySide2${pyside_SUFFIX}/typesystems)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/templates/widgets_common.xml
+        DESTINATION share/PySide2${pyside_SUFFIX}/typesystems)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/templates/datavisualization_common.xml
+        DESTINATION share/PySide2${pyside_SUFFIX}/typesystems)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/templates/opengl_common.xml
+        DESTINATION share/PySide2${pyside_SUFFIX}/typesystems)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/templates/openglfunctions_common.xml
+        DESTINATION share/PySide2${pyside_SUFFIX}/typesystems)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/templates/webkitwidgets_common.xml
+        DESTINATION share/PySide2${pyside_SUFFIX}/typesystems)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/templates/xml_common.xml
         DESTINATION share/PySide2${pyside_SUFFIX}/typesystems)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pyside2_global.h
         DESTINATION include/${BINDING_NAME}${pyside2_SUFFIX})
-

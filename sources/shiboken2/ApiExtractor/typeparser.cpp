@@ -49,13 +49,14 @@ public:
         GreaterThanToken,
 
         ConstToken,
+        VolatileToken,
         Identifier,
         NoToken,
         InvalidToken
     };
 
     Scanner(const QString &s)
-            : m_pos(0), m_length(s.length()), m_chars(s.constData())
+            : m_pos(0), m_length(s.length()), m_tokenStart(-1), m_chars(s.constData())
     {
     }
 
@@ -137,13 +138,30 @@ Scanner::Token Scanner::nextToken(QString *errorMessage)
         }
     }
 
-    if (tok == Identifier && m_pos - m_tokenStart == 5) {
-        if (m_chars[m_tokenStart] == QLatin1Char('c')
-            && m_chars[m_tokenStart + 1] == QLatin1Char('o')
-            && m_chars[m_tokenStart + 2] == QLatin1Char('n')
-            && m_chars[m_tokenStart + 3] == QLatin1Char('s')
-            && m_chars[m_tokenStart + 4] == QLatin1Char('t'))
-            tok = ConstToken;
+    if (tok == Identifier) {
+        switch (m_pos - m_tokenStart) {
+        case 5:
+            if (m_chars[m_tokenStart] == QLatin1Char('c')
+                && m_chars[m_tokenStart + 1] == QLatin1Char('o')
+                && m_chars[m_tokenStart + 2] == QLatin1Char('n')
+                && m_chars[m_tokenStart + 3] == QLatin1Char('s')
+                && m_chars[m_tokenStart + 4] == QLatin1Char('t')) {
+                tok = ConstToken;
+            }
+                break;
+        case 8:
+            if (m_chars[m_tokenStart] == QLatin1Char('v')
+                && m_chars[m_tokenStart + 1] == QLatin1Char('o')
+                && m_chars[m_tokenStart + 2] == QLatin1Char('l')
+                && m_chars[m_tokenStart + 3] == QLatin1Char('a')
+                && m_chars[m_tokenStart + 4] == QLatin1Char('t')
+                && m_chars[m_tokenStart + 5] == QLatin1Char('i')
+                && m_chars[m_tokenStart + 6] == QLatin1Char('l')
+                && m_chars[m_tokenStart + 7] == QLatin1Char('e')) {
+                tok = VolatileToken;
+            }
+            break;
+        }
     }
 
     return tok;
@@ -167,6 +185,7 @@ TypeInfo TypeParser::parse(const QString &str, QString *errorMessage)
     bool colon_prefix = false;
     bool in_array = false;
     QString array;
+    bool seenStar = false;
 
     Scanner::Token tok = scanner.nextToken(errorMessage);
     while (tok != Scanner::NoToken) {
@@ -191,7 +210,8 @@ TypeInfo TypeParser::parse(const QString &str, QString *errorMessage)
         switch (tok) {
 
         case Scanner::StarToken:
-            ++stack.top()->m_indirections;
+            seenStar = true;
+            stack.top()->addIndirection(Indirection::Pointer);
             break;
 
         case Scanner::AmpersandToken:
@@ -212,14 +232,14 @@ TypeInfo TypeParser::parse(const QString &str, QString *errorMessage)
             }
             break;
         case Scanner::LessThanToken:
-            stack.top()->m_arguments << TypeInfo();
-            stack.push(&stack.top()->m_arguments.last());
+            stack.top()->m_instantiations << TypeInfo();
+            stack.push(&stack.top()->m_instantiations.last());
             break;
 
         case Scanner::CommaToken:
             stack.pop();
-            stack.top()->m_arguments << TypeInfo();
-            stack.push(&stack.top()->m_arguments.last());
+            stack.top()->m_instantiations << TypeInfo();
+            stack.push(&stack.top()->m_instantiations.last());
             break;
 
         case Scanner::GreaterThanToken:
@@ -231,7 +251,16 @@ TypeInfo TypeParser::parse(const QString &str, QString *errorMessage)
             break;
 
         case Scanner::ConstToken:
-            stack.top()->m_constant = true;
+            if (seenStar) { // "int *const": Last indirection is const.
+                Q_ASSERT(!stack.top()->m_indirections.isEmpty());
+                *stack.top()->m_indirections.rbegin() = Indirection::ConstPointer;
+            } else {
+                stack.top()->m_constant = true;
+            }
+            break;
+
+        case Scanner::VolatileToken:
+            stack.top()->m_volatile  = true;
             break;
 
         case Scanner::OpenParenToken: // function pointers not supported

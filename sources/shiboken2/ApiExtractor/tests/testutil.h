@@ -40,20 +40,23 @@ namespace TestUtil
 {
     static AbstractMetaBuilder *parse(const char *cppCode, const char *xmlCode,
                                       bool silent = true,
-                                      const char *apiVersion = Q_NULLPTR,
+                                      const QString &apiVersion = QString(),
                                       const QStringList &dropTypeEntries = QStringList())
     {
         ReportHandler::setSilent(silent);
         TypeDatabase* td = TypeDatabase::instance(true);
-        if (apiVersion && !td->setApiVersion(QLatin1String("*"), QLatin1String(apiVersion)))
-            return Q_NULLPTR;
+        if (apiVersion.isEmpty())
+            TypeDatabase::clearApiVersions();
+        else if (!TypeDatabase::setApiVersion(QLatin1String("*"), apiVersion))
+            return nullptr;
         td->setDropTypeEntries(dropTypeEntries);
         QBuffer buffer;
         // parse typesystem
         buffer.setData(xmlCode);
         if (!buffer.open(QIODevice::ReadOnly))
             return Q_NULLPTR;
-        td->parseFile(&buffer);
+        if (!td->parseFile(&buffer))
+            return nullptr;
         buffer.close();
         // parse C++ code
         QTemporaryFile tempSource(QDir::tempPath() + QLatin1String("/st_XXXXXX_main.cpp"));
@@ -66,7 +69,7 @@ namespace TestUtil
         arguments.append(QFile::encodeName(tempSource.fileName()));
         tempSource.write(cppCode, qint64(strlen(cppCode)));
         tempSource.close();
-        AbstractMetaBuilder *builder = new AbstractMetaBuilder;
+        auto *builder = new AbstractMetaBuilder;
         if (!builder->build(arguments)) {
             delete builder;
             return Q_NULLPTR;

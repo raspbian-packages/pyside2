@@ -31,6 +31,7 @@
 #include "testutil.h"
 #include <abstractmetalang.h>
 #include <typesystem.h>
+#include <typedatabase.h>
 
 void TestTypeRevision::testRevisionAttr()
 {
@@ -49,21 +50,55 @@ void TestTypeRevision::testRevisionAttr()
     QVERIFY(!builder.isNull());
     AbstractMetaClassList classes = builder->classes();
     const AbstractMetaClass *rev0 = AbstractMetaClass::findClass(classes, QLatin1String("Rev_0"));
-    QCOMPARE(getTypeRevision(rev0->typeEntry()), 0);
+    QCOMPARE(rev0->typeEntry()->revision(), 0);
 
     const AbstractMetaClass *rev1 = AbstractMetaClass::findClass(classes, QLatin1String("Rev_1"));
-    QCOMPARE(getTypeRevision(rev1->typeEntry()), 1);
+    QCOMPARE(rev1->typeEntry()->revision(), 1);
 
     AbstractMetaClass *rev2 = AbstractMetaClass::findClass(classes, QLatin1String("Rev_2"));
-    QCOMPARE(getTypeRevision(rev2->typeEntry()), 2);
+    QCOMPARE(rev2->typeEntry()->revision(), 2);
 
     AbstractMetaEnum* rev3 = rev2->findEnum(QLatin1String("Rev_3"));
-    QCOMPARE(getTypeRevision(rev3->typeEntry()), 3);
+    QCOMPARE(rev3->typeEntry()->revision(), 3);
     FlagsTypeEntry* rev4 = rev3->typeEntry()->flags();
-    QCOMPARE(getTypeRevision(rev4), 4);
+    QCOMPARE(rev4->revision(), 4);
     AbstractMetaEnum* rev5 = rev2->findEnum(QLatin1String("Rev_5"));
-    QCOMPARE(getTypeRevision(rev5->typeEntry()), 5);
-    QCOMPARE(getTypeRevision(rev5->typeEntry()->flags()), 5);
+    const EnumTypeEntry *revEnumTypeEntry = rev5->typeEntry();
+    QCOMPARE(revEnumTypeEntry->revision(), 5);
+    QCOMPARE(revEnumTypeEntry->flags()->revision(), 5);
+}
+
+
+void TestTypeRevision::testVersion_data()
+{
+    QTest::addColumn<QString>("version");
+    QTest::addColumn<int>("expectedClassCount");
+
+    QTest::newRow("none") << QString() << 2;
+    QTest::newRow("1.0") << QString::fromLatin1("1.0") << 1;  // Bar20 excluded
+    QTest::newRow("2.0") << QString::fromLatin1("2.0") << 2;
+}
+
+void TestTypeRevision::testVersion()
+{
+    QFETCH(QString, version);
+    QFETCH(int, expectedClassCount);
+
+    const char cppCode[] = R"CPP(
+class Bar {};
+class Bar20 {};
+)CPP";
+    const char xmlCode[] = R"XML(
+<typesystem package="Foo">
+    <value-type name="Bar"/>
+    <value-type name="Bar20" since="2.0"/>
+</typesystem>
+)XML";
+
+    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode, true, version));
+    QVERIFY(!builder.isNull());
+
+    QCOMPARE(builder->classes().size(), expectedClassCount);
 }
 
 QTEST_APPLESS_MAIN(TestTypeRevision)

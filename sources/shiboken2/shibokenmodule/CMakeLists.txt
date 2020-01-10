@@ -3,16 +3,13 @@ project(shibokenmodule)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/shibokenmodule.txt.in"
                "${CMAKE_CURRENT_BINARY_DIR}/shibokenmodule.txt" @ONLY)
 
+set(sample_SRC ${CMAKE_CURRENT_BINARY_DIR}/shiboken2/shiboken2_module_wrapper.cpp)
 
-set(sample_SRC
-${CMAKE_CURRENT_BINARY_DIR}/shiboken2/shiboken2_module_wrapper.cpp
-)
+set(shibokenmodule_TYPESYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/typesystem_shiboken.xml)
 
-set(shibokenmodule_TYPESYSTEM
-${CMAKE_CURRENT_SOURCE_DIR}/typesystem_shiboken.xml
-)
-
-add_custom_command(OUTPUT ${sample_SRC}
+add_custom_command(
+OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/mjb_rejected_classes.log"
+BYPRODUCTS ${sample_SRC}
 # Note: shiboken2 is an executable target. By not specifying its explicit
 # path, CMAKE figures it out, itself!
 # This fixes an issue with Visual Studio, see https://github.com/PySide/shiboken2/pull/11
@@ -22,22 +19,68 @@ WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 COMMENT "Running generator for 'shiboken2'..."
 )
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}
-                    ${CMAKE_SOURCE_DIR}
-                    ${SBK_PYTHON_INCLUDE_DIR}
-                    ${libshiboken_SOURCE_DIR}
-                    ${libshiboken_BINARY_DIR})
 add_library(shibokenmodule MODULE ${sample_SRC})
+target_include_directories(shibokenmodule PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+                                                  ${CMAKE_SOURCE_DIR})
 set_property(TARGET shibokenmodule PROPERTY PREFIX "")
 set_property(TARGET shibokenmodule PROPERTY OUTPUT_NAME "shiboken2${PYTHON_EXTENSION_SUFFIX}")
 
 if(WIN32)
     set_property(TARGET shibokenmodule PROPERTY SUFFIX ".pyd")
 endif()
-target_link_libraries(shibokenmodule
-                      ${SBK_PYTHON_LIBRARIES}
-                      libshiboken)
+target_link_libraries(shibokenmodule PUBLIC libshiboken)
 
-add_dependencies(shibokenmodule shiboken2)
+create_generator_target(shibokenmodule)
 
-install(TARGETS shibokenmodule DESTINATION ${PYTHON_SITE_PACKAGES})
+install(TARGETS shibokenmodule DESTINATION ${PYTHON_SITE_PACKAGES}/shiboken2)
+
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/_config.py.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/_config.py" @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/_config.py"
+        DESTINATION "${PYTHON_SITE_PACKAGES}/shiboken2")
+
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/__init__.py.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" @ONLY)
+
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/__init__.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/__init__.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/signature/__init__.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/signature/__init__.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/signature/errorhandler.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/signature/errorhandler.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/signature/layout.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/signature/layout.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/signature/loader.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/signature/loader.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/signature/mapping.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/signature/mapping.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/signature/parser.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/signature/parser.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/signature/lib/__init__.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/signature/lib/__init__.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/signature/lib/enum_sig.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/signature/lib/enum_sig.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/signature/lib/tool.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/signature/lib/tool.py" COPYONLY)
+if (PYTHON_VERSION_MAJOR EQUAL 3)
+else()
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/backport_inspect.py"
+                   "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/backport_inspect.py" COPYONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/files.dir/shibokensupport/typing27.py"
+                   "${CMAKE_CURRENT_BINARY_DIR}/files.dir/shibokensupport/typing27.py" COPYONLY)
+endif()
+install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/files.dir"
+        DESTINATION "${PYTHON_SITE_PACKAGES}/shiboken2")
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/__init__.py"
+       DESTINATION "${PYTHON_SITE_PACKAGES}/shiboken2")
+
+# Use absolute path instead of relative path, to avoid ninja build errors due to
+# duplicate file dependency inconsistency.
+set(shiboken_version_relative_path "${CMAKE_CURRENT_SOURCE_DIR}/../shiboken_version.py")
+get_filename_component(shiboken_version_path ${shiboken_version_relative_path} ABSOLUTE)
+configure_file("${shiboken_version_path}"
+               "${CMAKE_CURRENT_BINARY_DIR}/_git_shiboken_module_version.py" @ONLY)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/_git_shiboken_module_version.py"
+        DESTINATION "${PYTHON_SITE_PACKAGES}/shiboken2")

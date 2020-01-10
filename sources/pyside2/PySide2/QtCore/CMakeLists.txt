@@ -16,6 +16,7 @@ ${QtCore_GEN_DIR}/qabstracteventdispatcher_timerinfo_wrapper.cpp
 ${QtCore_GEN_DIR}/qabstracteventdispatcher_wrapper.cpp
 ${QtCore_GEN_DIR}/qabstractitemmodel_wrapper.cpp
 ${QtCore_GEN_DIR}/qabstractlistmodel_wrapper.cpp
+${QtCore_GEN_DIR}/qabstractnativeeventfilter_wrapper.cpp
 ${QtCore_GEN_DIR}/qabstractproxymodel_wrapper.cpp
 ${QtCore_GEN_DIR}/qabstractstate_wrapper.cpp
 ${QtCore_GEN_DIR}/qabstracttablemodel_wrapper.cpp
@@ -28,6 +29,15 @@ ${QtCore_GEN_DIR}/qbuffer_wrapper.cpp
 ${QtCore_GEN_DIR}/qbytearray_wrapper.cpp
 ${QtCore_GEN_DIR}/qbytearraymatcher_wrapper.cpp
 ${QtCore_GEN_DIR}/qchildevent_wrapper.cpp
+${QtCore_GEN_DIR}/qcborarray_wrapper.cpp
+${QtCore_GEN_DIR}/qcborerror_wrapper.cpp
+${QtCore_GEN_DIR}/qcbormap_wrapper.cpp
+${QtCore_GEN_DIR}/qcborparsererror_wrapper.cpp
+${QtCore_GEN_DIR}/qcborstreamreader_wrapper.cpp
+${QtCore_GEN_DIR}/qcborstringresultstring_wrapper.cpp
+${QtCore_GEN_DIR}/qcborstringresultbytearray_wrapper.cpp
+${QtCore_GEN_DIR}/qcborstreamwriter_wrapper.cpp
+${QtCore_GEN_DIR}/qcborvalue_wrapper.cpp
 ${QtCore_GEN_DIR}/qcollator_wrapper.cpp
 ${QtCore_GEN_DIR}/qcollatorsortkey_wrapper.cpp
 ${QtCore_GEN_DIR}/qcommandlineoption_wrapper.cpp
@@ -170,27 +180,36 @@ ${SPECIFIC_OS_FILES}
 ${QtCore_GEN_DIR}/qtcore_module_wrapper.cpp
 )
 
+if (Qt5Core_VERSION VERSION_EQUAL 5.13.0 OR Qt5Core_VERSION VERSION_GREATER 5.13.0)
+    list(APPEND QtCore_SRC
+         ${QtCore_GEN_DIR}/qconcatenatetablesproxymodel_wrapper.cpp
+         ${QtCore_GEN_DIR}/qtransposeproxymodel_wrapper.cpp)
+endif()
+
+set(QtCore_glue_sources
+    "${QtCore_SOURCE_DIR}/glue/qeasingcurve_glue.cpp"
+    "${QtCore_SOURCE_DIR}/glue/qeasingcurve_glue.h"
+)
+
 configure_file("${QtCore_SOURCE_DIR}/typesystem_core.xml.in"
                "${QtCore_BINARY_DIR}/typesystem_core.xml" @ONLY)
 
 set(QtCore_include_dirs ${QtCore_SOURCE_DIR}
                         ${QtCore_BINARY_DIR}
                         ${Qt5Core_INCLUDE_DIRS}
-                        ${SHIBOKEN_INCLUDE_DIR}
                         ${libpyside_SOURCE_DIR}
-                        ${SHIBOKEN_PYTHON_INCLUDE_DIR}
                         )
 set(QtCore_libraries  pyside2
-                      ${SHIBOKEN_PYTHON_LIBRARIES}
-                      ${SHIBOKEN_LIBRARY}
                       ${Qt5Core_LIBRARIES}
                       )
-create_pyside_module(QtCore
-                     QtCore_include_dirs
-                     QtCore_libraries
-                     ""
-                     QtCore_SOURCE_DIR
-                     QtCore_SRC
-                     QtCore_gluecode
-                     ${QtCore_BINARY_DIR}/typesystem_core.xml)
+
+create_pyside_module(NAME QtCore
+                     INCLUDE_DIRS QtCore_include_dirs
+                     LIBRARIES QtCore_libraries
+                     TYPESYSTEM_PATH QtCore_SOURCE_DIR
+                     SOURCES QtCore_SRC
+                     STATIC_SOURCES QtCore_gluecode
+                     TYPESYSTEM_NAME ${QtCore_BINARY_DIR}/typesystem_core.xml
+                     GLUE_SOURCES QtCore_glue_sources
+                     )
 

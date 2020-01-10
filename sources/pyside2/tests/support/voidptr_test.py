@@ -27,7 +27,7 @@
 #############################################################################
 
 import unittest
-from PySide2 import shiboken2
+import shiboken2 as shiboken
 from PySide2.support import VoidPtr
 from PySide2.QtCore import QByteArray
 
@@ -38,10 +38,27 @@ class PySide2Support(unittest.TestCase):
         # a C++ object, a wrapped Shiboken Object type,
         # an object implementing the Python Buffer interface,
         # or another VoidPtr object.
-        ba = QByteArray(b"Hello world")
-        voidptr = VoidPtr(ba)
-        self.assertIsInstance(voidptr, shiboken2.VoidPtr)
+
+        # Original content
+        b = b"Hello world"
+        ba = QByteArray(b)
+        vp = VoidPtr(ba, ba.size())
+        self.assertIsInstance(vp, shiboken.VoidPtr)
+
+        # Create QByteArray from voidptr byte interpretation
+        nba = QByteArray.fromRawData(vp.toBytes())
+        # Compare original bytes to toBytes()
+        self.assertTrue(b, vp.toBytes())
+        # Compare original with new QByteArray data
+        self.assertTrue(b, nba.data())
+        # Convert original and new to str
+        self.assertTrue(str(b), str(nba))
+
+        # Modify nba through a memoryview of vp
+        mv = memoryview(vp)
+        self.assertFalse(mv.readonly)
+        mv[6:11] = b'void*'
+        self.assertEqual(str(ba), str(b"Hello void*"))
 
 if __name__ == '__main__':
     unittest.main()
-

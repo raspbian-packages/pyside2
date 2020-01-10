@@ -143,5 +143,49 @@ class SmartPointerTests(unittest.TestCase):
         self.assertEqual(objCount(), 0)
         self.assertEqual(integerCount(), 0)
 
+    def testSmartPointersWithNamespace(self):
+        # Create the main object
+        o = Obj()
+        self.assertEqual(objCount(), 1)
+
+        # Create a shared pointer to an Integer together with an Integer.
+        ptrToInteger = o.giveSharedPtrToInteger2()
+        self.assertEqual(objCount(), 1)
+        self.assertEqual(integerCount(), 2)
+
+        integer = ptrToInteger.data()
+        self.assertTrue(integer)
+
+    def testListOfSmartPointers(self):
+        # Create the main object
+        o = Obj()
+
+        # Create a list of shared objects
+        ptrToObjList = o.giveSharedPtrToObjList(10)
+        self.assertEqual(len(ptrToObjList), 10)
+        self.assertEqual(objCount(), 11)
+
+        # Remove one from the list
+        ptrToObjList.pop()
+        self.assertEqual(len(ptrToObjList), 9)
+        self.assertEqual(objCount(), 10)
+
+        # clear and delete all objects in the list
+        ptrToObjList.clear()
+        self.assertEqual(len(ptrToObjList), 0)
+        self.assertEqual(objCount(), 1)
+
+    def testInvalidParameter(self):
+        # Create Obj.
+        o = Obj()
+        # Create a shared pointer to an Obj together with an Obj.
+        ptrToObj = o.giveSharedPtrToObj()
+        try:
+            ptrToObj.typo
+            self.assertFail()
+        except AttributeError as error:
+            self.assertEqual(error.args[0], "'smart.SharedPtr_Obj' object has no attribute 'typo'")
+
+
 if __name__ == '__main__':
     unittest.main()

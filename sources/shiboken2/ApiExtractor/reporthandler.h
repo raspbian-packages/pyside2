@@ -48,15 +48,8 @@ public:
 
     static int suppressedCount();
 
-    template <typename T>
-    static void setProgressReference(T collection)
-    {
-        setProgressReference(collection.count());
-    }
-
-    static void setProgressReference(int max);
-
-    static void progress(const QString &str, ...);
+    static void startProgress(const QByteArray &str);
+    static void endProgress();
 
     static bool isDebug(DebugLevel level)
     { return debugLevel() >= level; }
@@ -65,6 +58,8 @@ public:
     static void setSilent(bool silent);
 
     static void setPrefix(const QString &p);
+
+    static QByteArray doneMessage();
 
 private:
     static void messageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg);

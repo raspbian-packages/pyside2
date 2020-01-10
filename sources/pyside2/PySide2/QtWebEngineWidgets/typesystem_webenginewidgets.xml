@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!--
 /****************************************************************************
 **
@@ -46,6 +46,7 @@
   <load-typesystem name="QtNetwork/typesystem_network.xml" generate="no"/>
   <load-typesystem name="QtWebChannel/typesystem_webchannel.xml" generate="no"/>
   <load-typesystem name="QtWebEngineCore/typesystem_webenginecore.xml" generate="no"/>
+  <load-typesystem name="QtPrintSupport/typesystem_printsupport.xml" generate="no"/>
 
 
   <object-type name="QWebEngineCertificateError">
@@ -54,35 +55,34 @@
 
   <object-type name="QWebEngineDownloadItem">
     <enum-type name="DownloadInterruptReason"/>
-    <enum-type name="DownloadState" />
+    <enum-type name="DownloadState"/>
+    <enum-type name="DownloadType"/>
     <enum-type name="SavePageFormat"/>
   </object-type>
 
-  <!-- TODO: Deal with private constructor
-  <value-type name="QWebEngineHistory" /> -->
-
-  <object-type name="QWebEngineHistoryItem" />
+  <object-type name="QWebEngineHistory"/>
+  <value-type name="QWebEngineHistoryItem"/>
 
   <object-type name="QWebEnginePage">
-    <enum-type name="WebAction" />
+    <enum-type name="WebAction"/>
     <enum-type name="FindFlag" flags="FindFlags"/>
-    <enum-type name="WebWindowType" />
-    <enum-type name="PermissionPolicy" />
-    <enum-type name="NavigationType" />
-    <enum-type name="Feature" />
-    <enum-type name="FileSelectionMode" />
-    <enum-type name="JavaScriptConsoleMessageLevel" />
+    <enum-type name="WebWindowType"/>
+    <enum-type name="PermissionPolicy"/>
+    <enum-type name="NavigationType"/>
+    <enum-type name="Feature"/>
+    <enum-type name="FileSelectionMode"/>
+    <enum-type name="JavaScriptConsoleMessageLevel"/>
     <enum-type name="RenderProcessTerminationStatus"/>
   </object-type>
 
   <object-type name="QWebEngineProfile">
-    <enum-type name="HttpCacheType" />
-    <enum-type name="PersistentCookiesPolicy" />
+    <enum-type name="HttpCacheType"/>
+    <enum-type name="PersistentCookiesPolicy"/>
   </object-type>
 
   <value-type name="QWebEngineScript">
-    <enum-type name="InjectionPoint" />
-    <enum-type name="ScriptWorldId" />
+    <enum-type name="InjectionPoint"/>
+    <enum-type name="ScriptWorldId"/>
   </value-type>
 
   <object-type name="QWebEngineScriptCollection"/>
@@ -94,7 +94,7 @@
     <enum-type name="WebAttribute"/>
   </object-type>
 
-  <object-type name="QWebEngineView" />
+  <object-type name="QWebEngineView"/>
 
   <value-type name="QWebEngineContextMenuData">
     <enum-type name="EditFlag" flags="EditFlags" since="5.11"/>

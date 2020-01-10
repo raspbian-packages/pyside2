@@ -41,20 +41,21 @@ private:
     QString name;
 
 public:
+    Q_DISABLE_COPY(FileOut)
+
     enum State { Failure, Unchanged, Success };
 
-    FileOut(QString name);
-    ~FileOut()
-    {
-        if (!isDone)
-            done();
-    }
+    explicit FileOut(QString name);
+    ~FileOut();
+
+    QString filePath() const { return name; }
 
     State done();
     State done(QString *errorMessage);
 
-    static QString msgCannotOpenForReading(const QFile &f);
-    static QString msgCannotOpenForWriting(const QFile &f);
+    void touch() { touchFile(name); }
+
+    static void touchFile(const QString &filePath);
 
     QTextStream stream;
 

@@ -31,6 +31,37 @@
 #include "testutil.h"
 #include <abstractmetalang.h>
 #include <typesystem.h>
+#include <parser/codemodel.h>
+#include <typeparser.h>
+
+void TestAbstractMetaType::parsing_data()
+{
+    QTest::addColumn<QString>("input");
+    QTest::addColumn<QString>("output");
+    QTest::newRow("primitive")
+        << QString::fromLatin1("int") << QString::fromLatin1("int");
+    QTest::newRow("ref")
+        << QString::fromLatin1("int &") << QString::fromLatin1("int&");
+    QTest::newRow("pointer")
+        << QString::fromLatin1("int **") << QString::fromLatin1("int**");
+    QTest::newRow("const ref")
+        << QString::fromLatin1("const int &") << QString::fromLatin1("const int&");
+    QTest::newRow("const pointer")
+        << QString::fromLatin1("const int **") << QString::fromLatin1("const int**");
+    QTest::newRow("const pointer const")
+        << QString::fromLatin1("const int *const*") << QString::fromLatin1("const int*const*");
+}
+
+void TestAbstractMetaType::parsing()
+{
+    QFETCH(QString, input);
+    QFETCH(QString, output);
+    QString errorMessage;
+    const TypeInfo ti = TypeParser::parse(input, &errorMessage);
+    QVERIFY2(errorMessage.isEmpty(), qPrintable(errorMessage));
+    const QString actual = ti.toString();
+    QCOMPARE(actual, output);
+}
 
 void TestAbstractMetaType::testConstCharPtrType()
 {
@@ -54,7 +85,6 @@ void TestAbstractMetaType::testConstCharPtrType()
     QVERIFY(!rtype->isObject());
     QVERIFY(!rtype->isPrimitive()); // const char* differs from char, so it's not considered a primitive type by apiextractor
     QVERIFY(rtype->isNativePointer());
-    QVERIFY(!rtype->isQObject());
     QCOMPARE(rtype->referenceType(), NoReference);
     QVERIFY(!rtype->isValue());
     QVERIFY(!rtype->isValuePointer());
@@ -72,7 +102,8 @@ void TestAbstractMetaType::testApiVersionSupported()
         <function signature='justAtest2()' since='1.1'/>\n\
         <function signature='justAtest3()'/>\n\
     </typesystem>\n";
-    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode, false, "1.0"));
+    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode,
+                                                                false, QLatin1String("1.0")));
     QVERIFY(!builder.isNull());
 
     AbstractMetaClassList classes = builder->classes();
@@ -90,7 +121,8 @@ void TestAbstractMetaType::testApiVersionNotSupported()
     const char* xmlCode = "<typesystem package='Foo'>\n\
         <value-type name='object' since='0.1'/>\n\
     </typesystem>\n";
-    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode, true, "0.1"));
+    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode,
+                                                                true, QLatin1String("0.1")));
     QVERIFY(!builder.isNull());
 
     AbstractMetaClassList classes = builder->classes();
@@ -126,7 +158,6 @@ void TestAbstractMetaType::testCharType()
     QVERIFY(!rtype->isObject());
     QVERIFY(rtype->isPrimitive());
     QVERIFY(!rtype->isNativePointer());
-    QVERIFY(!rtype->isQObject());
     QCOMPARE(rtype->referenceType(), NoReference);
     QVERIFY(!rtype->isValue());
     QVERIFY(!rtype->isValuePointer());

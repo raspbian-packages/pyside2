@@ -43,10 +43,10 @@
 #include "sbkpython.h"
 #include "basewrapper.h"
 
-#include <list>
-#include <map>
+#include <unordered_map>
 #include <set>
 #include <string>
+#include <vector>
 
 struct SbkObject;
 struct SbkObjectType;
@@ -58,18 +58,18 @@ namespace Shiboken
     * This mapping associates a method and argument of an wrapper object with the wrapper of
     * said argument when it needs the binding to help manage its reference count.
     */
-typedef std::map<std::string, std::list<PyObject*> > RefCountMap;
+using RefCountMap = std::unordered_multimap<std::string, PyObject *> ;
 
 /// Linked list of SbkBaseWrapper pointers
-typedef std::set<SbkObject*> ChildrenList;
+using ChildrenList = std::set<SbkObject *>;
 
 /// Structure used to store information about object parent and children.
 struct ParentInfo
 {
     /// Default ctor.
-    ParentInfo() : parent(0), hasWrapperRef(false) {}
+    ParentInfo() : parent(nullptr), hasWrapperRef(false) {}
     /// Pointer to parent object.
-    SbkObject* parent;
+    SbkObject *parent;
     /// List of object children.
     ChildrenList children;
     /// has internal ref
@@ -88,7 +88,7 @@ extern "C"
 struct SbkObjectPrivate
 {
     /// Pointer to the C++ class.
-    void** cptr;
+    void ** cptr;
     /// True when Python is responsible for freeing the used memory.
     unsigned int hasOwnership : 1;
     /// This is true when the C++ class of the wrapped object has a virtual destructor AND was created by Python.
@@ -98,16 +98,16 @@ struct SbkObjectPrivate
     /// Marked as true when the object constructor was called
     unsigned int cppObjectCreated : 1;
     /// Information about the object parents and children, may be null.
-    Shiboken::ParentInfo* parentInfo;
+    Shiboken::ParentInfo *parentInfo;
     /// Manage reference count of objects that are referred to but not owned from.
-    Shiboken::RefCountMap* referredObjects;
+    Shiboken::RefCountMap *referredObjects;
 
     ~SbkObjectPrivate()
     {
         delete parentInfo;
-        parentInfo = 0;
+        parentInfo = nullptr;
         delete referredObjects;
-        referredObjects = 0;
+        referredObjects = nullptr;
     }
 };
 
@@ -121,8 +121,8 @@ struct SbkObjectPrivate
 
 struct SbkObjectTypePrivate
 {
-    SbkConverter* converter;
-    int* mi_offsets;
+    SbkConverter *converter;
+    int *mi_offsets;
     MultipleInheritanceInitFunction mi_init;
 
     /// Special cast function, null if this class doesn't have multiple inheritance.
@@ -134,15 +134,16 @@ struct SbkObjectTypePrivate
     int is_multicpp : 1;
     /// True if this type was defined by the user.
     int is_user_type : 1;
-    /// Tells is the type is a value type or an object-type, see BEHAVIOUR_* constants.
+    /// Tells is the type is a value type or an object-type, see BEHAVIOUR_ *constants.
     // TODO-CONVERTERS: to be deprecated/removed
     int type_behaviour : 2;
+    int delete_in_main_thread : 1;
     /// C++ name
-    char* original_name;
+    char *original_name;
     /// Type user data
-    void* user_data;
+    void *user_data;
     DeleteUserDataFunc d_func;
-    void (*subtype_init)(SbkObjectType*, PyObject*, PyObject*);
+    void (*subtype_init)(SbkObjectType *, PyObject *, PyObject *);
 };
 
 
@@ -150,10 +151,21 @@ struct SbkObjectTypePrivate
 
 namespace Shiboken
 {
+
+/**
+ * \internal
+ * Data required to invoke a C++ destructor
+ */
+struct DestructorEntry
+{
+    ObjectDestructor destructor;
+    void *cppInstance;
+};
+
 /**
  * Utility function used to transform a PyObject that implements sequence protocol into a std::list.
  **/
-std::list<SbkObject*> splitPyObject(PyObject* pyObj);
+std::vector<SbkObject *> splitPyObject(PyObject *pyObj);
 
 /**
 *   Visitor class used by walkOnClassHierarchy function.
@@ -161,81 +173,71 @@ std::list<SbkObject*> splitPyObject(PyObject* pyObj);
 class HierarchyVisitor
 {
 public:
-    HierarchyVisitor() : m_wasFinished(false) {}
-    virtual ~HierarchyVisitor() {}
-    virtual void visit(SbkObjectType* node) = 0;
-    virtual void done() {}
-    void finish() { m_wasFinished = true; };
-    bool wasFinished() const { return m_wasFinished; }
-private:
-    bool m_wasFinished;
+    HierarchyVisitor(const HierarchyVisitor &) = delete;
+    HierarchyVisitor(HierarchyVisitor &&) = delete;
+    HierarchyVisitor &operator=(const HierarchyVisitor &) = delete;
+    HierarchyVisitor &operator=(HierarchyVisitor &&) = delete;
+
+    HierarchyVisitor();
+    virtual ~HierarchyVisitor();
+
+    virtual bool visit(SbkObjectType *node) = 0; // return true to terminate
 };
 
 class BaseCountVisitor : public HierarchyVisitor
 {
 public:
-    BaseCountVisitor() : m_count(0) {}
-
-    void visit(SbkObjectType*)
-    {
-        m_count++;
-    }
+    bool visit(SbkObjectType *) override;
 
     int count() const { return m_count; }
+
 private:
-    int m_count;
+    int m_count = 0;
 };
 
 class BaseAccumulatorVisitor : public HierarchyVisitor
 {
 public:
-    BaseAccumulatorVisitor() {}
+    using Result = std::vector<SbkObjectType *>;
 
-    void visit(SbkObjectType* node)
-    {
-        m_bases.push_back(node);
-    }
+    bool visit(SbkObjectType *node) override;
 
-    std::list<SbkObjectType*> bases() const { return m_bases; }
+    Result bases() const { return m_bases; }
+
 private:
-    std::list<SbkObjectType*> m_bases;
+    Result m_bases;
 };
 
 class GetIndexVisitor : public HierarchyVisitor
 {
 public:
-    GetIndexVisitor(PyTypeObject* desiredType) : m_index(-1), m_desiredType(desiredType) {}
-    virtual void visit(SbkObjectType* node)
-    {
-        m_index++;
-        if (PyType_IsSubtype(reinterpret_cast<PyTypeObject*>(node), m_desiredType))
-            finish();
-    }
+    explicit GetIndexVisitor(PyTypeObject *desiredType) : m_desiredType(desiredType) {}
+
+    bool visit(SbkObjectType *node) override;
+
     int index() const { return m_index; }
 
 private:
-    int m_index;
-    PyTypeObject* m_desiredType;
+    int m_index = -1;
+    PyTypeObject *m_desiredType;
 };
 
-/// Call the destructor of each C++ object held by a Python object
-class DtorCallerVisitor : public HierarchyVisitor
+/// Collect destructors and C++ instances of each C++ object held by a Python
+/// object
+class DtorAccumulatorVisitor : public HierarchyVisitor
 {
 public:
-    DtorCallerVisitor(SbkObject* pyObj) : m_pyObj(pyObj) {}
-    void visit(SbkObjectType* node);
-    void done();
-protected:
-    std::list<std::pair<void*, SbkObjectType*> > m_ptrs;
-    SbkObject* m_pyObj;
-};
+    explicit DtorAccumulatorVisitor(SbkObject *pyObj) : m_pyObject(pyObj) {}
 
-/// Dealloc of each C++ object held by a Python object, this implies a call to the C++ object destructor
-class DeallocVisitor : public DtorCallerVisitor
-{
-public:
-    DeallocVisitor(SbkObject* pyObj) : DtorCallerVisitor(pyObj) {}
-    void done();
+    bool visit(SbkObjectType *node) override;
+
+    using DestructorEntries = std::vector<DestructorEntry>;
+
+    const DestructorEntries &entries() const { return m_entries; }
+
+private:
+    DestructorEntries m_entries;
+    SbkObject *m_pyObject;
 };
 
 /// \internal Internal function used to walk on classes inheritance trees.
@@ -244,23 +246,23 @@ public:
 *   For each pure Shiboken type found, HiearchyVisitor::visit is called and the algorithm consider
 *   all children of this type as visited.
 */
-void walkThroughClassHierarchy(PyTypeObject* currentType, HierarchyVisitor* visitor);
+bool walkThroughClassHierarchy(PyTypeObject *currentType, HierarchyVisitor *visitor);
 
-inline int getTypeIndexOnHierarchy(PyTypeObject* baseType, PyTypeObject* desiredType)
+inline int getTypeIndexOnHierarchy(PyTypeObject *baseType, PyTypeObject *desiredType)
 {
     GetIndexVisitor visitor(desiredType);
     walkThroughClassHierarchy(baseType, &visitor);
     return visitor.index();
 }
 
-inline int getNumberOfCppBaseClasses(PyTypeObject* baseType)
+inline int getNumberOfCppBaseClasses(PyTypeObject *baseType)
 {
     BaseCountVisitor visitor;
     walkThroughClassHierarchy(baseType, &visitor);
     return visitor.count();
 }
 
-inline std::list<SbkObjectType*> getCppBaseClasses(PyTypeObject* baseType)
+inline std::vector<SbkObjectType *> getCppBaseClasses(PyTypeObject *baseType)
 {
     BaseAccumulatorVisitor visitor;
     walkThroughClassHierarchy(baseType, &visitor);
@@ -273,12 +275,12 @@ namespace Object
 *   Decrements the reference counters of every object referred by self.
 *   \param self    the wrapper instance that keeps references to other objects.
 */
-void clearReferences(SbkObject* self);
+void clearReferences(SbkObject *self);
 
 /**
  * Destroy internal data
  **/
-void deallocData(SbkObject* self, bool doCleanup);
+void deallocData(SbkObject *self, bool doCleanup);
 
 } // namespace Object
 

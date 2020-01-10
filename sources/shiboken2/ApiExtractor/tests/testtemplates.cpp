@@ -28,6 +28,7 @@
 
 #include "testtemplates.h"
 #include <QtTest/QTest>
+#include <QtCore/QTextStream>
 #include <QTemporaryFile>
 #include "testutil.h"
 #include <abstractmetalang.h>
@@ -110,7 +111,7 @@ namespace Namespace {
     AbstractMetaClass* classB = AbstractMetaClass::findClass(classes, QLatin1String("B"));
     QVERIFY(classB);
     QVERIFY(!classB->baseClass());
-    QVERIFY(classB->baseClassName().isNull());
+    QVERIFY(classB->baseClassName().isEmpty());
     const AbstractMetaFunction* func = classB->findFunction(QLatin1String("foo"));
     AbstractMetaType* argType = func->arguments().first()->type();
     QCOMPARE(argType->instantiations().count(), 1);
@@ -299,7 +300,7 @@ template<SomeEnum type> struct Future {};
     AbstractMetaClass* classB = AbstractMetaClass::findClass(classes, QLatin1String("B"));
     QVERIFY(classB);
     QVERIFY(!classB->baseClass());
-    QVERIFY(classB->baseClassName().isNull());
+    QVERIFY(classB->baseClassName().isEmpty());
     // 3 functions: simple constructor, copy constructor and "method()".
     QCOMPARE(classB->functions().count(), 3);
 }
@@ -337,7 +338,7 @@ template<SomeEnum type> struct Future {};
     AbstractMetaClass* classB = AbstractMetaClass::findClass(classes, QLatin1String("Namespace::B"));
     QVERIFY(classB);
     QVERIFY(!classB->baseClass());
-    QVERIFY(classB->baseClassName().isNull());
+    QVERIFY(classB->baseClassName().isEmpty());
     // 3 functions: simple constructor, copy constructor and "method()".
     QCOMPARE(classB->functions().count(), 3);
 }
@@ -436,6 +437,124 @@ typedef Vector<int> IntVector;
     QCOMPARE(otherMethod->signature(), QLatin1String("otherMethod()"));
     QVERIFY(otherMethod->type());
     QCOMPARE(otherMethod->type()->cppSignature(), QLatin1String("Vector<int >"));
+}
+
+// Perform checks on template inheritance; a typedef of a template class
+// should result in rewritten types.
+void TestTemplates::testTemplateTypeDefs_data()
+{
+    QTest::addColumn<QString>("cpp");
+    QTest::addColumn<QString>("xml");
+
+    const char optionalClassDef[] = R"CPP(
+template<class T> // Some value type similar to std::optional
+class Optional {
+public:
+    T value() const { return m_value; }
+    operator bool() const { return m_success; }
+
+    T m_value;
+    bool m_success  = false;
+};
+)CPP";
+
+    const char xmlPrefix[] = R"XML(
+<typesystem package='Foo'>
+    <primitive-type name='int'/>
+    <primitive-type name='bool'/>
+)XML";
+
+    const char xmlOptionalDecl[] = "<value-type name='Optional' generate='no'/>\n";
+    const char xmlOptionalIntDecl[] = "<value-type name='IntOptional'/>\n";
+    const char xmlPostFix[] = "</typesystem>\n";
+
+    // Flat, global namespace
+    QString cpp;
+    QTextStream(&cpp) << optionalClassDef
+        << "typedef Optional<int> IntOptional;\n";
+    QString xml;
+    QTextStream(&xml) << xmlPrefix << xmlOptionalDecl << xmlOptionalIntDecl
+        << "<typedef-type name='XmlIntOptional' source='Optional&lt;int&gt;'/>"
+        << xmlPostFix;
+    QTest::newRow("global-namespace")
+        << cpp << xml;
+
+    // Typedef from namespace Std
+    cpp.clear();
+    QTextStream(&cpp) << "namespace Std {\n" << optionalClassDef << "}\n"
+        << "typedef Std::Optional<int> IntOptional;\n";
+    xml.clear();
+    QTextStream(&xml) << xmlPrefix
+        << "<namespace-type name='Std'>\n" << xmlOptionalDecl
+        << "</namespace-type>\n" << xmlOptionalIntDecl
+        << "<typedef-type name='XmlIntOptional' source='Std::Optional&lt;int&gt;'/>"
+        << xmlPostFix;
+    QTest::newRow("namespace-Std")
+        << cpp << xml;
+
+    // Typedef from nested class
+    cpp.clear();
+    QTextStream(&cpp) << "class Outer {\npublic:\n" << optionalClassDef << "\n};\n"
+        << "typedef Outer::Optional<int> IntOptional;\n";
+    xml.clear();
+    QTextStream(&xml) << xmlPrefix
+        << "<object-type name='Outer'>\n" << xmlOptionalDecl
+        << "</object-type>\n" << xmlOptionalIntDecl
+        << "<typedef-type name='XmlIntOptional' source='Outer::Optional&lt;int&gt;'/>"
+        << xmlPostFix;
+    QTest::newRow("nested-class")
+        << cpp << xml;
+}
+
+void TestTemplates::testTemplateTypeDefs()
+{
+    QFETCH(QString, cpp);
+    QFETCH(QString, xml);
+
+    const QByteArray cppBa = cpp.toLocal8Bit();
+    const QByteArray xmlBa = xml.toLocal8Bit();
+    QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppBa.constData(), xmlBa.constData(), true));
+    QVERIFY(!builder.isNull());
+    AbstractMetaClassList classes = builder->classes();
+
+    const AbstractMetaClass *optional = AbstractMetaClass::findClass(classes, QLatin1String("Optional"));
+    QVERIFY(optional);
+
+    // Find the typedef'ed class
+    const AbstractMetaClass *optionalInt =
+        AbstractMetaClass::findClass(classes, QLatin1String("IntOptional"));
+    QVERIFY(optionalInt);
+    QCOMPARE(optionalInt->templateBaseClass(), optional);
+
+    // Find the class typedef'ed in the typesystem XML
+    const AbstractMetaClass *xmlOptionalInt =
+        AbstractMetaClass::findClass(classes, QLatin1String("XmlIntOptional"));
+    QVERIFY(xmlOptionalInt);
+    QCOMPARE(xmlOptionalInt->templateBaseClass(), optional);
+
+    // Check whether the value() method now has an 'int' return
+    const AbstractMetaFunction *valueMethod =
+        optionalInt->findFunction(QLatin1String("value"));
+    QVERIFY(valueMethod);
+    QCOMPARE(valueMethod->type()->cppSignature(), QLatin1String("int"));
+
+    // ditto for typesystem XML
+    const AbstractMetaFunction *xmlValueMethod =
+        xmlOptionalInt->findFunction(QLatin1String("value"));
+    QVERIFY(xmlValueMethod);
+    QCOMPARE(xmlValueMethod->type()->cppSignature(), QLatin1String("int"));
+
+    // Check whether the m_value field is of type 'int'
+    const AbstractMetaField *valueField =
+        optionalInt->findField(QLatin1String("m_value"));
+    QVERIFY(valueField);
+    QCOMPARE(valueField->type()->cppSignature(), QLatin1String("int"));
+
+    // ditto for typesystem XML
+    const AbstractMetaField *xmlValueField =
+        xmlOptionalInt->findField(QLatin1String("m_value"));
+    QVERIFY(xmlValueField);
+    QCOMPARE(xmlValueField->type()->cppSignature(), QLatin1String("int"));
 }
 
 QTEST_APPLESS_MAIN(TestTemplates)

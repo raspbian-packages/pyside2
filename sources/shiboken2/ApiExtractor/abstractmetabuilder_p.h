@@ -43,6 +43,8 @@ class TypeDatabase;
 class AbstractMetaBuilderPrivate
 {
 public:
+    Q_DISABLE_COPY(AbstractMetaBuilderPrivate)
+
     AbstractMetaBuilderPrivate();
     ~AbstractMetaBuilderPrivate();
 
@@ -52,51 +54,61 @@ public:
     void traverseDom(const FileModelItem &dom);
 
     void dumpLog() const;
-    AbstractMetaClassList classesTopologicalSorted(const AbstractMetaClass *cppClass = Q_NULLPTR,
+    AbstractMetaClassList classesTopologicalSorted(const AbstractMetaClassList &classList,
                                                    const Dependencies &additionalDependencies = Dependencies()) const;
-    ScopeModelItem popScope() { return m_scopes.takeLast(); }
+    NamespaceModelItem popScope() { return m_scopes.takeLast(); }
 
-    void pushScope(ScopeModelItem item) { m_scopes << item; }
+    void pushScope(const NamespaceModelItem &item);
 
-    ScopeModelItem currentScope() const { return m_scopes.constLast(); }
+    NamespaceModelItem currentScope() const { return m_scopes.constLast(); }
 
-    AbstractMetaClass *argumentToClass(ArgumentModelItem);
+    AbstractMetaClass *argumentToClass(const ArgumentModelItem &,
+                                       AbstractMetaClass *currentClass);
 
-    void addAbstractMetaClass(AbstractMetaClass *cls);
+    void addAbstractMetaClass(AbstractMetaClass *cls, const _CodeModelItem *item);
     AbstractMetaClass *traverseTypeDef(const FileModelItem &dom,
-                                       const TypeDefModelItem &typeDef);
+                                       const TypeDefModelItem &typeDef,
+                                       AbstractMetaClass *currentClass);
+    void traverseTypesystemTypedefs();
     AbstractMetaClass *traverseClass(const FileModelItem &dom,
-                                     const ClassModelItem &item);
-    AbstractMetaClass *currentTraversedClass(ScopeModelItem item);
-    void traverseScopeMembers(ScopeModelItem item, AbstractMetaClass *metaClass);
-    void traverseClassMembers(ClassModelItem scopeItem);
-    void traverseNamespaceMembers(NamespaceModelItem scopeItem);
+                                     const ClassModelItem &item,
+                                     AbstractMetaClass *currentClass);
+    void traverseScopeMembers(const ScopeModelItem &item, AbstractMetaClass *metaClass);
+    void traverseClassMembers(const ClassModelItem &scopeItem);
+    void traverseNamespaceMembers(const NamespaceModelItem &scopeItem);
     bool setupInheritance(AbstractMetaClass *metaClass);
     AbstractMetaClass *traverseNamespace(const FileModelItem &dom,
                                          const NamespaceModelItem &item);
-    AbstractMetaEnum *traverseEnum(EnumModelItem item, AbstractMetaClass *enclosing,
+    AbstractMetaEnum *traverseEnum(const EnumModelItem &item, AbstractMetaClass *enclosing,
                                    const QSet<QString> &enumsDeclarations);
-    void traverseEnums(ScopeModelItem item, AbstractMetaClass *parent,
+    void traverseEnums(const ScopeModelItem &item, AbstractMetaClass *parent,
                        const QStringList &enumsDeclarations);
     AbstractMetaFunctionList classFunctionList(const ScopeModelItem &scopeItem,
-                                               bool *constructorRejected);
+                                               AbstractMetaClass::Attributes *constructorAttributes,
+                                               AbstractMetaClass *currentClass);
     AbstractMetaFunctionList templateClassFunctionList(const ScopeModelItem &scopeItem,
                                                        AbstractMetaClass *metaClass,
                                                        bool *constructorRejected);
     void traverseFunctions(ScopeModelItem item, AbstractMetaClass *parent);
     void applyFunctionModifications(AbstractMetaFunction* func);
-    void traverseFields(ScopeModelItem item, AbstractMetaClass *parent);
-    void traverseStreamOperator(FunctionModelItem functionItem);
-    void traverseOperatorFunction(FunctionModelItem item);
-    AbstractMetaFunction* traverseFunction(const AddedFunction &addedFunc);
-    AbstractMetaFunction* traverseFunction(const AddedFunction &addedFunc,
+    void traverseFields(const ScopeModelItem &item, AbstractMetaClass *parent);
+    void traverseStreamOperator(const FunctionModelItem &functionItem,
+                                AbstractMetaClass *currentClass);
+    void traverseOperatorFunction(const FunctionModelItem &item,
+                                  AbstractMetaClass *currentClass);
+    AbstractMetaFunction* traverseFunction(const AddedFunctionPtr &addedFunc);
+    AbstractMetaFunction* traverseFunction(const AddedFunctionPtr &addedFunc,
                                            AbstractMetaClass *metaClass);
-    AbstractMetaFunction *traverseFunction(FunctionModelItem function);
-    AbstractMetaField *traverseField(VariableModelItem field,
-                                     const AbstractMetaClass *cls);
+    AbstractMetaFunction *traverseFunction(const FunctionModelItem &function,
+                                           AbstractMetaClass *currentClass);
+    AbstractMetaField *traverseField(const VariableModelItem &field,
+                                     AbstractMetaClass *cls);
     void checkFunctionModifications();
-    void registerHashFunction(FunctionModelItem functionItem);
-    void registerToStringCapability(FunctionModelItem functionItem);
+    void registerHashFunction(const FunctionModelItem &functionItem,
+                              AbstractMetaClass *currentClass);
+    void registerToStringCapabilityIn(const NamespaceModelItem &namespaceItem);
+    void registerToStringCapability(const FunctionModelItem &functionItem,
+                                    AbstractMetaClass *currentClass);
 
     /**
      *   A conversion operator function should not have its owner class as
@@ -118,12 +130,20 @@ public:
     void setupFunctionDefaults(AbstractMetaFunction *metaFunction,
                                AbstractMetaClass *metaClass);
 
-    QString fixDefaultValue(ArgumentModelItem item, AbstractMetaType *type,
+    QString fixDefaultValue(const ArgumentModelItem &item, AbstractMetaType *type,
                             AbstractMetaFunction *fnc, AbstractMetaClass *,
                             int argumentIndex);
     AbstractMetaType *translateType(const AddedFunction::TypeInfo &typeInfo);
     AbstractMetaType *translateType(const TypeInfo &type,
-                                    bool resolveType = true);
+                                    AbstractMetaClass *currentClass,
+                                    bool resolveType = true,
+                                    QString *errorMessage = nullptr);
+    static AbstractMetaType *translateTypeStatic(const TypeInfo &type,
+                                                 AbstractMetaClass *current,
+                                                 AbstractMetaBuilderPrivate *d = nullptr,
+                                                 bool resolveType = true,
+                                                 QString *errorMessageIn = nullptr);
+
     qint64 findOutValueFromString(const QString &stringValue, bool &ok);
 
     AbstractMetaClass *findTemplateClass(const QString& name, const AbstractMetaClass *context,
@@ -135,22 +155,16 @@ public:
     bool inheritTemplate(AbstractMetaClass *subclass,
                          const AbstractMetaClass *templateClass,
                          const TypeInfo &info);
-    AbstractMetaType *inheritTemplateType(const QVector<AbstractMetaType *> &templateTypes,
-                                          const AbstractMetaType *metaType,
-                                          bool *ok = Q_NULLPTR);
+    AbstractMetaType *inheritTemplateType(const AbstractMetaTypeList &templateTypes,
+                                          const AbstractMetaType *metaType);
 
     bool isQObject(const FileModelItem &dom, const QString &qualifiedName);
     bool isEnum(const FileModelItem &dom, const QStringList &qualifiedName);
-
-    void fixQObjectForScope(const FileModelItem &dom, const TypeDatabase *types,
-                            const NamespaceModelItem &item);
 
     void sortLists();
     AbstractMetaArgumentList reverseList(const AbstractMetaArgumentList &list);
     void setInclude(TypeEntry *te, const QString &fileName) const;
     void fixArgumentNames(AbstractMetaFunction *func, const FunctionModificationList &mods);
-    bool setArrayArgumentType(AbstractMetaFunction *func,
-                              const FunctionModelItem &functionItem, int i);
 
     void fillAddedFunctions(AbstractMetaClass *metaClass);
 
@@ -158,32 +172,28 @@ public:
     AbstractMetaClassList m_metaClasses;
     AbstractMetaClassList m_templates;
     AbstractMetaClassList m_smartPointers;
+    QHash<const _CodeModelItem *, AbstractMetaClass *> m_itemToClass;
     AbstractMetaFunctionList m_globalFunctions;
     AbstractMetaEnumList m_globalEnums;
 
-    QSet<const TypeEntry *> m_usedTypes;
-
-    typedef QMap<QString, AbstractMetaBuilder::RejectReason> RejectMap;
+    using RejectMap = QMap<QString, AbstractMetaBuilder::RejectReason>;
 
     RejectMap m_rejectedClasses;
     RejectMap m_rejectedEnums;
     RejectMap m_rejectedFunctions;
     RejectMap m_rejectedFields;
 
-    QList<AbstractMetaEnum *> m_enums;
+    QHash<const TypeEntry *, AbstractMetaEnum *> m_enums;
 
-    QList<QPair<AbstractMetaArgument *, AbstractMetaFunction *> > m_enumDefaultArguments;
-
-    QHash<QString, AbstractMetaEnumValue *> m_enumValues;
-
-    AbstractMetaClass *m_currentClass;
-    QList<ScopeModelItem> m_scopes;
-    QString m_namespacePrefix;
+    QList<NamespaceModelItem> m_scopes;
 
     QSet<AbstractMetaClass *> m_setupInheritanceDone;
 
     QString m_logDirectory;
     QFileInfo m_globalHeader;
+    QStringList m_headerPaths;
+    mutable QHash<QString, Include> m_resolveIncludeHash;
+    bool m_skipDeprecated = false;
 };
 
 #endif // ABSTRACTMETBUILDER_P_H

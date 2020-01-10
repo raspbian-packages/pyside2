@@ -32,20 +32,21 @@
 #include "abstractmetalang_typedefs.h"
 
 #include <QtCore/QString>
-
-QT_BEGIN_NAMESPACE
-class QDomDocument;
-class QDomNode;
-class QXmlQuery;
-QT_END_NAMESPACE
+#include <QtCore/QSharedPointer>
 
 class AbstractMetaClass;
 class DocModification;
 class Documentation;
 
+class XQuery;
+
 class DocParser
 {
 public:
+    Q_DISABLE_COPY(DocParser)
+
+    using XQueryPtr = QSharedPointer<XQuery>;
+
     DocParser();
     virtual ~DocParser();
     virtual void fillDocumentation(AbstractMetaClass* metaClass) = 0;
@@ -114,37 +115,19 @@ public:
     static bool skipForQuery(const AbstractMetaFunction *func);
 
 protected:
-    QString getDocumentation(QXmlQuery& xquery, const QString& query,
+    QString getDocumentation(const XQueryPtr &xquery, const QString& query,
                              const DocModificationList& mods) const;
 
 
     static AbstractMetaFunctionList documentableFunctions(const AbstractMetaClass *metaClass);
-
-    static QString msgCannotFindDocumentation(const QString &fileName,
-                                              const char *what, const QString &name,
-                                              const QString &query);
-    static QString msgCannotFindDocumentation(const QString &fileName,
-                                              const AbstractMetaClass *metaClass,
-                                              const AbstractMetaFunction *function,
-                                              const QString &query);
-    static QString msgCannotFindDocumentation(const QString &fileName,
-                                              const AbstractMetaClass *metaClass,
-                                              const AbstractMetaEnum *e,
-                                              const QString &query);
-    static QString msgCannotFindDocumentation(const QString &fileName,
-                                              const AbstractMetaClass *metaClass,
-                                              const AbstractMetaField *f,
-                                              const QString &query);
 
 private:
     QString m_packageName;
     QString m_docDataDir;
     QString m_libSourceDir;
 
-    QString execXQuery(QXmlQuery& xquery, const QString& query) const;
+    QString execXQuery(const XQueryPtr &xquery, const QString& query) const;
     QString applyDocModifications(const DocModificationList& mods, const QString& xml) const;
-    QString applyDocModificationsLibXsl(const DocModificationList& mods, const QString& xml) const;
-    QString applyDocModificationsQt(const DocModificationList& mods, const QString& xml) const;
 };
 
 #endif // DOCPARSER_H

@@ -36,6 +36,13 @@ using namespace std;
 namespace SampleNamespace
 {
 
+// PYSIDE-817, scoped enums must not be converted to int in the wrappers generated
+// for the protected hacks
+SomeClass::PublicScopedEnum SomeClass::protectedMethodReturningPublicScopedEnum() const
+{
+    return PublicScopedEnum::v1;
+}
+
 OutValue
 enumInEnumOut(InValue in)
 {
@@ -71,7 +78,7 @@ getNumber(Option opt)
             retval = rand() % 100;
             break;
         case UnixTime:
-            retval = (int) time(0);
+            retval = (int) time(nullptr);
             break;
         default:
             retval = 0;

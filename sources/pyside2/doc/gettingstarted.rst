@@ -2,24 +2,56 @@
 Getting Started
 ===============
 
-To get started with |project|, install the following prerequisites:
+To develop with |project|, you must install Python, Clang, and |project|.
 
-* Python v3.5 or later
-* libclang v3.9 or later
-* Optional: a virtual environment, such as `venv <https://docs.python.org/3/library/venv.html>`_ or `virtualenv <https://virtualenv.pypa.io/en/stable/installation>`_
+Preparing for the Installation
+==============================
 
-With these installed, you are ready to install the |project|
+Before you can install |project|, you must install the following software:
+
+* Python 3.5+ or 2.7
+* libclang 5.0+ (for Qt 5.11) or 6.0+ (for Qt 5.12)
+* Recommended: a virtual environment, such as `venv <https://docs.python.org/3/library/venv.html>`_ or `virtualenv <https://virtualenv.pypa.io/en/stable/installation>`_
+
+Installing |project|
+====================
+
+After you have installed the required software, you are ready to install the |project|
 packages using the pip wheel. Run the following command from your command
 prompt to install::
 
- python -m pip install --index-url=http://download.qt.io/snapshots/ci/pyside/5.11/latest pyside2 --trusted-host download.qt.io
+    pip install PySide2 # For the latest version on PyPi
+
+or::
+
+    pip install --index-url=http://download.qt.io/snapshots/ci/pyside/5.12/latest pyside2 --trusted-host download.qt.io
+
+Testing the Installation
+========================
 
 Now that you have |project| installed, you can test your setup by running the following Python
-constructs to print version information:
+constructs to print version information::
 
-.. include:: pysideversion.rst
-   :start-line: 5
-   :end-line: 32
+    import PySide2.QtCore
+
+    # Prints PySide2 version
+    # e.g. 5.11.1a1
+    print(PySide2.__version__)
+
+    # Gets a tuple with each version component
+    # e.g. (5, 11, 1, 'a', 1)
+    print(PySide2.__version_info__)
+
+    # Prints the Qt version used to compile PySide2
+    # e.g. "5.11.2"
+    print(PySide2.QtCore.__version__)
+
+    # Gets a tuple with each version components of Qt used to compile PySide2
+    # e.g. (5, 11, 2)
+    print(PySide2.QtCore.__version_info__)
+
+Creating a Simple Application
+=============================
 
 Your |project| setup is ready, so try exploring it further by developing a simple application
 that prints "Hello World" in several languages. The following instructions will
@@ -44,15 +76,11 @@ guide you through the development process:
             def __init__(self):
                 super().__init__()
 
-                self.hello = ["Hallo Welt", "你好，世界", "Hei maailma",\
-                    "Hola Mundo", "Привет мир"]
+                self.hello = ["Hallo Welt", "Hei maailma", "Hola Mundo", "Привет мир"]
 
                 self.button = QtWidgets.QPushButton("Click me!")
                 self.text = QtWidgets.QLabel("Hello World")
                 self.text.setAlignment(QtCore.Qt.AlignCenter)
-
-                self.text.setFont(QtGui.QFont("Titillium", 30))
-                self.button.setFont(QtGui.QFont("Titillium", 20))
 
                 self.layout = QtWidgets.QVBoxLayout()
                 self.layout.addWidget(self.text)

@@ -1,10 +1,102 @@
-pyside2 (5.11.2-3+rpi1) buster-staging; urgency=medium
+pyside2 (5.13.2-2.2+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
   * Fix clean target.
 
- -- Raspbian forward porter <root@raspbian.org>  Thu, 24 Jan 2019 17:32:39 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Fri, 10 Jan 2020 02:01:42 +0000
+
+pyside2 (5.13.2-2.2) unstable; urgency=medium
+
+  * Non-maintainer upload
+  * Update cmake paths for new locations
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Sun, 29 Dec 2019 22:44:55 +0100
+
+pyside2 (5.13.2-2.1) unstable; urgency=medium
+
+  * Non-maintainer upload
+  * Add an explicit shiboken dependency to fix FTBFS for reverse-dependencies
+    cmake based, who expect it being installed (Closes: #946082)
+    - thanks Tommaso Colombo for the patch
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Tue, 24 Dec 2019 09:22:39 +0100
+
+pyside2 (5.13.2-2) unstable; urgency=medium
+
+  * Do not build-depends on libqt5datavisualization5-dev on mipsel and
+    mpis64el (Closes: #945174) and limit .*qtdatavisualization binary package 
+    to arch: amd64 arm64 armel armhf i386 ppc64el s390x
+  * Limit python3-pyside2.qtwebengine to amd64 arm64 armhf i386 mipsel
+    (qtwebengine5-dev is not available for other architectures)
+  * Add a patch to blacklist failing tests 
+
+ -- Sophie Brun <sophie@freexian.com>  Fri, 22 Nov 2019 10:28:55 +0100
+
+pyside2 (5.13.2-1) unstable; urgency=medium
+
+  [ Ondřej Nový ]
+  * Remove almost all of Python 2 binary packages (no rdeps):
+     - python-pyside2.qt3dcore
+     - python-pyside2.qt3dinput
+     - python-pyside2.qt3dlogic
+     - python-pyside2.qt3drender
+     - python-pyside2.qtcharts
+     - python-pyside2.qtconcurrent
+     - python-pyside2.qthelp
+     - python-pyside2.qtlocation
+     - python-pyside2.qtmultimedia
+     - python-pyside2.qtmultimediawidgets
+     - python-pyside2.qtnetwork
+     - python-pyside2.qtpositioning
+     - python-pyside2.qtprintsupport 
+     - python-pyside2.qtqml
+     - python-pyside2.qtquick
+     - python-pyside2.qtquickwidgets
+     - python-pyside2.qtscript
+     - python-pyside2.qtscripttools
+     - python-pyside2.qtsensors
+     - python-pyside2.qtsql
+     - python-pyside2.qttest
+     - python-pyside2.qttexttospeech
+     - python-pyside2.qtwebchannel
+     - python-pyside2.qtwebenginecore
+     - python-pyside2.qtwebenginewidgets
+     - python-pyside2.qtwebsockets
+     - python-pyside2.qtx11extras
+     - python-pyside2.qtxmlpatterns
+
+  [ Sophie Brun ]
+  * Update debian/watch
+  * New upstream version 5.13.2
+  * Refresh patches and remove obsolete patches
+  * Add missing build-deps 
+  * Force pybuild to use distutils, not Cmake 
+  * Replace deprecated upstream option --jobs with --parallel 
+  * Update documentation build 
+  * Add a patch to support Python 3.8 (Closes: #942753) 
+  * Add new binary packages
+     - python3-pyside2.qtdatavisualization
+     - python3-pyside2.qtopenglfunctions
+     - python3-pyside2.qtscxml
+     - python3-pyside2.qtwebengine
+  * Update list of built files in debian/rules
+  * Switch pyside2-tools to Python3 
+  * Switch to debhelper-compat 12 
+  * Bump Standards-Version to 4.4.1 (no changes) 
+  * Update installation of python3 module shiboken2 
+  * Add autopkgtest 
+  * Add missing Conflicts/Replaces and Provides for libpyside2-* 
+  * Add a patch to use python3 in pyside2-tools 
+  * Remove disable failing test in debian/rules 
+  * Add missing depends (Closes: #943709) 
+  * Run the tests and add missing build-deps for tests
+  * Remove useless build-dep pyqt5-dev
+
+  [ Raphaël Hertzog ]
+  * Drop remaining python2 parts.
+
+ -- Sophie Brun <sophie@freexian.com>  Fri, 15 Nov 2019 10:15:57 +0100
 
 pyside2 (5.11.2-3) unstable; urgency=medium
 

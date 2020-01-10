@@ -59,21 +59,19 @@ public:
 
     struct TableCell
     {
-        short rowSpan;
-        short colSpan;
+        short rowSpan = 0;
+        short colSpan = 0;
         QString data;
 
-        TableCell(const QString& text = QString()) : rowSpan(0), colSpan(0), data(text) {}
-        TableCell(const char* text) : rowSpan(0), colSpan(0), data(QLatin1String(text)) {}
+        TableCell(const QString& text = QString()) : data(text) {}
+        TableCell(const char* text) : data(QLatin1String(text)) {}
     };
 
-    typedef QList<TableCell> TableRow;
+    using TableRow = QList<TableCell>;
     class Table : public QList<TableRow>
     {
         public:
-            Table() : m_hasHeader(false), m_normalized(false)
-            {
-            }
+            Table() = default;
 
             void enableHeader(bool enable)
             {
@@ -98,8 +96,8 @@ public:
             }
 
         private:
-            bool m_hasHeader;
-            bool m_normalized;
+            bool m_hasHeader = false;
+            bool m_normalized = false;
     };
 
     QtXmlToSphinx(QtDocGenerator* generator, const QString& doc, const QString& context = QString());
@@ -150,6 +148,7 @@ private:
     void handleUnknownTag(QXmlStreamReader& reader);
     void handleUselessTag(QXmlStreamReader& reader);
     void handleAnchorTag(QXmlStreamReader& reader);
+    void handleRstPassTroughTag(QXmlStreamReader& reader);
 
     LinkContext *handleLinkStart(const QString &type, QString ref) const;
     void handleLinkText(LinkContext *linkContext, const QString &linktext) const;
@@ -209,7 +208,7 @@ public:
 
     QString docDataDir() const { return m_docDataDir; }
 
-    bool doSetup(const QMap<QString, QString>& args) override;
+    bool doSetup() override;
 
     const char* name() const override
     {
@@ -217,15 +216,15 @@ public:
     }
 
     OptionDescriptions options() const override;
+    bool handleOption(const QString &key, const QString &value) override;
 
     QStringList codeSnippetDirs() const
     {
         return m_codeSnippetDirs;
     }
 
-    bool shouldGenerate(const AbstractMetaClass *) const override;
-
 protected:
+    bool shouldGenerate(const AbstractMetaClass *) const override;
     QString fileNameSuffix() const override;
     QString fileNameForContext(GeneratorContext &context) const override;
     void generateClass(QTextStream &s, GeneratorContext &classContext) override;
@@ -239,8 +238,9 @@ private:
 
     void writeFields(QTextStream &s, const AbstractMetaClass *cppClass);
     void writeArguments(QTextStream &s, const AbstractMetaClass *cppClass, const AbstractMetaFunction *func);
-    void writeFunctionSignature(QTextStream& s, const AbstractMetaClass* cppClass, const AbstractMetaFunction* func);
-    void writeFunction(QTextStream& s, bool writeDoc, const AbstractMetaClass* cppClass, const AbstractMetaFunction* func);
+    QString functionSignature(const AbstractMetaClass* cppClass, const AbstractMetaFunction* func);
+    void writeFunction(QTextStream& s, const AbstractMetaClass* cppClass,
+                       const AbstractMetaFunction* func);
     void writeFunctionParametersType(QTextStream &s, const AbstractMetaClass *cppClass,
                                      const AbstractMetaFunction* func);
     void writeFunctionList(QTextStream& s, const AbstractMetaClass* cppClass);

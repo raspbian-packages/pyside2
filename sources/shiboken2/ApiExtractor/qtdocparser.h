@@ -34,7 +34,7 @@
 class QtDocParser : public DocParser
 {
 public:
-    QtDocParser() {}
+    QtDocParser() = default;
     void fillDocumentation(AbstractMetaClass* metaClass) override;
     Documentation retrieveModuleDocumentation() override;
     Documentation retrieveModuleDocumentation(const QString& name) override;
@@ -45,7 +45,7 @@ private:
                                        const QString &classQuery,
                                        const  AbstractMetaFunction *func,
                                        const DocModificationList &signedModifs,
-                                       QXmlQuery &xquery,
+                                       const XQueryPtr &xquery,
                                        QString *errorMessage);
 };
 

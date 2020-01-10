@@ -2,11 +2,9 @@ project(QtGui)
 
 qt5_wrap_cpp(QPYTEXTOBJECT_MOC "${pyside2_SOURCE_DIR}/qpytextobject.h")
 
-set(QtGui_OPTIONAL_SRC)
 set(QtGui_DROPPED_ENTRIES)
 
-check_qt_class(QtGui QOpenGLTimeMonitor QtGui_OPTIONAL_SRC QtGui_DROPPED_ENTRIES)
-check_qt_class(QtGui QOpenGLTimerQuery  QtGui_OPTIONAL_SRC QtGui_DROPPED_ENTRIES)
+get_property(QtGui_enabled_features TARGET Qt5::Gui PROPERTY INTERFACE_QT_ENABLED_FEATURES)
 
 set(QtGui_SRC
 ${QtGui_GEN_DIR}/qabstractopenglfunctions_wrapper.cpp
@@ -199,6 +197,7 @@ ${QtGui_GEN_DIR}/qtouchdevice_wrapper.cpp
 ${QtGui_GEN_DIR}/qtouchevent_touchpoint_wrapper.cpp
 ${QtGui_GEN_DIR}/qtouchevent_wrapper.cpp
 ${QtGui_GEN_DIR}/qtransform_wrapper.cpp
+${QtGui_GEN_DIR}/qt_wrapper.cpp
 ${QtGui_GEN_DIR}/qvalidator_wrapper.cpp
 ${QtGui_GEN_DIR}/qvector2d_wrapper.cpp
 ${QtGui_GEN_DIR}/qvector3d_wrapper.cpp
@@ -207,10 +206,22 @@ ${QtGui_GEN_DIR}/qwhatsthisclickedevent_wrapper.cpp
 ${QtGui_GEN_DIR}/qwheelevent_wrapper.cpp
 ${QtGui_GEN_DIR}/qwindow_wrapper.cpp
 ${QtGui_GEN_DIR}/qwindowstatechangeevent_wrapper.cpp
-${QtGui_OPTIONAL_SRC}
 # module is always needed
 ${QtGui_GEN_DIR}/qtgui_module_wrapper.cpp
 )
+
+# cf qtbase/src/gui/opengl/opengl.pri
+list(FIND QtGui_enabled_features "opengles2" _opengles2Index)
+# ### fixme: For cmake >= 3.3: if(opengles2 IN_LIST QtGui_enabled_features)
+if(_opengles2Index GREATER -1)
+    list(APPEND QtGui_DROPPED_ENTRIES QOpenGLTimeMonitor QOpenGLTimerQuery)
+    message(STATUS "Qt5Gui: Dropping Desktop OpenGL classes (GLES2)")
+else()
+    list(APPEND QtGui_SRC
+         ${QtGui_GEN_DIR}/qopengltimemonitor_wrapper.cpp
+         ${QtGui_GEN_DIR}/qopengltimerquery_wrapper.cpp)
+    message(STATUS "Qt5Gui: Adding Desktop OpenGL classes")
+endif()
 
 configure_file("${QtGui_SOURCE_DIR}/typesystem_gui.xml.in"
                "${QtGui_BINARY_DIR}/typesystem_gui.xml" @ONLY)
@@ -223,28 +234,22 @@ set(QtGui_include_dirs  ${QtGui_SOURCE_DIR}
                         ${pyside2_SOURCE_DIR}
                         ${Qt5Core_INCLUDE_DIRS}
                         ${Qt5Gui_INCLUDE_DIRS}
-                        ${SHIBOKEN_INCLUDE_DIR}
                         ${libpyside_SOURCE_DIR}
-                        ${SHIBOKEN_PYTHON_INCLUDE_DIR}
                         ${QtCore_GEN_DIR}
                         )
 set(QtGui_libraries   pyside2
-                      ${SHIBOKEN_PYTHON_LIBRARIES}
-                      ${SHIBOKEN_LIBRARY}
                       ${Qt5Gui_LIBRARIES})
 set(QtGui_deps QtCore)
 
-create_pyside_module(QtGui
-                     QtGui_include_dirs
-                     QtGui_libraries
-                     QtGui_deps
-                     QtGui_SOURCE_DIR
-                     QtGui_SRC
-                     QPYTEXTOBJECT_MOC
-                     ${QtGui_BINARY_DIR}/typesystem_gui.xml
-                     ""
-                     ""
-                     QtGui_DROPPED_ENTRIES)
+create_pyside_module(NAME QtGui
+                     INCLUDE_DIRS QtGui_include_dirs
+                     LIBRARIES QtGui_libraries
+                     DEPS QtGui_deps
+                     TYPESYSTEM_PATH QtGui_SOURCE_DIR
+                     SOURCES QtGui_SRC
+                     STATIC_SOURCES QPYTEXTOBJECT_MOC
+                     TYPESYSTEM_NAME ${QtGui_BINARY_DIR}/typesystem_gui.xml
+                     DROPPED_ENTRIES QtGui_DROPPED_ENTRIES)
 
 install(FILES ${pyside2_SOURCE_DIR}/qpytextobject.h DESTINATION include/PySide2/QtGui/)
 

@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!--
 /****************************************************************************
 **
@@ -46,9 +46,9 @@
     <load-typesystem name="QtQml/typesystem_qml.xml" generate="no"/>
     <load-typesystem name="QtWidgets/typesystem_widgets.xml" generate="no"/>
 
-    
+
     <object-type name="QQuickWidget">
-        <enum-type name="ResizeMode" />
-        <enum-type name="Status" />
+        <enum-type name="ResizeMode"/>
+        <enum-type name="Status"/>
     </object-type>
 </typesystem>

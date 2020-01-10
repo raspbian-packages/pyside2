@@ -29,11 +29,15 @@
 
 
 #include "codemodel.h"
+
+#include <clangparser/clangutils.h>
+
 #include <algorithm>
 #include <functional>
 #include <iostream>
 #include <QDebug>
 #include <QDir>
+#include <QtCore/QStack>
 
 // Predicate to find an item by name in a list of QSharedPointer<Item>
 template <class T> class ModelItemNamePredicate : public std::unary_function<bool, QSharedPointer<T> >
@@ -49,9 +53,8 @@ private:
 template <class T>
 static QSharedPointer<T> findModelItem(const QVector<QSharedPointer<T> > &list, const QString &name)
 {
-    typedef typename QVector<QSharedPointer<T> >::const_iterator It;
-    const It it = std::find_if(list.begin(), list.end(), ModelItemNamePredicate<T>(name));
-    return it != list.end() ? *it : QSharedPointer<T>();
+    const auto it = std::find_if(list.cbegin(), list.cend(), ModelItemNamePredicate<T>(name));
+    return it != list.cend() ? *it : QSharedPointer<T>();
 }
 
 // ---------------------------------------------------------------------------
@@ -60,16 +63,14 @@ CodeModel::CodeModel() : m_globalNamespace(new _NamespaceModelItem(this))
 {
 }
 
-CodeModel::~CodeModel()
-{
-}
+CodeModel::~CodeModel() = default;
 
 NamespaceModelItem CodeModel::globalNamespace() const
 {
     return m_globalNamespace;
 }
 
-void CodeModel::addFile(FileModelItem item)
+void CodeModel::addFile(const FileModelItem &item)
 {
     m_files.append(item);
 }
@@ -79,37 +80,35 @@ FileModelItem CodeModel::findFile(const QString &name) const
     return findModelItem(m_files, name);
 }
 
-CodeModelItem CodeModel::findItem(const QStringList &qualifiedName, CodeModelItem scope) const
+static CodeModelItem findRecursion(const ScopeModelItem &scope,
+                                   const QStringList &qualifiedName, int segment = 0)
 {
-    for (int i = 0; i < qualifiedName.size(); ++i) {
-        // ### Extend to look for members etc too.
-        const QString &name = qualifiedName.at(i);
-
-        if (NamespaceModelItem ns = qSharedPointerDynamicCast<_NamespaceModelItem>(scope)) {
-            if (NamespaceModelItem tmp_ns = ns->findNamespace(name)) {
-                scope = tmp_ns;
-                continue;
-            }
-        }
-
-        if (ScopeModelItem ss = qSharedPointerDynamicCast<_ScopeModelItem>(scope)) {
-            if (ClassModelItem cs = ss->findClass(name)) {
-                scope = cs;
-            } else if (EnumModelItem es = ss->findEnum(name)) {
-                if (i == qualifiedName.size() - 1)
-                    return es;
-            } else if (TypeDefModelItem tp = ss->findTypeDef(name)) {
-                if (i == qualifiedName.size() - 1)
-                    return tp;
-            } else {
-                // If we don't find the name in the scope chain we
-                // need to return an empty item to indicate failure...
-                return CodeModelItem();
+    const QString &nameSegment = qualifiedName.at(segment);
+    if (segment == qualifiedName.size() - 1) { // Leaf item
+        if (ClassModelItem cs = scope->findClass(nameSegment))
+            return cs;
+        if (EnumModelItem es = scope->findEnum(nameSegment))
+            return es;
+        if (TypeDefModelItem tp = scope->findTypeDef(nameSegment))
+            return tp;
+        return CodeModelItem();
+    }
+    if (auto nestedClass = scope->findClass(nameSegment))
+        return findRecursion(nestedClass, qualifiedName, segment + 1);
+    if (auto namespaceItem = qSharedPointerDynamicCast<_NamespaceModelItem>(scope)) {
+        for (const auto &nestedNamespace : namespaceItem->namespaces()) {
+            if (nestedNamespace->name() == nameSegment) {
+                if (auto item = findRecursion(nestedNamespace, qualifiedName, segment + 1))
+                    return item;
             }
         }
     }
+    return CodeModelItem();
+}
 
-    return scope;
+CodeModelItem CodeModel::findItem(const QStringList &qualifiedName, const ScopeModelItem &scope) const
+{
+    return findRecursion(scope, qualifiedName);
 }
 
 #ifndef QT_NO_DEBUG_STREAM
@@ -140,29 +139,31 @@ TypeInfo TypeInfo::combine(const TypeInfo &__lhs, const TypeInfo &__rhs)
     __result.setVolatile(__result.isVolatile() || __rhs.isVolatile());
     if (__rhs.referenceType() > __result.referenceType())
         __result.setReferenceType(__rhs.referenceType());
-    __result.setIndirections(__result.indirections() + __rhs.indirections());
+    __result.m_indirections.append(__rhs.m_indirections);
     __result.setArrayElements(__result.arrayElements() + __rhs.arrayElements());
+    __result.m_instantiations.append(__rhs.m_instantiations);
 
     return __result;
 }
 
 bool TypeInfo::isVoid() const
 {
-    return m_indirections == 0 && m_referenceType == NoReference
+    return m_indirections.isEmpty() && m_referenceType == NoReference
         && m_arguments.isEmpty() && m_arrayElements.isEmpty()
+        && m_instantiations.isEmpty()
         && m_qualifiedName.size() == 1
         && m_qualifiedName.constFirst() == QLatin1String("void");
 }
 
-TypeInfo TypeInfo::resolveType(TypeInfo const &__type, CodeModelItem __scope)
+TypeInfo TypeInfo::resolveType(TypeInfo const &__type, const ScopeModelItem &__scope)
 {
     CodeModel *__model = __scope->model();
-    Q_ASSERT(__model != 0);
+    Q_ASSERT(__model != nullptr);
 
     return TypeInfo::resolveType(__model->findItem(__type.qualifiedName(), __scope),  __type, __scope);
 }
 
-TypeInfo TypeInfo::resolveType(CodeModelItem __item, TypeInfo const &__type, CodeModelItem __scope)
+TypeInfo TypeInfo::resolveType(CodeModelItem __item, TypeInfo const &__type, const ScopeModelItem &__scope)
 {
     // Copy the type and replace with the proper qualified name. This
     // only makes sence to do if we're actually getting a resolved
@@ -193,19 +194,76 @@ TypeInfo TypeInfo::resolveType(CodeModelItem __item, TypeInfo const &__type, Cod
     return otherType;
 }
 
+// Handler for clang::parseTemplateArgumentList() that populates
+// TypeInfo::m_instantiations
+class TypeInfoTemplateArgumentHandler :
+    public std::binary_function<void, int, const QStringRef &>
+{
+public:
+    explicit TypeInfoTemplateArgumentHandler(TypeInfo *t)
+    {
+        m_parseStack.append(t);
+    }
+
+    void operator()(int level, const QStringRef &name)
+    {
+        if (level > m_parseStack.size()) {
+            Q_ASSERT(!top()->m_instantiations.isEmpty());
+            m_parseStack.push(&top()->m_instantiations.back());
+        }
+        while (level < m_parseStack.size())
+            m_parseStack.pop();
+        TypeInfo instantiation;
+        instantiation.setQualifiedName(qualifiedName(name));
+        top()->addInstantiation(instantiation);
+   }
+
+private:
+    TypeInfo *top() const { return m_parseStack.back(); }
+
+    static QStringList qualifiedName(const QStringRef &name)
+    {
+        QStringList result;
+        const QVector<QStringRef> nameParts = name.split(QLatin1String("::"));
+        result.reserve(nameParts.size());
+        for (const QStringRef &p : nameParts)
+            result.append(p.toString());
+        return result;
+    }
+
+    QStack<TypeInfo *> m_parseStack;
+};
+
+QPair<int, int> TypeInfo::parseTemplateArgumentList(const QString &l, int from)
+{
+    return clang::parseTemplateArgumentList(l, clang::TemplateArgumentHandler(TypeInfoTemplateArgumentHandler(this)), from);
+}
+
 QString TypeInfo::toString() const
 {
     QString tmp;
-
-    tmp += m_qualifiedName.join(QLatin1String("::"));
     if (isConstant())
-        tmp += QLatin1String(" const");
+        tmp += QLatin1String("const ");
 
     if (isVolatile())
-        tmp += QLatin1String(" volatile");
+        tmp += QLatin1String("volatile ");
 
-    if (indirections())
-        tmp += QString(indirections(), QLatin1Char('*'));
+    tmp += m_qualifiedName.join(QLatin1String("::"));
+
+    if (const int instantiationCount = m_instantiations.size()) {
+        tmp += QLatin1Char('<');
+        for (int i = 0; i < instantiationCount; ++i) {
+            if (i)
+                tmp += QLatin1String(", ");
+            tmp += m_instantiations.at(i).toString();
+        }
+        if (tmp.endsWith(QLatin1Char('>')))
+            tmp += QLatin1Char(' ');
+        tmp += QLatin1Char('>');
+    }
+
+    for (Indirection i : m_indirections)
+        tmp.append(indirectionKeyword(i));
 
     switch (referenceType()) {
     case NoReference:
@@ -238,20 +296,6 @@ QString TypeInfo::toString() const
     return tmp;
 }
 
-QStringList TypeInfo::instantiationName() const
-{
-    QStringList result = m_qualifiedName;
-    if (const int argumentCount = m_arguments.size()) {
-        QString &last = result.last();
-        for (int i = 0; i < argumentCount; ++i) {
-            last += i ? QLatin1String(", ") : QLatin1String("< ");
-            last += m_arguments.at(i).toString();
-        }
-        last += QLatin1String(" >");
-    }
-    return result;
-}
-
 bool TypeInfo::operator==(const TypeInfo &other) const
 {
     if (arrayElements().count() != other.arrayElements().count())
@@ -269,7 +313,84 @@ bool TypeInfo::operator==(const TypeInfo &other) const
 
     return flags == other.flags
            && m_qualifiedName == other.m_qualifiedName
-           && (!m_functionPointer || m_arguments == other.m_arguments);
+           && (!m_functionPointer || m_arguments == other.m_arguments)
+           && m_instantiations == other.m_instantiations;
+}
+
+QString TypeInfo::indirectionKeyword(Indirection i)
+{
+    return i == Indirection::Pointer
+        ? QStringLiteral("*") : QStringLiteral("*const");
+}
+
+static inline QString constQualifier() { return QStringLiteral("const"); }
+static inline QString volatileQualifier() { return QStringLiteral("volatile"); }
+
+bool TypeInfo::stripLeadingConst(QString *s)
+{
+    return stripLeadingQualifier(constQualifier(), s);
+}
+
+bool TypeInfo::stripLeadingVolatile(QString *s)
+{
+    return stripLeadingQualifier(volatileQualifier(), s);
+}
+
+bool TypeInfo::stripLeadingQualifier(const QString &qualifier, QString *s)
+{
+    // "const int x"
+    const int qualifierSize = qualifier.size();
+    if (s->size() < qualifierSize + 1 || !s->startsWith(qualifier)
+        || !s->at(qualifierSize).isSpace()) {
+        return false;
+    }
+    s->remove(0, qualifierSize + 1);
+    while (!s->isEmpty() && s->at(0).isSpace())
+        s->remove(0, 1);
+    return true;
+}
+
+// Strip all const/volatile/*/&
+void TypeInfo::stripQualifiers(QString *s)
+{
+    stripLeadingConst(s);
+    stripLeadingVolatile(s);
+    while (s->endsWith(QLatin1Char('&')) || s->endsWith(QLatin1Char('*'))
+        || s->endsWith(QLatin1Char(' '))) {
+        s->chop(1);
+    }
+}
+
+// Helper functionality to simplify a raw standard type as returned by
+// clang_getCanonicalType() for g++ standard containers from
+// "std::__cxx11::list<int, std::allocator<int> >" or
+// "std::__1::list<int, std::allocator<int> >" -> "std::list<int>".
+
+bool TypeInfo::isStdType() const
+{
+    return m_qualifiedName.size() > 1
+        && m_qualifiedName.constFirst() == QLatin1String("std");
+}
+
+static inline bool discardStdType(const QString &name)
+{
+    return name == QLatin1String("allocator") || name == QLatin1String("less");
+}
+
+void TypeInfo::simplifyStdType()
+{
+    if (isStdType()) {
+        if (m_qualifiedName.at(1).startsWith(QLatin1String("__")))
+            m_qualifiedName.removeAt(1);
+        for (int t = m_instantiations.size() - 1; t >= 0; --t) {
+            if (m_instantiations.at(t).isStdType()) {
+                if (discardStdType(m_instantiations.at(t).m_qualifiedName.constLast()))
+                    m_instantiations.removeAt(t);
+                else
+                    m_instantiations[t].simplifyStdType();
+            }
+        }
+    }
 }
 
 #ifndef QT_NO_DEBUG_STREAM
@@ -292,8 +413,11 @@ void TypeInfo::formatDebug(QDebug &d) const
         d << ", [const]";
     if (m_volatile)
         d << ", [volatile]";
-    if (m_indirections)
-        d << ", indirections=" << m_indirections;
+    if (!m_indirections.isEmpty()) {
+        d << ", indirections=";
+        for (auto i : m_indirections)
+            d << ' ' << TypeInfo::indirectionKeyword(i);
+    }
     switch (m_referenceType) {
     case NoReference:
         break;
@@ -303,6 +427,11 @@ void TypeInfo::formatDebug(QDebug &d) const
     case RValueReference:
         d << ", [rvalref]";
         break;
+    }
+    if (!m_instantiations.isEmpty()) {
+        d << ", template<";
+        formatSequence(d, m_instantiations.begin(), m_instantiations.end());
+        d << '>';
     }
     if (m_functionPointer) {
         d << ", function ptr(";
@@ -358,9 +487,7 @@ _CodeModelItem::_CodeModelItem(CodeModel *model, const QString &name, int kind)
 {
 }
 
-_CodeModelItem::~_CodeModelItem()
-{
-}
+_CodeModelItem::~_CodeModelItem() = default;
 
 int _CodeModelItem::kind() const
 {
@@ -532,9 +659,7 @@ QDebug operator<<(QDebug d, const _CodeModelItem *t)
 #endif // !QT_NO_DEBUG_STREAM
 
 // ---------------------------------------------------------------------------
-_ClassModelItem::~_ClassModelItem()
-{
-}
+_ClassModelItem::~_ClassModelItem() = default;
 
 TemplateParameterList _ClassModelItem::templateParameters() const
 {
@@ -596,7 +721,7 @@ static void formatModelItemList(QDebug &d, const char *prefix, const List &l,
 
 void _ClassModelItem::formatDebug(QDebug &d) const
 {
-    _CodeModelItem::formatDebug(d);
+    _ScopeModelItem::formatDebug(d);
     if (!m_baseClasses.isEmpty()) {
         if (m_final)
             d << " [final]";
@@ -614,7 +739,7 @@ void _ClassModelItem::formatDebug(QDebug &d) const
 #endif // !QT_NO_DEBUG_STREAM
 
 // ---------------------------------------------------------------------------
-FunctionModelItem _ScopeModelItem::declaredFunction(FunctionModelItem item)
+FunctionModelItem _ScopeModelItem::declaredFunction(const FunctionModelItem &item)
 {
     for (const FunctionModelItem &fun : qAsConst(m_functions)) {
         if (fun->name() == item->name() && fun->isSimilar(item))
@@ -624,38 +749,46 @@ FunctionModelItem _ScopeModelItem::declaredFunction(FunctionModelItem item)
     return FunctionModelItem();
 }
 
-_ScopeModelItem::~_ScopeModelItem()
-{
-}
+_ScopeModelItem::~_ScopeModelItem() = default;
 
 void _ScopeModelItem::addEnumsDeclaration(const QString &enumsDeclaration)
 {
     m_enumsDeclarations << enumsDeclaration;
 }
 
-void _ScopeModelItem::addClass(ClassModelItem item)
+void _ScopeModelItem::addClass(const ClassModelItem &item)
 {
     m_classes.append(item);
 }
 
-void _ScopeModelItem::addFunction(FunctionModelItem item)
+void _ScopeModelItem::addFunction(const FunctionModelItem &item)
 {
     m_functions.append(item);
 }
 
-void _ScopeModelItem::addVariable(VariableModelItem item)
+void _ScopeModelItem::addVariable(const VariableModelItem &item)
 {
     m_variables.append(item);
 }
 
-void _ScopeModelItem::addTypeDef(TypeDefModelItem item)
+void _ScopeModelItem::addTypeDef(const TypeDefModelItem &item)
 {
     m_typeDefs.append(item);
 }
 
-void _ScopeModelItem::addEnum(EnumModelItem item)
+void _ScopeModelItem::addEnum(const EnumModelItem &item)
 {
     m_enums.append(item);
+}
+
+void _ScopeModelItem::appendScope(const _ScopeModelItem &other)
+{
+    m_classes += other.m_classes;
+    m_enums += other.m_enums;
+    m_typeDefs += other.m_typeDefs;
+    m_variables += other.m_variables;
+    m_functions += other.m_functions;
+    m_enumsDeclarations += other.m_enumsDeclarations;
 }
 
 #ifndef QT_NO_DEBUG_STREAM
@@ -664,12 +797,10 @@ static void formatScopeHash(QDebug &d, const char *prefix, const Hash &h,
                             const char *separator = ", ",
                             bool trailingNewLine = false)
 {
-    typedef typename Hash::ConstIterator HashIterator;
     if (!h.isEmpty()) {
         d << prefix << '[' << h.size() << "](";
-        const HashIterator begin = h.begin();
-        const HashIterator end = h.end();
-        for (HashIterator it = begin; it != end; ++it) { // Omit the names as they are repeated
+        const auto begin = h.cbegin();
+        for (auto it = begin, end = h.cend(); it != end; ++it) { // Omit the names as they are repeated
             if (it != begin)
                 d << separator;
             d << it.value().data();
@@ -770,14 +901,6 @@ _NamespaceModelItem::~_NamespaceModelItem()
 {
 }
 
-QSet<NamespaceModelItem> _NamespaceModelItem::uniqueNamespaces() const
-{
-    QSet<NamespaceModelItem> result;
-    for (const NamespaceModelItem &n : m_namespaces)
-        result.insert(n);
-    return result;
-}
-
 void _NamespaceModelItem::addNamespace(NamespaceModelItem item)
 {
     m_namespaces.append(item);
@@ -788,8 +911,12 @@ NamespaceModelItem _NamespaceModelItem::findNamespace(const QString &name) const
     return findModelItem(m_namespaces, name);
 }
 
-_FileModelItem::~_FileModelItem()
+_FileModelItem::~_FileModelItem() = default;
+
+void  _NamespaceModelItem::appendNamespace(const _NamespaceModelItem &other)
 {
+    appendScope(other);
+    m_namespaces += other.m_namespaces;
 }
 
 #ifndef QT_NO_DEBUG_STREAM
@@ -835,11 +962,9 @@ void _ArgumentModelItem::formatDebug(QDebug &d) const
 }
 #endif // !QT_NO_DEBUG_STREAM
 // ---------------------------------------------------------------------------
-_FunctionModelItem::~_FunctionModelItem()
-{
-}
+_FunctionModelItem::~_FunctionModelItem() = default;
 
-bool _FunctionModelItem::isSimilar(FunctionModelItem other) const
+bool _FunctionModelItem::isSimilar(const FunctionModelItem &other) const
 {
     if (name() != other->name())
         return false;
@@ -871,7 +996,7 @@ ArgumentList _FunctionModelItem::arguments() const
     return m_arguments;
 }
 
-void _FunctionModelItem::addArgument(ArgumentModelItem item)
+void _FunctionModelItem::addArgument(const ArgumentModelItem& item)
 {
     m_arguments.append(item);
 }
@@ -894,6 +1019,21 @@ bool _FunctionModelItem::isVariadics() const
 void _FunctionModelItem::setVariadics(bool isVariadics)
 {
     m_isVariadics = isVariadics;
+}
+
+bool _FunctionModelItem::isNoExcept() const
+{
+    return m_exceptionSpecification == ExceptionSpecification::NoExcept;
+}
+
+ExceptionSpecification _FunctionModelItem::exceptionSpecification() const
+{
+    return m_exceptionSpecification;
+}
+
+void _FunctionModelItem::setExceptionSpecification(ExceptionSpecification e)
+{
+    m_exceptionSpecification = e;
 }
 
 bool _FunctionModelItem::isDeleted() const
@@ -991,7 +1131,7 @@ void _FunctionModelItem::setInvokable(bool isInvokable)
 void _FunctionModelItem::formatDebug(QDebug &d) const
 {
     _MemberModelItem::formatDebug(d);
-    d << ", type=" << m_functionType;
+    d << ", type=" << m_functionType << ", exspec=" << int(m_exceptionSpecification);
     if (m_isDeleted)
         d << " [deleted!]";
     if (m_isInline)
@@ -1041,9 +1181,7 @@ CodeModel::AccessPolicy _EnumModelItem::accessPolicy() const
     return m_accessPolicy;
 }
 
-_EnumModelItem::~_EnumModelItem()
-{
-}
+_EnumModelItem::~_EnumModelItem() = default;
 
 void _EnumModelItem::setAccessPolicy(CodeModel::AccessPolicy accessPolicy)
 {
@@ -1055,7 +1193,7 @@ EnumeratorList _EnumModelItem::enumerators() const
     return m_enumerators;
 }
 
-void _EnumModelItem::addEnumerator(EnumeratorModelItem item)
+void _EnumModelItem::addEnumerator(const EnumeratorModelItem &item)
 {
     m_enumerators.append(item);
 }
@@ -1091,9 +1229,7 @@ void _EnumModelItem::formatDebug(QDebug &d) const
 #endif // !QT_NO_DEBUG_STREAM
 
 // ---------------------------------------------------------------------------
-_EnumeratorModelItem::~_EnumeratorModelItem()
-{
-}
+_EnumeratorModelItem::~_EnumeratorModelItem() = default;
 
 QString _EnumeratorModelItem::stringValue() const
 {
@@ -1114,9 +1250,7 @@ void _EnumeratorModelItem::formatDebug(QDebug &d) const
 #endif // !QT_NO_DEBUG_STREAM
 
 // ---------------------------------------------------------------------------
-_TemplateParameterModelItem::~_TemplateParameterModelItem()
-{
-}
+_TemplateParameterModelItem::~_TemplateParameterModelItem() = default;
 
 TypeInfo _TemplateParameterModelItem::type() const
 {
@@ -1164,9 +1298,7 @@ CodeModel::AccessPolicy _MemberModelItem::accessPolicy() const
     return m_accessPolicy;
 }
 
-_MemberModelItem::~_MemberModelItem()
-{
-}
+_MemberModelItem::~_MemberModelItem() = default;
 
 void _MemberModelItem::setAccessPolicy(CodeModel::AccessPolicy accessPolicy)
 {

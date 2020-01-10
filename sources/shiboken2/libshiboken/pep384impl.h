@@ -63,6 +63,7 @@ extern "C"
  */
 #ifdef Py_LIMITED_API
 // Why the hell is this useful debugging function not allowed?
+// BTW: When used, it breaks on Windows, intentionally!
 LIBSHIBOKEN_API void _PyObject_Dump(PyObject *);
 #endif
 
@@ -112,7 +113,7 @@ typedef struct _typeobject {
     void *X26; // iternextfunc tp_iternext;
     struct PyMethodDef *tp_methods;
     void *X28; // struct PyMemberDef *tp_members;
-    void *X29; // struct PyGetSetDef *tp_getset;
+    struct PyGetSetDef *tp_getset;
     struct _typeobject *tp_base;
     PyObject *tp_dict;
     descrgetfunc tp_descr_get;
@@ -200,7 +201,12 @@ LIBSHIBOKEN_API int Pep_GetVerboseFlag(void);
 
 LIBSHIBOKEN_API char *_PepUnicode_AsString(PyObject *);
 
+#if PY_VERSION_HEX < 0x03000000
 #define PyUnicode_GET_SIZE(op)      PyUnicode_GetSize((PyObject *)(op))
+#else
+// PyUnicode_GetSize is deprecated in favor of PyUnicode_GetLength
+#define PyUnicode_GET_SIZE(op)      PyUnicode_GetLength((PyObject *)(op))
+#endif
 
 #else
 #define _PepUnicode_AsString     PyUnicode_AsUTF8
@@ -286,7 +292,7 @@ LIBSHIBOKEN_API PyObject *PyRun_String(const char *, int, PyObject *, PyObject *
 // But this is no problem as we check it's validity for every version.
 
 #define PYTHON_BUFFER_VERSION_COMPATIBLE    (PY_VERSION_HEX >= 0x03030000 && \
-                                             PY_VERSION_HEX <  0X0307FFFF)
+                                             PY_VERSION_HEX <  0x0307FFFF)
 #if !PYTHON_BUFFER_VERSION_COMPATIBLE
 # error Please check the buffer compatibility for this python version!
 #endif
@@ -315,6 +321,7 @@ LIBSHIBOKEN_API void PyBuffer_Release(Pep_buffer *view);
 #else
 
 #define Pep_buffer                          Py_buffer
+#define PepType_AS_BUFFER(type)             ((type)->tp_as_buffer)
 
 #endif /* Py_LIMITED_API */
 
@@ -332,10 +339,11 @@ LIBSHIBOKEN_API PyObject *PepFunction_Get(PyObject *, const char *);
 #define PyFunction_Check(op)        (Py_TYPE(op) == PepFunction_TypePtr)
 #define PyFunction_GET_CODE(func)   PyFunction_GetCode(func)
 
-#define PyFunction_GetCode(func)        PepFunction_Get((PyObject *)func, "__code__")
-#define PepFunction_GetName(func)    PepFunction_Get((PyObject *)func, "__name__")
+#define PyFunction_GetCode(func)    PepFunction_Get((PyObject *)func, "__code__")
+#define PepFunction_GetName(func)   PepFunction_Get((PyObject *)func, "__name__")
 #else
-#define PepFunction_GetName(func)    (((PyFunctionObject *)func)->func_name)
+#define PepFunction_TypePtr         (&PyFunction_Type)
+#define PepFunction_GetName(func)   (((PyFunctionObject *)func)->func_name)
 #endif
 
 /*****************************************************************************
@@ -467,8 +475,15 @@ LIBSHIBOKEN_API PyObject *_Pep_PrivateMangle(PyObject *self, PyObject *name);
 
 #ifdef Py_LIMITED_API
 extern LIBSHIBOKEN_API PyTypeObject *PepStaticMethod_TypePtr;
+LIBSHIBOKEN_API PyObject *PyStaticMethod_New(PyObject *callable);
 #else
 #define PepStaticMethod_TypePtr &PyStaticMethod_Type
+#endif
+// Although not PEP specific, we resolve this similar issue, here:
+#if PY_VERSION_HEX < 0x03000000
+extern LIBSHIBOKEN_API PyTypeObject *PepMethodDescr_TypePtr;
+#else
+#define PepMethodDescr_TypePtr &PyMethodDescr_Type
 #endif
 
 /*****************************************************************************

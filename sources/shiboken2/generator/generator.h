@@ -29,6 +29,7 @@
 #ifndef GENERATOR_H
 #define GENERATOR_H
 
+#include "indentor.h"
 #include <abstractmetalang_typedefs.h>
 #include <typedatabase_typedefs.h>
 #include <dependency.h>
@@ -54,13 +55,12 @@ QT_END_NAMESPACE
 
 class PrimitiveTypeEntry;
 class ContainerTypeEntry;
-class Indentor;
 
-QTextStream& formatCode(QTextStream &s, const QString& code, Indentor &indentor);
-void verifyDirectoryFor(const QFile &file);
+QTextStream &formatCode(QTextStream &s, const QString &code, Indentor &indentor);
+void verifyDirectoryFor(const QString &file);
 
-QString getClassTargetFullName(const AbstractMetaClass* metaClass, bool includePackageName = true);
-QString getClassTargetFullName(const AbstractMetaEnum* metaEnum, bool includePackageName = true);
+QString getClassTargetFullName(const AbstractMetaClass *metaClass, bool includePackageName = true);
+QString getClassTargetFullName(const AbstractMetaEnum *metaEnum, bool includePackageName = true);
 QString getClassTargetFullName(const AbstractMetaType *metaType, bool includePackageName = true);
 QString getFilteredCppSignatureString(QString signature);
 
@@ -95,6 +95,42 @@ const int alwaysGenerateDestructor = 1;
 const int alwaysGenerateDestructor = 0;
 #endif
 
+class DefaultValue
+{
+public:
+    enum Type
+    {
+        Error,
+        Boolean,
+        CppScalar, // A C++ scalar type (int,..) specified by value()
+        Custom, // A custom constructor/expression, uses value() as is
+        DefaultConstructor, // For classes named value()
+        DefaultConstructorWithDefaultValues, // as DefaultConstructor, but can't return {} though.
+        Enum, // Enum value as specified by value()
+        Pointer, // Pointer of type value()
+        Void  // "", for return values only
+    };
+
+    explicit DefaultValue(Type t = Error, QString value = QString());
+    explicit DefaultValue(QString customValue);
+
+    bool isValid() const { return m_type != Error; }
+
+    QString returnValue() const;
+    QString initialization() const;
+    QString constructorParameter() const;
+
+    QString value() const { return m_value; }
+    void setValue(const QString &value) { m_value = value; }
+
+    Type type() const { return m_type; }
+    void setType(Type type) { m_type = type; }
+
+private:
+    Type m_type;
+    QString m_value;
+};
+
 /**
  * A GeneratorContext object contains a pointer to an AbstractMetaClass and/or a specialized
  * AbstractMetaType, for which code is currently being generated.
@@ -111,9 +147,9 @@ const int alwaysGenerateDestructor = 0;
  */
 class GeneratorContext {
 public:
-    GeneratorContext() : m_metaClass(0), m_preciseClassType(0), m_forSmartPointer(false) {}
+    GeneratorContext() = default;
     GeneratorContext(AbstractMetaClass *metaClass,
-                     const AbstractMetaType *preciseType = 0,
+                     const AbstractMetaType *preciseType = nullptr,
                      bool forSmartPointer = false)
         : m_metaClass(metaClass),
         m_preciseClassType(preciseType),
@@ -125,9 +161,9 @@ public:
     const AbstractMetaType *preciseType() const { return m_preciseClassType; }
 
 private:
-    AbstractMetaClass *m_metaClass;
-    const AbstractMetaType *m_preciseClassType;
-    bool m_forSmartPointer;
+    AbstractMetaClass *m_metaClass = nullptr;
+    const AbstractMetaType *m_preciseClassType = nullptr;
+    bool m_forSmartPointer = false;
 };
 
 /**
@@ -137,8 +173,8 @@ private:
 class Generator
 {
 public:
-    typedef QPair<QString, QString> OptionDescription;
-    typedef QVector<OptionDescription> OptionDescriptions;
+    using OptionDescription = QPair<QString, QString>;
+    using OptionDescriptions = QVector<OptionDescription>;
 
     /// Optiosn used around the generator code
     enum Option {
@@ -166,13 +202,74 @@ public:
     Generator();
     virtual ~Generator();
 
-    bool setup(const ApiExtractor& extractor, const QMap<QString, QString> args);
+    bool setup(const ApiExtractor &extractor);
 
     virtual OptionDescriptions options() const;
+    virtual bool handleOption(const QString &key, const QString &value);
 
     /// Returns the classes used to generate the binding code.
     AbstractMetaClassList classes() const;
 
+    /// Returns the output directory
+    QString outputDirectory() const;
+
+    /// Set the output directory
+    void setOutputDirectory(const QString &outDir);
+
+    /**
+     *   Start the code generation, be sure to call setClasses before callign this method.
+     *   For each class it creates a QTextStream, call the write method with the current
+     *   class and the associated text stream, then write the text stream contents if needed.
+     *   \see #write
+     */
+    bool generate();
+
+    /// Returns the license comment to be prepended to each source file generated.
+    QString licenseComment() const;
+
+    /// Sets the license comment to be prepended to each source file generated.
+    void setLicenseComment(const QString &licenseComment);
+
+    /// Returns the generator's name. Used for cosmetic purposes.
+    virtual const char *name() const = 0;
+
+    /**
+     *  Retrieves the name of the currently processed module.
+     *  While package name is a complete package idetification, e.g. 'PySide.QtCore',
+     *  a module name represents the last part of the package, e.g. 'QtCore'.
+     *  If the target language separates the modules with characters other than
+     *  dots ('.') the generator subclass must overload this method.
+     *  \return a string representing the last part of a package name
+     */
+    QString moduleName() const;
+
+    /**
+     *   Retrieves a list of constructors used in implicit conversions
+     *   available on the given type. The TypeEntry must be a value-type
+     *   or else it will return an empty list.
+     *   \param type a TypeEntry that is expected to be a value-type
+     *   \return a list of constructors that could be used as implicit converters
+     */
+    AbstractMetaFunctionList implicitConversions(const TypeEntry *type) const;
+
+    /// Convenience function for implicitConversions(const TypeEntry *type).
+    AbstractMetaFunctionList implicitConversions(const AbstractMetaType *metaType) const;
+
+    /// Check if type is a pointer.
+    static bool isPointer(const AbstractMetaType *type);
+
+    /// Tells if the type or class is an Object (or QObject) Type.
+    static bool isObjectType(const TypeEntry *type);
+    static bool isObjectType(const ComplexTypeEntry *type);
+    static bool isObjectType(const AbstractMetaType *metaType);
+    static bool isObjectType(const AbstractMetaClass *metaClass);
+
+    /// Returns true if the type is a C string (const char *).
+    static bool isCString(const AbstractMetaType *type);
+    /// Returns true if the type is a void pointer.
+    static bool isVoidPointer(const AbstractMetaType *type);
+
+protected:
     /// Returns the classes, topologically ordered, used to generate the binding code.
     ///
     /// The classes are ordered such that derived classes appear later in the list than
@@ -191,32 +288,11 @@ public:
     /// Returns all container types found by APIExtractor
     ContainerTypeEntryList containerTypes() const;
 
-    /// Returns an AbstractMetaEnum for a given EnumTypeEntry, or NULL if not found.
-    const AbstractMetaEnum* findAbstractMetaEnum(const EnumTypeEntry* typeEntry) const;
+    /// Returns an AbstractMetaEnum for a given TypeEntry that is an EnumTypeEntry, or nullptr if not found.
+    const AbstractMetaEnum *findAbstractMetaEnum(const TypeEntry *typeEntry) const;
 
-    /// Returns an AbstractMetaEnum for a given TypeEntry that is an EnumTypeEntry, or NULL if not found.
-    const AbstractMetaEnum* findAbstractMetaEnum(const TypeEntry* typeEntry) const;
-
-    /// Returns an AbstractMetaEnum for the enum related to a given FlagsTypeEntry, or NULL if not found.
-    const AbstractMetaEnum* findAbstractMetaEnum(const FlagsTypeEntry* typeEntry) const;
-
-    /// Returns an AbstractMetaEnum for a given AbstractMetaType that holds an EnumTypeEntry, or NULL if not found.
-    const AbstractMetaEnum* findAbstractMetaEnum(const AbstractMetaType* metaType) const;
-
-    /// Returns the output directory
-    QString outputDirectory() const;
-
-    /// Set the output directory
-    void setOutputDirectory(const QString &outDir);
-
-    /**
-    *   Start the code generation, be sure to call setClasses before callign this method.
-    *   For each class it creates a QTextStream, call the write method with the current
-    *   class and the associated text stream, then write the text stream contents if needed.
-    *   \see #write
-    */
-    bool generate();
-
+    /// Returns an AbstractMetaEnum for a given AbstractMetaType that holds an EnumTypeEntry, or nullptr if not found.
+    const AbstractMetaEnum *findAbstractMetaEnum(const AbstractMetaType *metaType) const;
 
     /// Generates a file for given AbstractMetaClass or AbstractMetaType (smart pointer case).
     bool generateFileForContext(GeneratorContext &context);
@@ -225,17 +301,14 @@ public:
     QString getFileNameBaseForSmartPointer(const AbstractMetaType *smartPointerType,
                                            const AbstractMetaClass *smartPointerClass) const;
 
-    /// Returns the generator's name. Used for cosmetic purposes.
-    virtual const char* name() const = 0;
-
     /// Returns true if the generator should generate any code for the TypeEntry.
-    bool shouldGenerateTypeEntry(const TypeEntry*) const;
+    bool shouldGenerateTypeEntry(const TypeEntry *) const;
 
     /// Returns true if the generator should generate any code for the AbstractMetaClass.
     virtual bool shouldGenerate(const AbstractMetaClass *) const;
 
     /// Returns the subdirectory used to write the binding code of an AbstractMetaClass.
-    virtual QString subDirectoryForClass(const AbstractMetaClass* clazz) const;
+    virtual QString subDirectoryForClass(const AbstractMetaClass *clazz) const;
 
     /**
     *   Translate metatypes to binding source format.
@@ -266,78 +339,31 @@ public:
     void replaceTemplateVariables(QString &code, const AbstractMetaFunction *func);
 
     /**
-    *   Returns the license comment to be prepended to each source file generated.
-    */
-    QString licenseComment() const;
-
-    /**
-    *   Sets the license comment to be prepended to each source file generated.
-    */
-    void setLicenseComment(const QString &licenseComment);
-
-    /**
      *   Returns the package name.
      */
     QString packageName() const;
 
-    /**
-     *  Retrieves the name of the currently processed module.
-     *  While package name is a complete package idetification, e.g. 'PySide.QtCore',
-     *  a module name represents the last part of the package, e.g. 'QtCore'.
-     *  If the target language separates the modules with characters other than
-     *  dots ('.') the generator subclass must overload this method.
-     *  \return a string representing the last part of a package name
-     */
-    virtual QString moduleName() const;
-
-    /**
-     *   Retrieves a list of constructors used in implicit conversions
-     *   available on the given type. The TypeEntry must be a value-type
-     *   or else it will return an empty list.
-     *   \param type a TypeEntry that is expected to be a value-type
-     *   \return a list of constructors that could be used as implicit converters
-     */
-    AbstractMetaFunctionList implicitConversions(const TypeEntry* type) const;
-
-    /// Convenience function for implicitConversions(const TypeEntry* type).
-    AbstractMetaFunctionList implicitConversions(const AbstractMetaType* metaType) const;
-
-    /// Check if type is a pointer.
-    static bool isPointer(const AbstractMetaType* type);
-
-    /// Tells if the type or class is an Object (or QObject) Type.
-    static bool isObjectType(const TypeEntry* type);
-    static bool isObjectType(const ComplexTypeEntry* type);
-    static bool isObjectType(const AbstractMetaType* metaType);
-    static bool isObjectType(const AbstractMetaClass* metaClass);
-
-    /// Returns true if the type is a C string (const char*).
-    static bool isCString(const AbstractMetaType* type);
-    /// Returns true if the type is a void pointer.
-    static bool isVoidPointer(const AbstractMetaType* type);
-
     // Returns the full name of the type.
-    QString getFullTypeName(const TypeEntry* type) const;
-    QString getFullTypeName(const AbstractMetaType* type) const;
-    QString getFullTypeName(const AbstractMetaClass* metaClass) const;
+    QString getFullTypeName(const TypeEntry *type) const;
+    QString getFullTypeName(const AbstractMetaType *type) const;
+    QString getFullTypeName(const AbstractMetaClass *metaClass) const;
 
     /**
      *  Returns the full qualified C++ name for an AbstractMetaType, but removing modifiers
      *  as 'const', '&', and '*' (except if the class is not derived from a template).
      *  This is useful for instantiated templates.
      */
-    QString getFullTypeNameWithoutModifiers(const AbstractMetaType* type) const;
+    QString getFullTypeNameWithoutModifiers(const AbstractMetaType *type) const;
 
     /**
      *   Tries to build a minimal constructor for the type.
      *   It will check first for a user defined default constructor.
      *   Returns a null string if it fails.
      */
-    QString minimalConstructor(const TypeEntry* type) const;
-    QString minimalConstructor(const AbstractMetaType* type) const;
-    QString minimalConstructor(const AbstractMetaClass* metaClass) const;
+    DefaultValue minimalConstructor(const TypeEntry *type) const;
+    DefaultValue minimalConstructor(const AbstractMetaType *type) const;
+    DefaultValue minimalConstructor(const AbstractMetaClass *metaClass) const;
 
-protected:
     /**
      *   Returns the file name used to write the binding code of an AbstractMetaClass/Type.
      *   \param context the GeneratorContext which contains an AbstractMetaClass or AbstractMetaType
@@ -348,7 +374,7 @@ protected:
     virtual QString fileNameForContext(GeneratorContext &context) const = 0;
 
 
-    virtual bool doSetup(const QMap<QString, QString>& args) = 0;
+    virtual bool doSetup() = 0;
 
     /**
      *   Write the bindding code for an AbstractMetaClass.
@@ -356,7 +382,7 @@ protected:
      *   \param  s   text stream to write the generated output
      *   \param  metaClass  the class that should be generated
      */
-    virtual void generateClass(QTextStream& s, GeneratorContext &classContext) = 0;
+    virtual void generateClass(QTextStream &s, GeneratorContext &classContext) = 0;
     virtual bool finishGeneration() = 0;
 
     /**
@@ -370,60 +396,26 @@ protected:
     */
     virtual QString subDirectoryForPackage(QString packageName = QString()) const;
 
-    QVector<const AbstractMetaType*> instantiatedContainers() const;
-    QVector<const AbstractMetaType*> instantiatedSmartPointers() const;
+    QVector<const AbstractMetaType *> instantiatedContainers() const;
+    QVector<const AbstractMetaType *> instantiatedSmartPointers() const;
 
     static QString getSimplifiedContainerTypeName(const AbstractMetaType *type);
     void addInstantiatedContainersAndSmartPointers(const AbstractMetaType *type,
                                                    const QString &context);
 
 private:
+    bool useEnumAsIntForProtectedHack(const AbstractMetaType *cType) const;
+
     struct GeneratorPrivate;
-    GeneratorPrivate* m_d;
-    void collectInstantiatedContainersAndSmartPointers(const AbstractMetaFunction* func);
+    GeneratorPrivate *m_d;
+    void collectInstantiatedContainersAndSmartPointers(const AbstractMetaFunction *func);
     void collectInstantiatedContainersAndSmartPointers(const AbstractMetaClass *metaClass);
     void collectInstantiatedContainersAndSmartPointers();
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(Generator::Options)
-typedef QSharedPointer<Generator> GeneratorPtr;
-typedef QVector<GeneratorPtr> Generators;
-
-/**
-* Utility class to store the identation level, use it in a QTextStream.
-*/
-class Indentor
-{
-public:
-    Indentor() : indent(0) {}
-    int indent;
-};
-
-/**
-*   Class that use the RAII idiom to set and unset the identation level.
-*/
-class Indentation
-{
-public:
-    Indentation(Indentor &indentor) : indentor(indentor)
-    {
-        indentor.indent++;
-    }
-    ~Indentation()
-    {
-        indentor.indent--;
-    }
-
-private:
-    Indentor &indentor;
-};
-
-inline QTextStream &operator <<(QTextStream &s, const Indentor &indentor)
-{
-    for (int i = 0; i < indentor.indent; ++i)
-        s << "    ";
-    return s;
-}
+using GeneratorPtr = QSharedPointer<Generator>;
+using Generators = QVector<GeneratorPtr>;
 
 #endif // GENERATOR_H
 

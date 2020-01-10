@@ -38,8 +38,9 @@
 #############################################################################
 
 major_version = "5"
-minor_version = "11"
+minor_version = "13"
 patch_version = "2"
+
 
 # For example: "a", "b", "rc"
 # (which means "alpha", "beta", "release candidate").

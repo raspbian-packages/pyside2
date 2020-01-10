@@ -144,8 +144,9 @@ static bool isSigned(CXTypeKind kind)
 
 class BuilderPrivate {
 public:
-    typedef QHash<CXCursor, ClassModelItem> CursorClassHash;
-    typedef QHash<CXCursor, TypeDefModelItem> CursorTypedefHash;
+    using CursorClassHash = QHash<CXCursor, ClassModelItem>;
+    using CursorTypedefHash = QHash<CXCursor, TypeDefModelItem>;
+    using TypeInfoHash = QHash<CXType, TypeInfo>;
 
     explicit BuilderPrivate(BaseVisitor *bv) : m_baseVisitor(bv), m_model(new CodeModel)
     {
@@ -180,9 +181,16 @@ public:
                                      CodeModel::FunctionType t = CodeModel::Normal) const;
     FunctionModelItem createMemberFunction(const CXCursor &cursor) const;
     void qualifyConstructor(const CXCursor &cursor);
+    TypeInfo createTypeInfoHelper(const CXType &type) const; // uncashed
     TypeInfo createTypeInfo(const CXType &type) const;
     TypeInfo createTypeInfo(const CXCursor &cursor) const
     { return createTypeInfo(clang_getCursorType(cursor)); }
+    void addTemplateInstantiations(const CXType &type,
+                                   QString *typeName,
+                                   TypeInfo *t) const;
+    bool addTemplateInstantiationsRecursion(const CXType &type, TypeInfo *t) const;
+
+    void addTypeDef(const CXCursor &cursor, const TypeInfo &ti);
 
     TemplateParameterModelItem createTemplateParameter(const CXCursor &cursor) const;
     TemplateParameterModelItem createNonTypeTemplateParameter(const CXCursor &cursor) const;
@@ -204,6 +212,8 @@ public:
     // (QMetaObject::Connection)
     CursorClassHash m_cursorClassHash;
     CursorTypedefHash m_cursorTypedefHash;
+
+    mutable TypeInfoHash m_typeInfoHash; // Cache type information
 
     ClassModelItem m_currentClass;
     EnumModelItem m_currentEnum;
@@ -247,6 +257,25 @@ bool BuilderPrivate::addClass(const CXCursor &cursor, CodeModel::ClassType t)
     return true;
 }
 
+static inline ExceptionSpecification exceptionSpecificationFromClang(int ce)
+{
+    switch (ce) {
+    case CXCursor_ExceptionSpecificationKind_BasicNoexcept:
+    case CXCursor_ExceptionSpecificationKind_ComputedNoexcept:
+    case CXCursor_ExceptionSpecificationKind_DynamicNone: // throw()
+        return ExceptionSpecification::NoExcept;
+    case CXCursor_ExceptionSpecificationKind_Dynamic: // throw(t1..)
+    case CXCursor_ExceptionSpecificationKind_MSAny: // throw(...)
+        return ExceptionSpecification::Throws;
+    default:
+        // CXCursor_ExceptionSpecificationKind_None,
+        // CXCursor_ExceptionSpecificationKind_Unevaluated,
+        // CXCursor_ExceptionSpecificationKind_Uninstantiated
+        break;
+    }
+    return ExceptionSpecification::Unknown;
+}
+
 FunctionModelItem BuilderPrivate::createFunction(const CXCursor &cursor,
                                                  CodeModel::FunctionType t) const
 {
@@ -256,10 +285,11 @@ FunctionModelItem BuilderPrivate::createFunction(const CXCursor &cursor,
         name = fixTypeName(name);
     FunctionModelItem result(new _FunctionModelItem(m_model, name));
     setFileName(cursor, result.data());
-    result->setType(createTypeInfo(clang_getCursorResultType(cursor)));
+    result->setType(createTypeInfoHelper(clang_getCursorResultType(cursor)));
     result->setFunctionType(t);
     result->setScope(m_scope);
     result->setStatic(clang_Cursor_getStorageClass(cursor) == CX_SC_Static);
+    result->setExceptionSpecification(exceptionSpecificationFromClang(clang_getCursorExceptionSpecificationType(cursor)));
     switch (clang_getCursorAvailability(cursor)) {
     case CXAvailability_Available:
         break;
@@ -335,7 +365,7 @@ TemplateParameterModelItem BuilderPrivate::createTemplateParameter(const CXCurso
 TemplateParameterModelItem BuilderPrivate::createNonTypeTemplateParameter(const CXCursor &cursor) const
 {
     TemplateParameterModelItem result = createTemplateParameter(cursor);
-    result->setType(createTypeInfo(cursor));
+    result->setType(createTypeInfoHelper(clang_getCursorType(cursor)));
     return result;
 }
 
@@ -359,38 +389,6 @@ struct ArrayDimensionResult
     int position;
 };
 
-static ArrayDimensionResult arrayDimensions(const QString &typeName)
-{
-    ArrayDimensionResult result;
-    result.position = typeName.indexOf(QLatin1Char('['));
-    for (int openingPos = result.position; openingPos != -1; ) {
-        const int closingPos = typeName.indexOf(QLatin1Char(']'), openingPos + 1);
-        if (closingPos == -1)
-            break;
-        result.dimensions.append(typeName.midRef(openingPos + 1, closingPos - openingPos - 1));
-        openingPos = typeName.indexOf(QLatin1Char('['), closingPos + 1);
-    }
-    return result;
-}
-
-// Array helpers: Parse "a[2][4]" into a list of dimensions or "" for none
-static QStringList parseArrayArgs(const CXType &type, QString *typeName)
-{
-    const ArrayDimensionResult dimensions = arrayDimensions(*typeName);
-    Q_ASSERT(!dimensions.dimensions.isEmpty());
-
-    QStringList result;
-    // get first dimension from clang, preferably.
-    // "a[]" is seen as pointer by Clang, set special indicator ""
-    const long long size = clang_getArraySize(type);
-    result.append(size >= 0 ? QString::number(size) : QString());
-    // Parse out remaining dimensions
-    for (int i = 1, count = dimensions.dimensions.size(); i < count; ++i)
-        result.append(dimensions.dimensions.at(i).toString());
-    typeName->truncate(dimensions.position);
-    return result;
-}
-
 // Create qualified name "std::list<std::string>" -> ("std", "list<std::string>")
 static QStringList qualifiedName(const QString &t)
 {
@@ -412,69 +410,141 @@ static QStringList qualifiedName(const QString &t)
     return result;
 }
 
-TypeInfo BuilderPrivate::createTypeInfo(const CXType &type) const
+static bool isArrayType(CXTypeKind k)
+{
+    return k == CXType_ConstantArray || k == CXType_IncompleteArray
+        || k == CXType_VariableArray || k == CXType_DependentSizedArray;
+}
+
+static bool isPointerType(CXTypeKind k)
+{
+    return k == CXType_Pointer || k == CXType_LValueReference || k == CXType_RValueReference;
+}
+
+bool BuilderPrivate::addTemplateInstantiationsRecursion(const CXType &type, TypeInfo *t) const
+{
+    // Template arguments
+    switch (type.kind) {
+    case CXType_Elaborated:
+    case CXType_Record:
+    case CXType_Unexposed:
+        if (const int numTemplateArguments = qMax(0, clang_Type_getNumTemplateArguments(type))) {
+            for (unsigned tpl = 0; tpl < unsigned(numTemplateArguments); ++tpl) {
+                const CXType argType = clang_Type_getTemplateArgumentAsType(type, tpl);
+                // CXType_Invalid is returned when hitting on a specialization
+                // of a non-type template (template <int v>).
+                if (argType.kind == CXType_Invalid)
+                    return false;
+                t->addInstantiation(createTypeInfoHelper(argType));
+            }
+        }
+        break;
+    default:
+        break;
+    }
+    return true;
+}
+
+static void dummyTemplateArgumentHandler(int, const QStringRef &) {}
+
+void BuilderPrivate::addTemplateInstantiations(const CXType &type,
+                                               QString *typeName,
+                                               TypeInfo *t) const
+{
+    // In most cases, for templates like "Vector<A>", Clang will give us the
+    // arguments by recursing down the type. However this will fail for example
+    // within template classes (for functions like the copy constructor):
+    // template <class T>
+    // class Vector {
+    //    Vector(const Vector&);
+    // };
+    // In that case, have TypeInfo parse the list from the spelling.
+    // Finally, remove the list "<>" from the type name.
+    const bool parsed = addTemplateInstantiationsRecursion(type, t)
+        && !t->instantiations().isEmpty();
+    const QPair<int, int> pos = parsed
+        ? parseTemplateArgumentList(*typeName, dummyTemplateArgumentHandler)
+        : t->parseTemplateArgumentList(*typeName);
+    if (pos.first != -1 && pos.second != -1 && pos.second > pos.first)
+        typeName->remove(pos.first, pos.second - pos.first);
+}
+
+TypeInfo BuilderPrivate::createTypeInfoHelper(const CXType &type) const
 {
     if (type.kind == CXType_Pointer) { // Check for function pointers, first.
         const CXType pointeeType = clang_getPointeeType(type);
         const int argCount = clang_getNumArgTypes(pointeeType);
         if (argCount >= 0) {
-            TypeInfo result = createTypeInfo(clang_getResultType(pointeeType));
+            TypeInfo result = createTypeInfoHelper(clang_getResultType(pointeeType));
             result.setFunctionPointer(true);
             for (int a = 0; a < argCount; ++a)
-                result.addArgument(createTypeInfo(clang_getArgType(pointeeType, unsigned(a))));
+                result.addArgument(createTypeInfoHelper(clang_getArgType(pointeeType, unsigned(a))));
             return result;
         }
     }
 
     TypeInfo typeInfo;
-    QString typeName = fixTypeName(getTypeName(type));
 
-    int indirections = 0;
-    // "int **"
-    for ( ; typeName.endsWith(QLatin1Char('*')) ; ++indirections)
-        typeName.chop(1);
-    typeInfo.setIndirections(indirections);
-    // "int &&"
-    if (typeName.endsWith(QLatin1String("&&"))) {
-        typeName.chop(2);
-        typeInfo.setReferenceType(RValueReference);
-    } else if (typeName.endsWith(QLatin1Char('&'))) { // "int &"
-        typeName.chop(1);
-        typeInfo.setReferenceType(LValueReference);
+    CXType nestedType = type;
+    for (; isArrayType(nestedType.kind); nestedType = clang_getArrayElementType(nestedType)) {
+         const long long size = clang_getArraySize(nestedType);
+         typeInfo.addArrayElement(size >= 0 ? QString::number(size) : QString());
     }
 
-    // "int [3], int[]"
-    if (type.kind == CXType_ConstantArray || type.kind == CXType_IncompleteArray
-        || type.kind == CXType_VariableArray || type.kind == CXType_DependentSizedArray) {
-         typeInfo.setArrayElements(parseArrayArgs(type, &typeName));
+    TypeInfo::Indirections indirections;
+    for (; isPointerType(nestedType.kind); nestedType = clang_getPointeeType(nestedType)) {
+        switch (nestedType.kind) {
+        case CXType_Pointer:
+            indirections.prepend(clang_isConstQualifiedType(nestedType) != 0
+                                 ? Indirection::ConstPointer : Indirection::Pointer);
+            break;
+        case CXType_LValueReference:
+            typeInfo.setReferenceType(LValueReference);
+            break;
+        case CXType_RValueReference:
+            typeInfo.setReferenceType(RValueReference);
+            break;
+        default:
+            break;
+        }
+    }
+    typeInfo.setIndirectionsV(indirections);
+
+    typeInfo.setConstant(clang_isConstQualifiedType(nestedType) != 0);
+    typeInfo.setVolatile(clang_isVolatileQualifiedType(nestedType) != 0);
+
+    QString typeName = getTypeName(nestedType);
+    while (TypeInfo::stripLeadingConst(&typeName)
+           || TypeInfo::stripLeadingVolatile(&typeName)) {
     }
 
-    bool isConstant = clang_isConstQualifiedType(type) != 0;
-    // A "char *const" parameter, is considered to be const-qualified by Clang, but
-    // not in the TypeInfo sense (corresponds to "char *" and not "const char *").
-    if (type.kind == CXType_Pointer && isConstant && typeName.endsWith(QLatin1String("const"))) {
-        typeName.chop(5);
-        typeName = typeName.trimmed();
-        isConstant = false;
-    }
-    // Clang has been observed to return false for "const int .."
-    if (!isConstant && typeName.startsWith(QLatin1String("const "))) {
-        typeName.remove(0, 6);
-        isConstant = true;
-    }
-    typeInfo.setConstant(isConstant);
-
-    // clang_isVolatileQualifiedType() returns true for "volatile int", but not for "volatile int *"
-    if (typeName.startsWith(QLatin1String("volatile "))) {
-        typeName.remove(0, 9);
-        typeInfo.setVolatile(true);
-    }
-
-    typeName = typeName.trimmed();
+    // Obtain template instantiations if the name has '<' (thus excluding
+    // typedefs like "std::string".
+    if (typeName.contains(QLatin1Char('<')))
+        addTemplateInstantiations(nestedType, &typeName, &typeInfo);
 
     typeInfo.setQualifiedName(qualifiedName(typeName));
     // 3320:CINDEX_LINKAGE int clang_getNumArgTypes(CXType T); function ptr types?
+    typeInfo.simplifyStdType();
     return typeInfo;
+}
+
+TypeInfo BuilderPrivate::createTypeInfo(const CXType &type) const
+{
+    TypeInfoHash::iterator it = m_typeInfoHash.find(type);
+    if (it == m_typeInfoHash.end())
+        it = m_typeInfoHash.insert(type, createTypeInfoHelper(type));
+    return it.value();
+}
+
+void BuilderPrivate::addTypeDef(const CXCursor &cursor, const TypeInfo &ti)
+{
+    TypeDefModelItem item(new _TypeDefModelItem(m_model, getCursorSpelling(cursor)));
+    setFileName(cursor, item.data());
+    item->setType(ti);
+    item->setScope(m_scope);
+    m_scopeStack.back()->addTypeDef(item);
+    m_cursorTypedefHash.insert(cursor, item);
 }
 
 // extract an expression from the cursor via source
@@ -575,11 +645,9 @@ static inline CXCursor definitionFromTypeRef(const CXCursor &typeRefCursor)
 template <class Item> // ArgumentModelItem, VariableModelItem
 void BuilderPrivate::qualifyTypeDef(const CXCursor &typeRefCursor, const QSharedPointer<Item> &item) const
 {
-    typedef typename CursorTypedefHash::const_iterator ConstIt;
-
     TypeInfo type = item->type();
     if (type.qualifiedName().size() == 1) { // item's type is unqualified.
-        const ConstIt it = m_cursorTypedefHash.constFind(definitionFromTypeRef(typeRefCursor));
+        const auto it = m_cursorTypedefHash.constFind(definitionFromTypeRef(typeRefCursor));
         if (it != m_cursorTypedefHash.constEnd() && !it.value()->scope().isEmpty()) {
             type.setQualifiedName(it.value()->scope() + type.qualifiedName());
             item->setType(type);
@@ -795,9 +863,8 @@ BaseVisitor::StartTokenResult Builder::startToken(const CXCursor &cursor)
                 d->m_currentFunction = d->createMemberFunction(cursor);
                 d->m_scopeStack.back()->addFunction(d->m_currentFunction);
                 break;
-            } else {
-                return Skip; // inline member functions outside class
             }
+            return Skip; // inline member functions outside class
         }
     }
         Q_FALLTHROUGH(); // fall through to free template function.
@@ -816,15 +883,13 @@ BaseVisitor::StartTokenResult Builder::startToken(const CXCursor &cursor)
             appendDiagnostic(d);
             return Error;
         }
-        // If possible, continue existing namespace (as otherwise, all headers
-        // where a namespace is continued show up in the type database).
+        // Treat namespaces separately to allow for extending namespaces
+        // in subsequent modules.
         NamespaceModelItem namespaceItem = parentNamespaceItem->findNamespace(name);
-        if (namespaceItem.isNull()) {
-            namespaceItem.reset(new _NamespaceModelItem(d->m_model, name));
-            setFileName(cursor, namespaceItem.data());
-            namespaceItem->setScope(d->m_scope);
-            parentNamespaceItem->addNamespace(namespaceItem);
-        }
+        namespaceItem.reset(new _NamespaceModelItem(d->m_model, name));
+        setFileName(cursor, namespaceItem.data());
+        namespaceItem->setScope(d->m_scope);
+        parentNamespaceItem->addNamespace(namespaceItem);
         d->pushScope(namespaceItem);
     }
         break;
@@ -868,17 +933,14 @@ BaseVisitor::StartTokenResult Builder::startToken(const CXCursor &cursor)
     }
         break;
     case CXCursor_TypeAliasDecl:
-    case CXCursor_TypeAliasTemplateDecl: // May contain nested CXCursor_TemplateTypeParameter
-        return Skip;
-    case CXCursor_TypedefDecl: {
-        const QString name = getCursorSpelling(cursor);
-        TypeDefModelItem item(new _TypeDefModelItem(d->m_model, name));
-        setFileName(cursor, item.data());
-        item->setType(d->createTypeInfo(clang_getTypedefDeclUnderlyingType(cursor)));
-        item->setScope(d->m_scope);
-        d->m_scopeStack.back()->addTypeDef(item);
-        d->m_cursorTypedefHash.insert(cursor, item);
+    case CXCursor_TypeAliasTemplateDecl: { // May contain nested CXCursor_TemplateTypeParameter
+        const CXType type = clang_getCanonicalType(clang_getCursorType(cursor));
+        if (type.kind > CXType_Unexposed)
+            d->addTypeDef(cursor, d->createTypeInfo(type));
     }
+        return Skip;
+    case CXCursor_TypedefDecl:
+        d->addTypeDef(cursor, d->createTypeInfo(clang_getTypedefDeclUnderlyingType(cursor)));
         break;
     case CXCursor_TypeRef:
         if (!d->m_currentFunction.isNull()) {

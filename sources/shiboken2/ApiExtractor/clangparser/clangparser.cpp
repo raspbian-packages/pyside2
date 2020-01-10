@@ -119,7 +119,7 @@ QString BaseVisitor::getCodeSnippetString(const CXCursor &cursor)
 static CXChildVisitResult
     visitorCallback(CXCursor cursor, CXCursor /* parent */, CXClientData clientData)
 {
-    BaseVisitor *bv = reinterpret_cast<BaseVisitor *>(clientData);
+    auto *bv = reinterpret_cast<BaseVisitor *>(clientData);
 
     const CXSourceLocation location = clang_getCursorLocation(cursor);
     if (!bv->visitLocation(location))
@@ -166,7 +166,7 @@ static inline const char **byteArrayListToFlatArgV(const QByteArrayList &bl)
     return result;
 }
 
-static QByteArray msgCreateTranslationUnit(const QByteArrayList clangArgs, unsigned flags)
+static QByteArray msgCreateTranslationUnit(const QByteArrayList &clangArgs, unsigned flags)
 {
     QByteArray result = "clang_parseTranslationUnit2(0x";
     result += QByteArray::number(flags, 16);

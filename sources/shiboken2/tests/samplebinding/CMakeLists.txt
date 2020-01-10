@@ -29,11 +29,14 @@ ${CMAKE_CURRENT_BINARY_DIR}/sample/derived_someinnerclass_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/echo_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/event_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/expression_wrapper.cpp
+${CMAKE_CURRENT_BINARY_DIR}/sample/exceptiontest_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/friendofonlycopy_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/handleholder_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/implicitconv_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/implicitbase_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/implicittarget_wrapper.cpp
+${CMAKE_CURRENT_BINARY_DIR}/sample/intarray2_wrapper.cpp
+${CMAKE_CURRENT_BINARY_DIR}/sample/intarray3_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/intlist_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/sortedoverload_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/sample/intwrapper_wrapper.cpp
@@ -125,27 +128,23 @@ ${CMAKE_CURRENT_BINARY_DIR}/sample/union_wrapper.cpp
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/sample-binding.txt.in"
                "${CMAKE_CURRENT_BINARY_DIR}/sample-binding.txt" @ONLY)
 
-add_custom_command(OUTPUT ${sample_SRC}
+add_custom_command(
+OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/mjb_rejected_classes.log"
+BYPRODUCTS ${sample_SRC}
 COMMAND shiboken2 --project-file=${CMAKE_CURRENT_BINARY_DIR}/sample-binding.txt ${GENERATOR_EXTRA_FLAGS}
 DEPENDS ${sample_TYPESYSTEM} ${CMAKE_CURRENT_SOURCE_DIR}/global.h shiboken2
 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 COMMENT "Running generator for 'sample' test binding..."
 )
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}
-                    ${CMAKE_SOURCE_DIR}
-                    ${SBK_PYTHON_INCLUDE_DIR}
-                    ${libsample_SOURCE_DIR}
-                    ${libshiboken_SOURCE_DIR}
-                    ${libshiboken_BINARY_DIR})
 add_library(sample MODULE ${sample_SRC})
+target_include_directories(sample PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(sample PUBLIC libsample libshiboken)
 set_property(TARGET sample PROPERTY PREFIX "")
 set_property(TARGET sample PROPERTY OUTPUT_NAME "sample${PYTHON_EXTENSION_SUFFIX}")
 
 if(WIN32)
     set_property(TARGET sample PROPERTY SUFFIX ".pyd")
 endif()
-target_link_libraries(sample
-                      libsample
-                      ${SBK_PYTHON_LIBRARIES}
-                      libshiboken)
+
+create_generator_target(sample)
