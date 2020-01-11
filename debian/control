@@ -646,7 +646,7 @@ Description: Python bindings for Qt5 Scxml (Python 3)
  This package contains Python 3 bindings for the Scxml module.
 
 Package: python3-pyside2.qtwebengine
-Architecture: amd64 arm64 armhf i386 mipsel
+Architecture: amd64 arm64 i386 mipsel
 Depends: ${misc:Depends}, ${python3:Depends}, ${shlibs:Depends},
  python3-pyside2.qtcore
 Description: Python bindings for Qt5 Web Engine (Python 3)
