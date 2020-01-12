@@ -4,7 +4,11 @@ pyside2 (5.13.2-2.2+rpi1) bullseye-staging; urgency=medium
   * Remove armhf from qtwebengine architecture lists.
   * Fix clean target.
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 10 Jan 2020 02:01:42 +0000
+  [changes introduced in 5.13.2-2.2+rpi1 by Peter Michael Green]
+  * Replace 64 with ?? in debian/shiboken2-doc.docs to fix arch all build
+    on 32-bit architectures.
+
+ -- Peter Michael Green <plugwash@raspbian.org>  Sun, 12 Jan 2020 16:30:16 +0000
 
 pyside2 (5.13.2-2.2) unstable; urgency=medium
 
