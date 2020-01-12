@@ -506,7 +506,8 @@ PyObject *SbkObjectTypeTpNew(PyTypeObject *metatype, PyObject *args, PyObject *k
     // PYSIDE-939: This is a temporary patch that circumvents the problem
     // with Py_TPFLAGS_METHOD_DESCRIPTOR until this is finally solved.
     PyObject *ob_PyType_Type = reinterpret_cast<PyObject *>(&PyType_Type);
-    static PyObject *mro = PyObject_GetAttr(ob_PyType_Type, Shiboken::PyName::mro());
+    static PyObject *const mro_string = Shiboken::String::fromCString("mro");
+    static PyObject *mro = PyObject_GetAttr(ob_PyType_Type, mro_string);
     auto hold = Py_TYPE(mro)->tp_flags;
     Py_TYPE(mro)->tp_flags &= ~Py_TPFLAGS_METHOD_DESCRIPTOR;
     auto *newType = reinterpret_cast<SbkObjectType *>(type_new(metatype, args, kwds));
