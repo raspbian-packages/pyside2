@@ -1,0 +1,9 @@
+fix-spelling-errors.patch
+drop-git-requirement.patch
+update-patchelf.patch
+add-python3.8.patch
+use-python3.patch
+blacklist-failing-tests.patch
+0002-Fix-Python-3.8-problems.patch
+0003-Optimize-the-Python-3.8-refcount-fix-a-tiny-bit.patch
+0004-make-compilation-work-after-backporting.patch

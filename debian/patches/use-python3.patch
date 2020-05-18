@@ -1,0 +1,19 @@
+From: Sophie Brun <sophie@freexian.com>
+Date: Thu, 7 Nov 2019 16:07:02 +0100
+Subject: Use python3 by default
+
+Last-Update: 2019-11-07
+---
+ sources/pyside2-tools/pyside2-uic | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sources/pyside2-tools/pyside2-uic b/sources/pyside2-tools/pyside2-uic
+index b8924a2..6b2a508 100644
+--- a/sources/pyside2-tools/pyside2-uic
++++ b/sources/pyside2-tools/pyside2-uic
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ # This file is part of the PySide project.
+ #
+ # Copyright (C) 2009-2011 Nokia Corporation and/or its subsidiary(-ies).
