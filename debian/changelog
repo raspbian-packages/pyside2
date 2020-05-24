@@ -1,4 +1,4 @@
-pyside2 (5.13.2-2.2+rpi1) bullseye-staging; urgency=medium
+pyside2 (5.13.2-3+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -8,7 +8,19 @@ pyside2 (5.13.2-2.2+rpi1) bullseye-staging; urgency=medium
   * Replace 64 with ?? in debian/shiboken2-doc.docs to fix arch all build
     on 32-bit architectures.
 
- -- Peter Michael Green <plugwash@raspbian.org>  Sun, 12 Jan 2020 16:30:16 +0000
+ -- Peter Michael Green <plugwash@raspbian.org>  Sun, 24 May 2020 10:41:01 +0000
+
+pyside2 (5.13.2-3) unstable; urgency=medium
+
+  * Add patches for Python 3.8 (Closes: #950129)
+  * Add test dep python3-distro
+  * Update shiboken2 doc path
+  * Add CMake sed for pyside2 include path
+  * Add CMake sed for multi-Python version support
+  * Add python3-all to autopkgtest deps (Closes: #950127)
+  * Remove Freexian folks from Uploaders
+
+ -- Kurt Kremitzki <kurt@kwk.systems>  Sun, 17 May 2020 20:27:01 -0500
 
 pyside2 (5.13.2-2.2) unstable; urgency=medium
 

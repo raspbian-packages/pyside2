@@ -11,6 +11,8 @@ for directory in "cmake/Shiboken2-$MAIN_VERSION_UPSTREAM" "pkgconfig"; do
 	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
         sed -i "s|\${_IMPORT_PREFIX}/lib|\${_IMPORT_PREFIX}/$DEB_HOST_MULTIARCH|" \
 	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|libshiboken2.*\.so|libshiboken2\${PYTHON_CONFIG_SUFFIX}.so|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/Shiboken2Targets-*.cmake;
 done
 
 package="libpyside2-dev"
@@ -23,6 +25,10 @@ for directory in "pkgconfig" "cmake/PySide2-$MAIN_VERSION_UPSTREAM"; do
 	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
         sed -i "s|\${_IMPORT_PREFIX}/lib|\${_IMPORT_PREFIX}/$DEB_HOST_MULTIARCH|" \
 	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${_IMPORT_PREFIX}/include|\${_IMPORT_PREFIX}/../include|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|libpyside2.*\.so|libpyside2\${PYTHON_CONFIG_SUFFIX}.so|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/PySide2Targets-*.cmake;
 done
 
 # Set correctly the python path for pyside2 (Python3)

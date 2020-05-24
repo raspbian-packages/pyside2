@@ -39,6 +39,8 @@
 
 #include "pep384impl.h"
 #include "autodecref.h"
+#include <stdlib.h>
+
 
 extern "C"
 {
@@ -156,7 +158,8 @@ check_PyTypeObject_valid()
         || probe_tp_free            != check->tp_free
         || probe_tp_is_gc           != check->tp_is_gc
         || probe_tp_bases           != typetype->tp_bases
-        || probe_tp_mro             != typetype->tp_mro)
+        || probe_tp_mro             != typetype->tp_mro
+        || Py_TPFLAGS_DEFAULT       != (check->tp_flags & Py_TPFLAGS_DEFAULT))
         Py_FatalError("The structure of type objects has changed!");
     Py_DECREF(check);
     Py_DECREF(probe_tp_base);
@@ -663,6 +666,25 @@ _Pep_PrivateMangle(PyObject *self, PyObject *name)
 
 /*****************************************************************************
  *
+ * Runtime support for Python 3.8 incompatibilities
+ *
+ */
+
+int PepRuntime_38_flag = 0;
+
+static void
+init_PepRuntime()
+{
+    // We expect a string of the form "\d\.\d+\."
+    const char *version = Py_GetVersion();
+    if (version[0] < '3')
+        return;
+    if (std::atoi(version + 2) >= 8)
+        PepRuntime_38_flag = 1;
+}
+
+/*****************************************************************************
+ *
  * Module Initialization
  *
  */
@@ -671,6 +693,7 @@ void
 Pep384_Init()
 {
     check_PyTypeObject_valid();
+    init_PepRuntime();
 #ifdef Py_LIMITED_API
     Pep_GetVerboseFlag();
     PepMethod_TypePtr = getMethodType();
