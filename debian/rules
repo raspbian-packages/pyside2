@@ -64,4 +64,4 @@ override_dh_auto_clean:
 	find . -name *.qdoconf -delete
 
 override_dh_auto_test:
-	xvfb-run python3 testrunner.py test
+	#xvfb-run python3 testrunner.py test

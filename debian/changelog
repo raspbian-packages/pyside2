@@ -8,7 +8,10 @@ pyside2 (5.13.2-3+rpi1) bullseye-staging; urgency=medium
   * Replace 64 with ?? in debian/shiboken2-doc.docs to fix arch all build
     on 32-bit architectures.
 
- -- Peter Michael Green <plugwash@raspbian.org>  Sun, 24 May 2020 10:41:01 +0000
+  [changes introduced in 5.13.2-3+rpi1 by Peter Michael Green]
+  * Disable testsuite.
+
+ -- Peter Michael Green <plugwash@raspbian.org>  Mon, 25 May 2020 21:09:28 +0000
 
 pyside2 (5.13.2-3) unstable; urgency=medium
 
