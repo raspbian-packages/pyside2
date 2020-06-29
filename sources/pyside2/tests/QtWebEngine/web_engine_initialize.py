@@ -36,6 +36,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from init_paths import init_test_paths
 init_test_paths(False)
 
+import ctypes
+ctypes.CDLL('libGLX_mesa.so.0', ctypes.RTLD_GLOBAL)
+
 from PySide2.QtCore import QTimer
 from PySide2.QtWebEngine import QtWebEngine
 from PySide2.QtWidgets import QApplication
