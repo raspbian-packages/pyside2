@@ -1,0 +1,60 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/pkg-info.mk
+
+# Safety measure to ensure package names match SONAMEs
+PYSIDE_MAJOR := $(shell echo $(DEB_VERSION_UPSTREAM) | cut -d. -f1-2)
+ifeq ($(shell awk '/Package:/ {print $$2}' debian/control | grep -- -$(PYSIDE_MAJOR)$$),)
+    $(error Please update package names for major version $(PYSIDE_MAJOR))
+endif
+ifeq ($(shell ls debian/lib* | grep -- -$(PYSIDE_MAJOR)),)
+    $(error Please update files debian/lib*.* for major version $(PYSIDE_MAJOR))
+endif
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+    OPTION_JOBS = --parallel=$(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+endif
+
+export PYBUILD_NAME=pyside2
+export PYBUILD_SYSTEM=distutils
+export PYBUILD_BUILD_ARGS=--relwithdebinfo --verbose-build --no-examples --build-tests --ignore-git $(OPTION_JOBS)
+
+export MAIN_VERSION_UPSTREAM := $(shell echo $(DEB_VERSION_UPSTREAM))
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+# Add CPPFLAGS to CXXFLAGS as CMake ignores CPPFLAGS by default
+CXXFLAGS+=$(CPPFLAGS)
+
+# Work around buildd bug (https://bugs.debian.org/842565)
+undefine XDG_RUNTIME_DIR
+
+%:
+	dh $@ --with python3,sphinxdoc --buildsystem=pybuild
+
+override_dh_auto_build:
+	dh_auto_build
+	#PYTHONPATH=. http_proxy='127.0.0.1:9' sphinx-build -N -bhtml doc/rst build/html # HTML generator
+
+override_dh_auto_install:
+	# Don't use pybuild install process, we take over this step to
+	# split files in the way we want it. But we echo the list of files
+	# built to make it easier to update *.install files.
+	echo ">>> In pyside*_{package,install}"
+	-find pyside*_install pyside*_build
+
+override_dh_makeshlibs:
+	dh_makeshlibs -VUpstream-Version
+
+override_dh_install-indep:
+	dh_install -X.doctrees
+
+override_dh_install-arch:
+	dh_install
+	# remove RUNPATH setup in shiboken2
+	chrpath -d debian/shiboken2/usr/bin/shiboken2
+	# change the library path in pkg-info/*.pc and in *.cmake files:
+	# during the build the path is setup to the build dir
+	# /build/pyside2* (required to find lib during the build) but it's
+	# not what we need
+	debian/set-paths
+
+override_dh_auto_test:
+	xvfb-run python3 testrunner.py test

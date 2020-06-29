@@ -1,0 +1,5 @@
+#!/usr/bin/dh-exec --with=subst
+pyside3_install/py3*-relwithdebinfo/include/shiboken2 usr/include
+pyside3_install/py3*-relwithdebinfo/lib/pkgconfig/shiboken2.pc usr/lib/${DEB_HOST_MULTIARCH}/pkgconfig
+pyside3_install/py3*-relwithdebinfo/lib/libshiboken2*.so usr/lib/${DEB_HOST_MULTIARCH}
+pyside3_install/py3*-relwithdebinfo/lib/cmake/Shiboken2* usr/lib/${DEB_HOST_MULTIARCH}/cmake
