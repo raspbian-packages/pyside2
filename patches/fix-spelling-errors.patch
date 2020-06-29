@@ -1,0 +1,42 @@
+From: Sophie Brun <sophie@freexian.com>
+Date: Tue, 5 Nov 2019 10:39:14 +0100
+Subject: Fix spelling errors
+
+Last-Update: 2018-07-12
+
+Last-Update: 2018-07-12
+---
+ sources/pyside2/libpyside/pysideproperty.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/sources/pyside2/libpyside/pysideproperty.cpp b/sources/pyside2/libpyside/pysideproperty.cpp
+index 009a17a..4d3f450 100644
+--- a/sources/pyside2/libpyside/pysideproperty.cpp
++++ b/sources/pyside2/libpyside/pysideproperty.cpp
+@@ -253,7 +253,7 @@ PyObject *qPropertySetter(PyObject *self, PyObject *callback)
+         Py_INCREF(callback);
+         return callback;
+     }
+-    PyErr_SetString(PyExc_TypeError, "Invalid property setter agument.");
++    PyErr_SetString(PyExc_TypeError, "Invalid property setter argument.");
+     return nullptr;
+ }
+ 
+@@ -269,7 +269,7 @@ PyObject *qPropertyGetter(PyObject *self, PyObject *callback)
+         Py_INCREF(callback);
+         return callback;
+     }
+-    PyErr_SetString(PyExc_TypeError, "Invalid property getter agument.");
++    PyErr_SetString(PyExc_TypeError, "Invalid property getter argument.");
+     return nullptr;
+ }
+ 
+@@ -389,7 +389,7 @@ int setValue(PySideProperty *self, PyObject *source, PyObject *value)
+         Shiboken::AutoDecRef result(PyObject_CallObject(fset, args));
+         return (result.isNull() ? -1 : 0);
+     } else {
+-        PyErr_SetString(PyExc_AttributeError, "Attibute read only");
++        PyErr_SetString(PyExc_AttributeError, "Attribute read only");
+     }
+     return -1;
+ }
