@@ -74,11 +74,11 @@ static void printOptions(QTextStream &s, const OptionDescriptions &options)
         if (od.second.isEmpty()) {
             s << ", ";
         } else {
-            s << Qt::endl;
+            s << endl;
             const auto lines = od.second.splitRef(QLatin1Char('\n'));
             for (const auto &line : lines)
-                s << "        " << line << Qt::endl;
-            s << Qt::endl;
+                s << "        " << line << endl;
+            s << endl;
         }
     }
 }
@@ -344,7 +344,7 @@ void printUsage()
     for (const GeneratorPtr &generator : generators) {
         const OptionDescriptions options = generator->options();
         if (!options.isEmpty()) {
-            s << Qt::endl << generator->name() << " options:\n\n";
+            s << endl << generator->name() << " options:\n\n";
             printOptions(s, generator->options());
         }
     }
@@ -371,7 +371,7 @@ static void parseIncludePathOption(const QString &option, HeaderType headerType,
     const CommandArgumentMap::iterator it = args.find(option);
     if (it != args.end()) {
         const QStringList includePathListList =
-            it.value().split(pathSplitter, Qt::SkipEmptyParts);
+            it.value().split(pathSplitter, QString::SkipEmptyParts);
         args.erase(it);
         for (const QString &s : includePathListList) {
             auto path = QFile::encodeName(QDir::cleanPath(s));
