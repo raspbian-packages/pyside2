@@ -99,10 +99,10 @@ template<typename T>
 struct initQtMetaType<T, false> {
 };
 
-PYSIDE_DEPRECATED(PYSIDE_API void initDynamicMetaObject(SbkObjectType *type, const QMetaObject *base));
 PYSIDE_API void initDynamicMetaObject(SbkObjectType *type, const QMetaObject *base,
                                       std::size_t cppObjSize);
 PYSIDE_API void initQObjectSubType(SbkObjectType *type, PyObject *args, PyObject *kwds);
+PYSIDE_API void initQApp();
 
 /// Return the size in bytes of a type that inherits QObject.
 PYSIDE_API std::size_t getSizeOfQObject(SbkObjectType *type);

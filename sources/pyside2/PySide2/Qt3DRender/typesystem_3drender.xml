@@ -155,6 +155,7 @@
         <object-type name="QMultiSampleAntiAliasing"/>
         <object-type name="QNoDepthMask"/>
         <object-type name="QNoDraw"/>
+        <object-type name="QNoPicking" since="5.14"/>
         <object-type name="QObjectPicker"/>
         <object-type name="QPaintedTextureImage"/>
         <object-type name="QParameter"/>
@@ -182,6 +183,10 @@
         </value-type>
         <object-type name="QRenderAspect">
             <enum-type name="RenderType"/>
+        </object-type>
+        <object-type name="QRenderCapabilities" since="5.15">
+            <enum-type name="API"/>
+            <enum-type name="Profile"/>
         </object-type>
         <object-type name="QRenderCapture"/>
         <object-type name="QRenderCaptureReply"/>
@@ -212,6 +217,10 @@
         <object-type name="QShaderProgram">
             <enum-type name="ShaderType"/>
             <enum-type name="Status"/>
+        </object-type>
+        <object-type name="QShaderImage" since="5.14">
+            <enum-type name="Access"/>
+            <enum-type name="ImageFormat"/>
         </object-type>
         <object-type name="QShaderProgramBuilder" since="5.10"/>
         <object-type name="QSharedGLTexture" since="5.13"/>

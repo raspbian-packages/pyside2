@@ -4,6 +4,7 @@ set(Qt3DAnimation_SRC
 ${Qt3DAnimation_GEN_DIR}/qt3danimation_wrapper.cpp
 ${Qt3DAnimation_GEN_DIR}/qt3danimation_qabstractanimation_wrapper.cpp
 ${Qt3DAnimation_GEN_DIR}/qt3danimation_qabstractanimationclip_wrapper.cpp
+${Qt3DAnimation_GEN_DIR}/qt3danimation_qabstractchannelmapping_wrapper.cpp
 ${Qt3DAnimation_GEN_DIR}/qt3danimation_qabstractclipanimator_wrapper.cpp
 ${Qt3DAnimation_GEN_DIR}/qt3danimation_qabstractclipblendnode_wrapper.cpp
 ${Qt3DAnimation_GEN_DIR}/qt3danimation_qadditiveclipblend_wrapper.cpp
@@ -30,11 +31,11 @@ set(Qt3DAnimation_include_dirs
                      ${Qt3DAnimation_SOURCE_DIR}
                      ${Qt3DAnimation_BINARY_DIR}
                      ${pyside2_SOURCE_DIR}
-                     ${Qt5Core_INCLUDE_DIRS}
-                     ${Qt5Gui_INCLUDE_DIR}
-                     ${Qt53DCore_INCLUDE_DIRS}
-                     ${Qt53DRender_INCLUDE_DIRS}
-                     ${Qt53DAnimation_INCLUDE_DIRS}
+                     ${Qt${QT_MAJOR_VERSION}Core_INCLUDE_DIRS}
+                     ${Qt${QT_MAJOR_VERSION}Gui_INCLUDE_DIR}
+                     ${Qt${QT_MAJOR_VERSION}3DCore_INCLUDE_DIRS}
+                     ${Qt${QT_MAJOR_VERSION}3DRender_INCLUDE_DIRS}
+                     ${Qt${QT_MAJOR_VERSION}3DAnimation_INCLUDE_DIRS}
                      ${libpyside_SOURCE_DIR}
                      ${QtCore_GEN_DIR}
                      ${QtGui_GEN_DIR}
@@ -43,7 +44,7 @@ set(Qt3DAnimation_include_dirs
                      ${Qt3DAnimation_GEN_DIR})
 
 set(Qt3DAnimation_libraries pyside2
-                     ${Qt53DAnimation_LIBRARIES})
+                     ${Qt${QT_MAJOR_VERSION}3DAnimation_LIBRARIES})
 
 set(Qt3DAnimation_deps Qt3DRender)
 

@@ -154,7 +154,3 @@ Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtwebengine P
 Depends: python3-pyside2.qtwebengine, python3-all
 Restrictions: allow-stderr, superficial
 
-Test-Command: debian/tests/test_install_python3.sh pyside2uic pyside2uic
-Depends: python3-pyside2uic, python3-all
-Restrictions: allow-stderr, superficial
-

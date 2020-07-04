@@ -25,30 +25,35 @@ getconf PAGESIZE).
 Bug: https://bugreports.qt.io/browse/PYSIDE-740
 Last-Update: 2018-07-09
 ---
- build_scripts/main.py        |    6 +
+ build_scripts/main.py        |   13 +-
  sources/patchelf/elf.h       | 1064 +++++++++++++++++++++++++++++++---------
  sources/patchelf/patchelf.cc | 1101 +++++++++++++++++++++++++++++++-----------
- 3 files changed, 1667 insertions(+), 504 deletions(-)
+ 3 files changed, 1673 insertions(+), 505 deletions(-)
 
 diff --git a/build_scripts/main.py b/build_scripts/main.py
-index 8b0f3de..fa21345 100644
+index 674048e..e638724 100644
 --- a/build_scripts/main.py
 +++ b/build_scripts/main.py
-@@ -874,8 +874,14 @@ class PysideBuild(_build):
+@@ -873,7 +873,18 @@ class PysideBuild(_build):
              return
          log.info("Building patchelf...")
          module_src_dir = os.path.join(self.sources_dir, "patchelf")
+-        build_cmd = ["g++", "{}/patchelf.cc".format(module_src_dir), "-o", "patchelf"]
 +        import subprocess
 +        pagesize = subprocess.check_output("getconf PAGESIZE", shell=True).decode('utf-8').rstrip()
-         build_cmd = [
-             "g++",
++        build_cmd = [
++            "g++",
 +            "-std=c++11",
 +            "-DPAGESIZE=%s" % (pagesize),
 +            '-DPACKAGE_STRING="patchelf"',
 +            "-D_FILE_OFFSET_BITS=64",
-             "{}/patchelf.cc".format(module_src_dir),
-             "-o",
-             "patchelf",
++            "{}/patchelf.cc".format(module_src_dir),
++            "-o",
++            "patchelf",
++        ]
+         if run_process(build_cmd) != 0:
+             raise DistutilsSetupError("Error building patchelf")
+         self._patchelf_path = os.path.join(self.script_dir, "patchelf")
 diff --git a/sources/patchelf/elf.h b/sources/patchelf/elf.h
 index b897f5b..87cb141 100644
 --- a/sources/patchelf/elf.h

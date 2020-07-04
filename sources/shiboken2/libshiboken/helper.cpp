@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2020 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of Qt for Python.
@@ -39,16 +39,128 @@
 
 #include "helper.h"
 #include "sbkstring.h"
+#include "sbkstaticstrings.h"
+
+#include <iomanip>
+#include <iostream>
+
 #include <stdarg.h>
 
 #ifdef _WIN32
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
 #  include <windows.h>
 #else
 #  include <pthread.h>
 #endif
 
+#include <algorithm>
+
+static void formatPyTypeObject(const PyTypeObject *obj, std::ostream &str)
+{
+    if (obj) {
+        str << '"' << obj->tp_name << "\", 0x" << std::hex
+            << obj->tp_flags << std::dec;
+        if (obj->tp_flags & Py_TPFLAGS_HEAPTYPE)
+            str << " [heaptype]";
+        if (obj->tp_flags & Py_TPFLAGS_BASETYPE)
+            str << " [base]";
+        if (obj->tp_flags & Py_TPFLAGS_HAVE_GC)
+            str << " [gc]";
+        if (obj->tp_flags & Py_TPFLAGS_LONG_SUBCLASS)
+            str << " [long]";
+        if (obj->tp_flags & Py_TPFLAGS_LIST_SUBCLASS)
+            str << " [list]";
+        if (obj->tp_flags & Py_TPFLAGS_TUPLE_SUBCLASS)
+            str << " [tuple]";
+        if (obj->tp_flags & Py_TPFLAGS_BYTES_SUBCLASS)
+            str << " [bytes]";
+        if (obj->tp_flags & Py_TPFLAGS_UNICODE_SUBCLASS)
+            str << " [unicode]";
+        if (obj->tp_flags & Py_TPFLAGS_DICT_SUBCLASS)
+            str << " [dict]";
+        if (obj->tp_flags & Py_TPFLAGS_TYPE_SUBCLASS)
+            str << " [type]";
+        if (obj->tp_flags & Py_TPFLAGS_IS_ABSTRACT)
+            str << " [abstract]";
+    } else {
+        str << '0';
+    }
+}
+
+static void formatPyObject(PyObject *obj, std::ostream &str);
+
+static void formatPySequence(PyObject *obj, std::ostream &str)
+{
+    const Py_ssize_t size = PySequence_Size(obj);
+    const Py_ssize_t printSize = std::min(size, Py_ssize_t(5));
+    str << size << " <";
+    for (Py_ssize_t i = 0; i < printSize; ++i) {
+        if (i)
+            str << ", ";
+        str << '(';
+        PyObject *item = PySequence_GetItem(obj, i);
+        formatPyObject(item, str);
+        str << ')';
+        Py_XDECREF(item);
+    }
+    if (printSize < size)
+        str << ",...";
+    str << '>';
+}
+
+static void formatPyObject(PyObject *obj, std::ostream &str)
+{
+    if (obj) {
+        formatPyTypeObject(obj->ob_type, str);
+        str << ", ";
+        if (PyLong_Check(obj))
+            str << PyLong_AsLong(obj);
+        else if (PyFloat_Check(obj))
+            str << PyFloat_AsDouble(obj);
+#ifdef IS_PY3K
+        else if (PyUnicode_Check(obj))
+            str << '"' << _PepUnicode_AsString(obj) << '"';
+#else
+        else if (PyString_Check(obj))
+            str << '"' << PyString_AsString(obj) << '"';
+#endif
+        else if (PySequence_Check(obj))
+            formatPySequence(obj, str);
+        else
+            str << "<unknown>";
+    } else {
+        str << '0';
+    }
+}
+
 namespace Shiboken
 {
+
+debugPyObject::debugPyObject(PyObject *o) : m_object(o)
+{
+}
+
+debugPyTypeObject::debugPyTypeObject(const PyTypeObject *o) : m_object(o)
+{
+}
+
+std::ostream &operator<<(std::ostream &str, const debugPyTypeObject &o)
+{
+    str << "PyTypeObject(";
+    formatPyTypeObject(o.m_object, str);
+    str << ')';
+    return str;
+}
+
+std::ostream &operator<<(std::ostream &str, const debugPyObject &o)
+{
+    str << "PyObject(";
+    formatPyObject(o.m_object, str);
+    str << ')';
+    return str;
+}
 
 // PySide-510: Changed from PySequence to PyList, which is correct.
 bool listToArgcArgv(PyObject *argList, int *argc, char ***argv, const char *defaultAppName)
@@ -78,7 +190,7 @@ bool listToArgcArgv(PyObject *argList, int *argc, char ***argv, const char *defa
     if (hasEmptyArgList) {
         // Try to get the script name
         PyObject *globals = PyEval_GetGlobals();
-        PyObject *appName = PyDict_GetItemString(globals, "__file__");
+        PyObject *appName = PyDict_GetItem(globals, Shiboken::PyMagicName::file());
         (*argv)[0] = strdup(appName ? Shiboken::String::toCString(appName) : defaultAppName);
     } else {
         for (int i = 0; i < numArgs; ++i) {
@@ -124,7 +236,7 @@ int warning(PyObject *category, int stacklevel, const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-#if _WIN32
+#ifdef _WIN32
     va_list args2 = args;
 #else
     va_list args2;

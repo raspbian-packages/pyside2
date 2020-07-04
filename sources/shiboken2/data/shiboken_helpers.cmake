@@ -206,7 +206,7 @@ endmacro()
 
 macro(set_quiet_build)
     # Don't display "up-to-date / install" messages when installing, to reduce visual clutter.
-    set(CMAKE_INSTALL_MESSAGE NEVER PARENT_SCOPE)
+    set(CMAKE_INSTALL_MESSAGE NEVER)
     # Override message not to display info messages when doing a quiet build.
     function(message)
         list(GET ARGV 0 MessageType)
@@ -221,15 +221,20 @@ macro(set_quiet_build)
 endmacro()
 
 macro(get_python_extension_suffix)
-  # Result of imp.get_suffixes() depends on the platform, but generally looks something like:
-  # [('.cpython-34m-x86_64-linux-gnu.so', 'rb', 3), ('.cpython-34m.so', 'rb', 3),
-  # ('.abi3.so', 'rb', 3), ('.so', 'rb', 3), ('.py', 'r', 1), ('.pyc', 'rb', 2)]
-  # We pick the first most detailed one, strip of the file extension part.
+  # Result of importlib.machinery.EXTENSION_SUFFIXES depends on the platform,
+  # but generally looks something like:
+  # ['.cpython-38-x86_64-linux-gnu.so', '.abi3.so', '.so']
+  # We pick the first most detailed one.
 
   execute_process(
     COMMAND ${PYTHON_EXECUTABLE} -c "if True:
-       import imp, re
-       first_suffix = imp.get_suffixes()[0][0]
+       import re
+       try:
+           from importlib import machinery
+           first_suffix = machinery.EXTENSION_SUFFIXES[0]
+       except (AttributeError, ImportError):
+           import imp
+           first_suffix = imp.get_suffixes()[0][0]
        res = re.search(r'^(.+)\\.', first_suffix)
        if res:
            first_suffix = res.group(1)
@@ -282,8 +287,9 @@ macro(shiboken_check_if_limited_api)
     # On other platforms, this result is not used at all.
     execute_process(
         COMMAND ${PYTHON_EXECUTABLE} -c "if True:
+            import os
             for lib in '${PYTHON_LIBRARIES}'.split(';'):
-                if '/' in lib:
+                if '/' in lib and os.path.isfile(lib):
                     prefix, py = lib.rsplit('/', 1)
                     if py.startswith('python3'):
                         print(prefix + '/python3.lib')

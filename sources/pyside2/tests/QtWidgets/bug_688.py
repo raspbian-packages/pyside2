@@ -28,8 +28,15 @@
 
 ''' Test bug 688: http://bugs.openbossa.org/show_bug.cgi?id=688'''
 
+import os
+import sys
 import unittest
-from helper import UsesQApplication
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from init_paths import init_test_paths
+init_test_paths(False)
+
+from helper.usesqapplication import UsesQApplication
 from PySide2.QtGui import QTextFrame, QTextCursor, QTextCharFormat, QFont, QTextFrameFormat
 from PySide2.QtWidgets import QTextEdit
 

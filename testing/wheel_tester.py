@@ -65,8 +65,7 @@ this_dir = os.path.dirname(this_file)
 setup_script_dir = os.path.abspath(os.path.join(this_dir, '..'))
 sys.path.append(setup_script_dir)
 
-from build_scripts.options import OPTION_QMAKE
-from build_scripts.options import OPTION_CMAKE
+from build_scripts.options import OPTION
 
 from build_scripts.utils import find_files_using_glob
 from build_scripts.utils import find_glob_in_path
@@ -79,11 +78,11 @@ log.set_verbosity(1)
 
 
 def find_executable_qmake():
-    return find_executable('qmake', OPTION_QMAKE)
+    return find_executable('qmake', OPTION["QMAKE"])
 
 
 def find_executable_cmake():
-    return find_executable('cmake', OPTION_CMAKE)
+    return find_executable('cmake', OPTION["CMAKE"])
 
 
 def find_executable(executable, command_line_value):
@@ -122,6 +121,8 @@ def get_examples_dir():
 
 
 def package_prefix_names():
+    # Note: shiboken2_generator is not needed for compile_using_pyinstaller,
+    # but building modules with cmake needs it.
     return ["shiboken2", "shiboken2_generator", "PySide2"]
 
 
@@ -160,16 +161,18 @@ def try_install_wheels(wheels_dir, py_version):
     log.info("")
 
     for p in package_prefix_names():
-        pattern = "{}-*cp{}*.whl".format(p, py_version)
+        log.info("Trying to install {p}:".format(**locals()))
+        pattern = "{}-*cp{}*.whl".format(p, int(float(py_version)))
         files = find_files_using_glob(wheels_dir, pattern)
         if files and len(files) == 1:
             wheel_path = files[0]
             install_wheel(wheel_path)
         elif len(files) > 1:
-            raise RuntimeError("More than one wheel found for specific package and version.")
+            raise RuntimeError("More than one wheel found for specific {p} version."
+                               .format(**locals()))
         else:
-            raise RuntimeError("No wheels compatible with Python {} found "
-                               "for testing.".format(py_version))
+            raise RuntimeError("No {p} wheels compatible with Python {py_version} found "
+                               "for testing.".format(**locals()))
 
 
 def is_unix():
@@ -330,7 +333,7 @@ def try_build_examples():
 
 def run_wheel_tests(install_wheels):
     wheels_dir = get_wheels_dir()
-    py_version = sys.version_info[0]
+    py_version = "{v.major}.{v.minor}".format(v=sys.version_info)
 
     if install_wheels:
         log.info("Attempting to install wheels.\n")

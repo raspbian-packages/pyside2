@@ -37,9 +37,9 @@
 
 #include <QtCore/QRegularExpression>
 #include <QtCore/QStringList>
+#include <QtCore/QVersionNumber>
 
 QT_FORWARD_DECLARE_CLASS(QIODevice)
-QT_FORWARD_DECLARE_CLASS(QVersionNumber)
 
 class ComplexTypeEntry;
 class ContainerTypeEntry;
@@ -59,6 +59,18 @@ int getMaxTypeIndex();
 class ContainerTypeEntry;
 class PrimitiveTypeEntry;
 class TypeSystemTypeEntry;
+
+struct VersionRange
+{
+    bool isNull() const
+    {
+        return since.majorVersion() == 0 && since.minorVersion() == 0
+            && until.majorVersion() == 9999 && until.minorVersion() == 9999;
+    }
+
+    QVersionNumber since{0, 0};
+    QVersionNumber until{9999, 9999};
+};
 
 class TypeDatabase
 {
@@ -84,6 +96,11 @@ public:
 
     IncludeList extraIncludes(const QString &className) const;
 
+    const QByteArrayList &systemIncludes() const { return m_systemIncludes; }
+    void addSystemInclude(const QString &name);
+
+    void addInlineNamespaceLookups(const NamespaceTypeEntry *n);
+
     PrimitiveTypeEntry *findPrimitiveType(const QString &name) const;
     ComplexTypeEntry *findComplexType(const QString &name) const;
     ObjectTypeEntry *findObjectType(const QString &name) const;
@@ -96,6 +113,8 @@ public:
     QString defaultPackageName() const;
 
     TypeEntry *findType(const QString &name) const;
+    TypeEntries findTypes(const QString &name) const;
+    TypeEntries findCppTypes(const QString &name) const;
 
     const TypeEntryMultiMap &entries() const { return m_entries; }
     const TypedefEntryMap  &typedefEntries() const { return m_typedefEntries; }
@@ -118,6 +137,8 @@ public:
                               QString *reason = nullptr) const;
 
     bool addType(TypeEntry *e, QString *errorMessage = nullptr);
+    ConstantValueTypeEntry *addConstantValueTypeEntry(const QString &value,
+                                                      const TypeEntry *parent);
     void addTypeSystemType(const TypeSystemTypeEntry *e);
 
     FlagsTypeEntry *findFlagsType(const QString &name) const;
@@ -153,7 +174,7 @@ public:
     static bool setApiVersion(const QString &package, const QString &version);
     static void clearApiVersions();
 
-    static bool checkApiVersion(const QString &package, const QVersionNumber &version);
+    static bool checkApiVersion(const QString &package, const VersionRange &vr);
 
     bool hasDroppedTypeEntries() const { return !m_dropTypeEntries.isEmpty(); }
 
@@ -167,11 +188,13 @@ public:
     void formatDebug(QDebug &d) const;
 #endif
 private:
-    TypeEntryMultiMapConstIteratorRange findTypes(const QString &name) const;
+    TypeEntryMultiMapConstIteratorRange findTypeRange(const QString &name) const;
+    template <class Predicate>
+    TypeEntries findTypesHelper(const QString &name, Predicate pred) const;
     TypeEntry *resolveTypeDefEntry(TypedefEntry *typedefEntry, QString *errorMessage);
 
     bool m_suppressWarnings = true;
-    TypeEntryMultiMap m_entries;
+    TypeEntryMultiMap m_entries; // Contains duplicate entries (cf addInlineNamespaceLookups).
     TypeEntryMap m_flagsEntries;
     TypedefEntryMap m_typedefEntries;
     TemplateEntryMap m_templates;
@@ -189,6 +212,7 @@ private:
     QVector<TypeRejection> m_rejections;
 
     QStringList m_dropTypeEntries;
+    QByteArrayList m_systemIncludes;
 };
 
 #ifndef QT_NO_DEBUG_STREAM

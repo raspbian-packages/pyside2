@@ -140,7 +140,8 @@ MetaObjectBuilder::MetaObjectBuilder(PyTypeObject *type, const QMetaObject *meta
 
 MetaObjectBuilder::~MetaObjectBuilder()
 {
-    qDeleteAll(m_d->m_cachedMetaObjects);
+    for (auto *metaObject : m_d->m_cachedMetaObjects)
+        free(const_cast<QMetaObject*>(metaObject));
     delete m_d->m_builder;
     delete m_d;
 }
@@ -413,6 +414,10 @@ const QMetaObject *MetaObjectBuilderPrivate::update()
     if (!m_builder)
         return m_baseObject;
     if (m_cachedMetaObjects.empty() || m_dirty) {
+        // PYSIDE-803: The dirty branch needs to be protected by the GIL.
+        // This was moved from SignalManager::retrieveMetaObject to here,
+        // which is only the update in "return builder->update()".
+        Shiboken::GilState gil;
         m_cachedMetaObjects.push_back(m_builder->toMetaObject());
         checkMethodOrder(m_cachedMetaObjects.back());
         m_dirty = false;
@@ -464,7 +469,8 @@ void MetaObjectBuilderPrivate::parsePythonType(PyTypeObject *type)
             if (Signal::checkType(value)) {
                 // Register signals.
                 auto data = reinterpret_cast<PySideSignal *>(value);
-                data->data->signalName = Shiboken::String::toCString(key);
+                if (data->data->signalName.isEmpty())
+                    data->data->signalName = Shiboken::String::toCString(key);
                 for (const auto &s : data->data->signatures) {
                     const auto sig = data->data->signalName + '(' + s.signature + ')';
                     if (m_baseObject->indexOfSignal(sig) == -1) {

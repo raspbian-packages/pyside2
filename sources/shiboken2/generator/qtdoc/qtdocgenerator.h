@@ -67,13 +67,16 @@ public:
         TableCell(const char* text) : data(QLatin1String(text)) {}
     };
 
-    using TableRow = QList<TableCell>;
-    class Table : public QList<TableRow>
+    using TableRow = QVector<TableCell>;
+
+    class Table
     {
         public:
             Table() = default;
 
-            void enableHeader(bool enable)
+            bool isEmpty() const { return m_rows.isEmpty(); }
+
+            void setHeaderEnabled(bool enable)
             {
                 m_hasHeader = enable;
             }
@@ -92,10 +95,19 @@ public:
 
             void clear() {
                 m_normalized = false;
-                QList<TableRow>::clear();
+                m_rows.clear();
             }
 
+            void appendRow(const TableRow &row) { m_rows.append(row); }
+
+            const TableRow &constFirst() { return m_rows.constFirst(); }
+            TableRow &first() { return m_rows.first(); }
+            TableRow &last() { return m_rows.last(); }
+
+            void format (QTextStream& s) const;
+
         private:
+            QVector<TableRow> m_rows;
             bool m_hasHeader = false;
             bool m_normalized = false;
     };
@@ -226,8 +238,8 @@ public:
 protected:
     bool shouldGenerate(const AbstractMetaClass *) const override;
     QString fileNameSuffix() const override;
-    QString fileNameForContext(GeneratorContext &context) const override;
-    void generateClass(QTextStream &s, GeneratorContext &classContext) override;
+    QString fileNameForContext(const GeneratorContext &context) const override;
+    void generateClass(QTextStream &s, const GeneratorContext &classContext) override;
     bool finishGeneration() override;
 
     void writeFunctionArguments(QTextStream&, const AbstractMetaFunction*, Options) const override {}

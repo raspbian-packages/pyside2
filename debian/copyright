@@ -3,7 +3,7 @@ Upstream-Name: pyside2
 Source: https://download.qt.io/official_releases/QtForPython/
 
 Files: *
-Copyright: 2016-2018 The Qt Company Ltd.
+Copyright: 2016-2020 The Qt Company Ltd.
 License: GPL-2 or GPL-3 or LGPL-3
 
 Files: examples/*
@@ -58,8 +58,7 @@ License: BSD-2-clause
  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Files: sources/pyside2/doc/pyhtml2devhelp.py
- sources/pyside2/tests/run_test.sh
+Files: sources/pyside2/tests/run_test.sh
  sources/pyside2/tests/Qt*
  sources/pyside2/tests/mac/qmacstyle_test.py
  sources/pyside2/tests/manually/*

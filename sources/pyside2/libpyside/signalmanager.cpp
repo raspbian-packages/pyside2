@@ -53,6 +53,7 @@
 #include <gilstate.h>
 #include <sbkconverter.h>
 #include <sbkstring.h>
+#include <sbkstaticstrings.h>
 
 #include <QtCore/QDebug>
 #include <QtCore/QHash>
@@ -76,8 +77,6 @@
 #define PYSIDE_SLOT '1'
 #define PYSIDE_SIGNAL '2'
 #include "globalreceiverv2.h"
-
-#define PYTHON_TYPE "PyObject"
 
 namespace {
     static PyObject *metaObjectAttr = 0;
@@ -115,18 +114,24 @@ namespace PySide {
 PyObjectWrapper::PyObjectWrapper()
     :m_me(Py_None)
 {
+    // PYSIDE-813: When PYSIDE-164 was solved by adding some thread allowance,
+    // this code was no longer protected. It was hard to find this connection.
+    // See the website https://bugreports.qt.io/browse/PYSIDE-813 for details.
+    Shiboken::GilState gil;
     Py_XINCREF(m_me);
 }
 
 PyObjectWrapper::PyObjectWrapper(PyObject *me)
     : m_me(me)
 {
+    Shiboken::GilState gil;
     Py_XINCREF(m_me);
 }
 
 PyObjectWrapper::PyObjectWrapper(const PyObjectWrapper &other)
     : m_me(other.m_me)
 {
+    Shiboken::GilState gil;
     Py_XINCREF(m_me);
 }
 
@@ -143,6 +148,7 @@ PyObjectWrapper::~PyObjectWrapper()
 
 void PyObjectWrapper::reset(PyObject *o)
 {
+    Shiboken::GilState gil;
     Py_XINCREF(o);
     Py_XDECREF(m_me);
     m_me = o;
@@ -171,7 +177,7 @@ QDataStream &operator<<(QDataStream &out, const PyObjectWrapper &myObj)
     Shiboken::GilState gil;
     if (!reduce_func) {
         Shiboken::AutoDecRef pickleModule(PyImport_ImportModule("pickle"));
-        reduce_func = PyObject_GetAttrString(pickleModule, "dumps");
+        reduce_func = PyObject_GetAttr(pickleModule, Shiboken::PyName::dumps());
     }
     Shiboken::AutoDecRef repr(PyObject_CallFunctionObjArgs(reduce_func, (PyObject *)myObj, NULL));
     if (repr.object()) {
@@ -202,7 +208,7 @@ QDataStream &operator>>(QDataStream &in, PyObjectWrapper &myObj)
     Shiboken::GilState gil;
     if (!eval_func) {
         Shiboken::AutoDecRef pickleModule(PyImport_ImportModule("pickle"));
-        eval_func = PyObject_GetAttrString(pickleModule, "loads");
+        eval_func = PyObject_GetAttr(pickleModule, Shiboken::PyName::loads());
     }
 
     QByteArray repr;
@@ -268,15 +274,15 @@ SignalManager::SignalManager() : m_d(new SignalManagerPrivate)
     using namespace Shiboken;
 
     // Register PyObject type to use in queued signal and slot connections
-    qRegisterMetaType<PyObjectWrapper>(PYTHON_TYPE);
-    qRegisterMetaTypeStreamOperators<PyObjectWrapper>(PYTHON_TYPE);
+    qRegisterMetaType<PyObjectWrapper>("PyObject");
+    qRegisterMetaTypeStreamOperators<PyObjectWrapper>("PyObject");
     qRegisterMetaTypeStreamOperators<PyObjectWrapper>("PyObjectWrapper");
     qRegisterMetaTypeStreamOperators<PyObjectWrapper>("PySide::PyObjectWrapper");
 
     SbkConverter *converter = Shiboken::Conversions::createConverter(&PyBaseObject_Type, nullptr);
     Shiboken::Conversions::setCppPointerToPythonFunction(converter, PyObject_PTR_CppToPython_PyObject);
     Shiboken::Conversions::setPythonToCppPointerFunctions(converter, PyObject_PythonToCpp_PyObject_PTR, is_PyObject_PythonToCpp_PyObject_PTR_Convertible);
-    Shiboken::Conversions::registerConverterName(converter, PYTHON_TYPE);
+    Shiboken::Conversions::registerConverterName(converter, "PyObject");
     Shiboken::Conversions::registerConverterName(converter, "object");
     Shiboken::Conversions::registerConverterName(converter, "PyObjectWrapper");
     Shiboken::Conversions::registerConverterName(converter, "PySide::PyObjectWrapper");
@@ -551,10 +557,19 @@ bool SignalManager::registerMetaMethod(QObject *source, const char *signature, Q
 
 static MetaObjectBuilder *metaBuilderFromDict(PyObject *dict)
 {
+    // PYSIDE-803: The dict in this function is the ob_dict of an SbkObject.
+    // The "metaObjectAttr" entry is only handled in this file. There is no
+    // way in this function to involve the interpreter. Therefore, we need
+    // no GIL.
+    // Note that "SignalManager::registerMetaMethodGetIndex" has write actions
+    // that might involve the interpreter, but in that context the GIL is held.
     if (!dict || !PyDict_Contains(dict, metaObjectAttr))
         return nullptr;
 
-    PyObject *pyBuilder = PyDict_GetItem(dict, metaObjectAttr);
+    // PYSIDE-813: The above assumption is not true in debug mode:
+    // PyDict_GetItem would touch PyThreadState_GET and the global error state.
+    // PyDict_GetItemWithError instead can work without GIL.
+    PyObject *pyBuilder = PyDict_GetItemWithError(dict, metaObjectAttr);
 #ifdef IS_PY3K
     return reinterpret_cast<MetaObjectBuilder *>(PyCapsule_GetPointer(pyBuilder, nullptr));
 #else
@@ -606,7 +621,14 @@ int SignalManager::registerMetaMethodGetIndex(QObject *source, const char *signa
 
 const QMetaObject *SignalManager::retrieveMetaObject(PyObject *self)
 {
-    Shiboken::GilState gil;
+    // PYSIDE-803: Avoid the GIL in SignalManager::retrieveMetaObject
+    // This function had the GIL. We do not use the GIL unless we have to.
+    // metaBuilderFromDict accesses a Python dict, but in that context there
+    // is no way to reach the interpreter, see "metaBuilderFromDict".
+    //
+    // The update function is MetaObjectBuilderPrivate::update in
+    // dynamicmetaobject.c . That function now uses the GIL when the
+    // m_dirty flag is set.
     Q_ASSERT(self);
 
     MetaObjectBuilder *builder = metaBuilderFromDict(reinterpret_cast<SbkObject *>(self)->ob_dict);

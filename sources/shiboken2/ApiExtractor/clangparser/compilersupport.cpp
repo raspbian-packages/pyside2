@@ -274,7 +274,7 @@ static QString findClangBuiltInIncludesDir()
         for (const QFileInfo &fi : versionDirs) {
             const QString fileName = fi.fileName();
             if (fileName.at(0).isDigit()) {
-                const QVersionNumber versionNumber = QVersionNumber::fromString(fileName.at(0));
+                const QVersionNumber versionNumber = QVersionNumber::fromString(fileName);
                 if (!versionNumber.isNull() && versionNumber > lastVersionNumber) {
                     candidate = fi.absoluteFilePath();
                     lastVersionNumber = versionNumber;
@@ -309,6 +309,8 @@ QByteArrayList emulatedCompilerOptions()
     HeaderPaths headerPaths;
     result.append(QByteArrayLiteral("-fms-compatibility-version=19"));
     result.append(QByteArrayLiteral("-Wno-microsoft-enum-value"));
+    // Fix yvals_core.h:  STL1000: Unexpected compiler version, expected Clang 7 or newer (MSVC2017 update)
+    result.append(QByteArrayLiteral("-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH"));
 #elif defined(Q_CC_CLANG)
     HeaderPaths headerPaths = gppInternalIncludePaths(compilerFromCMake(QStringLiteral("clang++")));
     result.append(noStandardIncludeOption());
@@ -354,12 +356,16 @@ QByteArrayList emulatedCompilerOptions()
 
 LanguageLevel emulatedCompilerLanguageLevel()
 {
-#if defined(Q_CC_MSVC) && _MSC_VER > 1900
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return LanguageLevel::Cpp17;
+#else
+#  if defined(Q_CC_MSVC) && _MSC_VER > 1900
     // Fixes constexpr errors in MSVC2017 library headers with Clang 4.1..5.X (0.45 == Clang 6).
     if (libClangVersion() < QVersionNumber(0, 45))
         return LanguageLevel::Cpp1Z;
-#endif // Q_CC_MSVC && _MSC_VER > 1900
+#  endif // Q_CC_MSVC && _MSC_VER > 1900
     return LanguageLevel::Cpp14; // otherwise, t.h is parsed as "C"
+#endif // Qt 5
 }
 
 struct LanguageLevelMapping

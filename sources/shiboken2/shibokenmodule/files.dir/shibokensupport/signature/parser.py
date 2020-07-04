@@ -46,7 +46,7 @@ import types
 import keyword
 import functools
 from shibokensupport.signature.mapping import (type_map, update_mapping,
-    namespace, typing, _NotCalled)
+    namespace, typing, _NotCalled, ResultVariable, ArrayLikeVariable)
 from shibokensupport.signature.lib.tool import (SimpleNamespace,
     build_brace_pattern)
 
@@ -165,14 +165,19 @@ def try_to_guess(thing, valtype):
                 return ret
     return None
 
+def get_name(thing):
+    if isinstance(thing, type):
+        return getattr(thing, "__qualname__", thing.__name__)
+    else:
+        return thing.__name__
 
 def _resolve_value(thing, valtype, line):
     if thing in ("0", "None") and valtype:
         if valtype.startswith("PySide2.") or valtype.startswith("typing."):
             return None
-        mapped = type_map[valtype]
+        map = type_map[valtype]
         # typing.Any: '_SpecialForm' object has no attribute '__name__'
-        name = mapped.__name__ if hasattr(mapped, "__name__") else str(mapped)
+        name = get_name(map) if hasattr(map, "__name__") else str(map)
         thing = "zero({})".format(name)
     if thing in type_map:
         return type_map[thing]
@@ -212,15 +217,14 @@ def to_string(thing):
         return thing
     if hasattr(thing, "__name__"):
         dot = "." in str(thing)
-        return thing.__module__ + "." + thing.__name__ if dot else thing.__name__
+        name = get_name(thing)
+        return thing.__module__ + "." + name if dot else name
     # Note: This captures things from the typing module:
     return str(thing)
 
 
 matrix_pattern = "PySide2.QtGui.QGenericMatrix"
 
-# The matrix patch is borrowed from the future (extracted).
-# It will work when the parser recognizes matrices.
 def handle_matrix(arg):
     n, m, typstr = tuple(map(lambda x:x.strip(), arg.split(",")))
     assert typstr == "float"
@@ -238,7 +242,7 @@ def lno(level):
 """
 
 
-def _resolve_type(thing, line, level):
+def _resolve_type(thing, line, level, var_handler):
     # Capture total replacements, first. Happens in
     # "PySide2.QtCore.QCborStreamReader.StringResult[PySide2.QtCore.QByteArray]"
     if thing in type_map:
@@ -253,13 +257,13 @@ def _resolve_type(thing, line, level):
         # Special case: Handle the generic matrices.
         if contr == matrix_pattern:
             return handle_matrix(thing)
-        contr = _resolve_type(contr, line, level+1)
+        contr = var_handler(_resolve_type(contr, line, level+1, var_handler))
         if isinstance(contr, _NotCalled):
             raise SystemError("Container types must exist:", repr(contr))
         contr = to_string(contr)
         pieces = []
         for part in _parse_arglist(thing):
-            part = _resolve_type(part, line, level+1)
+            part = var_handler(_resolve_type(part, line, level+1, var_handler))
             if isinstance(part, _NotCalled):
                 # fix the tag (i.e. "Missing") by repr
                 part = repr(part)
@@ -268,6 +272,46 @@ def _resolve_type(thing, line, level):
         result = "{contr}[{thing}]".format(**locals())
         return eval(result, namespace)
     return _resolve_value(thing, None, line)
+
+
+def _handle_generic(obj, repl):
+    """
+    Assign repl if obj is an ArrayLikeVariable
+
+    This is a neat trick. Example:
+
+        obj                     repl        result
+        ----------------------  --------    ---------
+        ArrayLikeVariable       List        List
+        ArrayLikeVariable(str)  List        List[str]
+        ArrayLikeVariable       Sequence    Sequence
+        ArrayLikeVariable(str)  Sequence    Sequence[str]
+    """
+    if isinstance(obj, ArrayLikeVariable):
+        return repl[obj.type]
+    if isinstance(obj, type) and issubclass(obj, ArrayLikeVariable):
+        # was "if obj is ArrayLikeVariable"
+        return repl
+    return obj
+
+
+def handle_argvar(obj):
+    """
+    Decide how array-like variables are resolved in arguments
+
+    Currently, the best approximation is types.Sequence.
+    We want to change that to types.Iterable in the near future.
+    """
+    return _handle_generic(obj, typing.Sequence)
+
+
+def handle_retvar(obj):
+    """
+    Decide how array-like variables are resolved in results
+
+    This will probably stay typing.List forever.
+    """
+    return _handle_generic(obj, typing.List)
 
 
 def calculate_props(line):
@@ -283,14 +327,14 @@ def calculate_props(line):
             ann = 'nullptr'     # maps to None
             tup = name, ann
             arglist[idx] = tup
-        annotations[name] = _resolve_type(ann, line, 0)
+        annotations[name] = _resolve_type(ann, line, 0, handle_argvar)
         if len(tup) == 3:
             default = _resolve_value(tup[2], ann, line)
             _defaults.append(default)
     defaults = tuple(_defaults)
     returntype = parsed.returntype
     if returntype is not None:
-        annotations["return"] = _resolve_type(returntype, line, 0)
+        annotations["return"] = _resolve_type(returntype, line, 0, handle_retvar)
     props = SimpleNamespace()
     props.defaults = defaults
     props.kwdefaults = {}
@@ -301,7 +345,59 @@ def calculate_props(line):
     shortname = funcname[funcname.rindex(".")+1:]
     props.name = shortname
     props.multi = parsed.multi
+    fix_variables(props, line)
     return vars(props)
+
+
+def fix_variables(props, line):
+    annos = props.annotations
+    if not any(isinstance(ann, (ResultVariable, ArrayLikeVariable))
+               for ann in annos.values()):
+        return
+    retvar = annos.get("return", None)
+    if retvar and isinstance(retvar, (ResultVariable, ArrayLikeVariable)):
+        # Special case: a ResultVariable which is the result will always be an array!
+        annos["return"] = retvar = typing.List[retvar.type]
+    fullname = props.fullname
+    varnames = list(props.varnames)
+    defaults = list(props.defaults)
+    diff = len(varnames) - len(defaults)
+
+    safe_annos = annos.copy()
+    retvars = [retvar] if retvar else []
+    deletions = []
+    for idx, name in enumerate(varnames):
+        ann = safe_annos[name]
+        if isinstance(ann, ArrayLikeVariable):
+            ann = typing.Sequence[ann.type]
+            annos[name] = ann
+        if not isinstance(ann, ResultVariable):
+            continue
+        # We move the variable to the end and remove it.
+        retvars.append(ann.type)
+        deletions.append(idx)
+        del annos[name]
+    for idx in reversed(deletions):
+        # varnames:  0 1 2 3 4 5 6 7
+        # defaults:        0 1 2 3 4
+        # diff: 3
+        del varnames[idx]
+        if idx >= diff:
+            del defaults[idx - diff]
+        else:
+            diff -= 1
+    if retvars:
+        rvs = []
+        retvars = list(handle_retvar(rv) if isinstance(rv, ArrayLikeVariable) else rv
+                       for rv in retvars)
+        if len(retvars) == 1:
+            returntype = retvars[0]
+        else:
+            typestr = "typing.Tuple[{}]".format(", ".join(map(to_string, retvars)))
+            returntype = eval(typestr, namespace)
+        props.annotations["return"] = returntype
+    props.varnames = tuple(varnames)
+    props.defaults = tuple(defaults)
 
 
 def fixup_multilines(lines):

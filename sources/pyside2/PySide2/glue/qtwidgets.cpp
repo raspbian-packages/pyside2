@@ -93,18 +93,14 @@ _defaultValue = %PYARG_1;
 // @snippet qformlayout-fix-args
 int _row;
 QFormLayout::ItemRole _role;
-%BEGIN_ALLOW_THREADS
 %CPPSELF->%FUNCTION_NAME(%ARGUMENT_NAMES, &_row, &_role);
-%END_ALLOW_THREADS
 %PYARG_0 = PyTuple_New(2);
 PyTuple_SET_ITEM(%PYARG_0, 0, %CONVERTTOPYTHON[int](_row));
 PyTuple_SET_ITEM(%PYARG_0, 1, %CONVERTTOPYTHON[QFormLayout::ItemRole](_role));
 // @snippet qformlayout-fix-args
 
 // @snippet qfiledialog-return
-%BEGIN_ALLOW_THREADS
 %RETURN_TYPE retval_ = %CPPSELF.%FUNCTION_NAME(%1, %2, %3, %4, &%5, %6);
-%END_ALLOW_THREADS
 %PYARG_0 = PyTuple_New(2);
 PyTuple_SET_ITEM(%PYARG_0, 0, %CONVERTTOPYTHON[%RETURN_TYPE](retval_));
 PyTuple_SET_ITEM(%PYARG_0, 1, %CONVERTTOPYTHON[%ARG5_TYPE](%5));
@@ -389,9 +385,7 @@ Shiboken::AutoDecRef parent(%CONVERTTOPYTHON[QGraphicsItem *](parentItem));
 const auto &childItems = %1->childItems();
 for (auto *item : childItems)
     Shiboken::Object::setParent(parent, %CONVERTTOPYTHON[QGraphicsItem *](item));
-%BEGIN_ALLOW_THREADS
 %CPPSELF.%FUNCTION_NAME(%1);
-%END_ALLOW_THREADS
 // the arg was destroyed by Qt.
 Shiboken::Object::invalidate(%PYARG_1);
 // @snippet qgraphicsscene-destroyitemgroup
@@ -419,7 +413,15 @@ for (auto *item : items) {
 // @snippet qtreewidget-clear
 QTreeWidgetItem *rootItem = %CPPSELF.invisibleRootItem();
 Shiboken::BindingManager &bm = Shiboken::BindingManager::instance();
-for (int i = 0, i_count = rootItem->childCount(); i < i_count; ++i) {
+
+// PYSIDE-1251:
+// Since some objects can be created with a parent and without
+// being saved on a local variable (refcount = 1), they will be
+// deleted when setting the parent to nullptr, so we change the loop
+// to do this from the last child to the first, to avoid the case
+// when the child(1) points to the original child(2) in case the
+// first one was removed.
+for (int i = rootItem->childCount() - 1; i >= 0; --i) {
     QTreeWidgetItem *item = rootItem->child(i);
     if (SbkObject *wrapper = bm.retrieveWrapper(item))
         Shiboken::Object::setParent(nullptr, reinterpret_cast<PyObject *>(wrapper));

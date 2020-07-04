@@ -223,9 +223,9 @@
   </primitive-type>
   <primitive-type name="quintptr" target-lang-api-name="PyLong">
     <conversion-rule>
-        <native-to-target file="../glue/qtcore.cpp" snippet="return-pylong-unsigned"/>
+        <native-to-target file="../glue/qtcore.cpp" snippet="return-pylong-quintptr"/>
         <target-to-native>
-            <add-conversion type="PyLong" file="../glue/qtcore.cpp" snippet="conversion-pylong-unsigned"/>
+            <add-conversion type="PyLong" file="../glue/qtcore.cpp" snippet="conversion-pylong-quintptr"/>
         </target-to-native>
     </conversion-rule>
   </primitive-type>
@@ -599,6 +599,7 @@
     <enum-type name="GestureState" since="4.6"/>
     <enum-type name="GestureType" since="4.6"/>
     <enum-type name="GlobalColor"/>
+    <enum-type name="HighDpiScaleFactorRoundingPolicy" since="5.14"/>
     <enum-type name="HitTestAccuracy"/>
     <enum-type name="ImageConversionFlag" flags="ImageConversionFlags"/>
     <enum-type name="InputMethodHint" flags="InputMethodHints" since="4.6"/>
@@ -630,6 +631,7 @@
     <enum-type name="SizeHint"/>
     <enum-type name="SizeMode"/>
     <enum-type name="SortOrder"/>
+    <enum-type name="SplitBehaviorFlags" flags="SplitBehavior" since="5.14"/>
     <enum-type name="TabFocusBehavior" since="5.5"/>
     <enum-type name="TextElideMode"/>
     <enum-type name="TextFlag"/>
@@ -679,6 +681,10 @@
   <add-function signature="qInstallMessageHandler(PyObject)" return-type="PyObject">
     <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qt-installmessagehandler"/>
   </add-function>
+
+  <value-type name="QDeadlineTimer" since="5.8">
+    <enum-type name="ForeverConstant"/>
+  </value-type>
 
   <value-type name="QElapsedTimer" since="4.7">
     <enum-type name="ClockType" since="4.7"/>
@@ -783,8 +789,12 @@
     </modify-function>
   </object-type>
 
-  <value-type name="QBasicTimer"/>
+  <object-type name="QBasicTimer"/>
   <value-type name="QByteArrayMatcher"/>
+  <value-type name="QCalendar" since="5.14">
+      <value-type name="YearMonthDay"/>
+      <enum-type name="System"/>
+  </value-type>
   <value-type name="QDate" hash-function="PySide::hash" >
     <inject-code class="native" position="beginning">
         <insert-template name="pydatetime_importandcheck_function">
@@ -847,6 +857,7 @@
     </modify-function>
   </value-type>
   <value-type name="QDateTime" hash-function="PySide::hash">
+    <enum-type name="YearRange" since="5.14"/>
     <inject-code class="native" position="beginning">
         <insert-template name="pydatetime_importandcheck_function">
             <replace from="$DATETIMETYPE" to="PyDateTime"/>
@@ -1404,6 +1415,11 @@
   </value-type>
   <object-type name="QLockFile">
       <enum-type name="LockError"/>
+      <modify-function signature="isLocked()const" allow-thread="yes"/>
+      <modify-function signature="lock()" allow-thread="yes"/>
+      <modify-function signature="removeStaleLockFile()" allow-thread="yes"/>
+      <modify-function signature="tryLock(int)" allow-thread="yes"/>
+      <modify-function signature="unlock()" allow-thread="yes"/>
   </object-type>
   <object-type name="QMessageAuthenticationCode"/>
   <object-type name="QSignalBlocker"/>
@@ -1446,12 +1462,13 @@
   <object-type name="QThread">
     <enum-type name="Priority"/>
     <modify-function signature="currentThreadId()" remove="all"/>
-    <modify-function signature="run()" thread="yes"/>
+    <modify-function signature="run()" allow-thread="yes"/>
     <modify-function signature="exec()" rename="exec_" allow-thread="yes"/>
     <modify-function signature="msleep(unsigned long)" allow-thread="yes"/>
     <modify-function signature="sleep(unsigned long)" allow-thread="yes"/>
     <modify-function signature="usleep(unsigned long)" allow-thread="yes"/>
     <modify-function signature="wait(unsigned long)" allow-thread="yes"/>
+    <modify-function signature="yieldCurrentThread()" allow-thread="yes"/>
     <modify-function signature="start(QThread::Priority)" allow-thread="yes">
       <modify-argument index="1">
         <rename to="priority"/>
@@ -1507,6 +1524,11 @@
         <define-ownership class="native" owner="c++"/>
       </modify-argument>
     </modify-function>
+    <modify-function signature="dataChanged(const QModelIndex&amp;,const QModelIndex&amp;,const QVector&lt;int&gt;&amp;)" allow-thread="yes"/>
+    <modify-function signature="layoutAboutToBeChanged(const QList&lt;QPersistentModelIndex&gt;&amp;,QAbstractItemModel::LayoutChangeHint)" allow-thread="yes"/>
+    <modify-function signature="layoutChanged(const QList&lt;QPersistentModelIndex&gt;&amp;,QAbstractItemModel::LayoutChangeHint)" allow-thread="yes"/>
+    <modify-function signature="beginResetModel()" allow-thread="yes"/>
+    <modify-function signature="endResetModel()" allow-thread="yes"/>
   </object-type>
   <value-type name="QItemSelection">
     <include file-name="QList" location="global"/>
@@ -1519,7 +1541,7 @@
     <enum-type name="SelectionFlag" flags="SelectionFlags"/>
   </object-type>
 
-  <value-type name="QItemSelectionRange" hash-function="qHash">
+  <value-type name="QItemSelectionRange">
   </value-type>
   <object-type name="QAbstractProxyModel" polymorphic-id-expression="qobject_cast&lt;QAbstractProxyModel*&gt;(%1)">
     <extra-includes>
@@ -1707,13 +1729,13 @@
      <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qobject-receivers"/>
    </modify-function>
 
-   <modify-function signature="destroyed(QObject*)">
+   <modify-function signature="destroyed(QObject*)" allow-thread="yes">
      <modify-argument index="1">
        <rename to="object"/>
      </modify-argument>
    </modify-function>
 
-   <modify-function signature="sender()const">
+   <modify-function signature="sender()const" allow-thread="yes">
       <modify-argument index="return">
          <define-ownership owner="default"/>
       </modify-argument>
@@ -2191,6 +2213,8 @@
     <modify-function signature="flush()" allow-thread="yes"/>
   </object-type>
   <object-type name="QFile">
+    <modify-function signature="open(QFlags&lt;QIODevice::OpenModeFlag&gt;)" allow-thread="yes"/>
+    <modify-function signature="open(int,QFlags&lt;QIODevice::OpenModeFlag&gt;,QFlags&lt;QFileDevice::FileHandleFlag&gt;)" allow-thread="yes"/>
     <modify-function signature="copy(const QString&amp;)" allow-thread="yes"/>
     <modify-function signature="copy(const QString&amp;,const QString&amp;)" allow-thread="yes"/>
     <modify-function signature="link(const QString&amp;)" allow-thread="yes"/>
@@ -2268,6 +2292,12 @@
     <enum-type name="LibraryLocation"/>
   </object-type>
   <object-type name="QMutexLocker" copyable="no">
+    <!-- PYSIDE-1271: Creating locking capable objects inside sections that
+    contain allow-thread, require the classes to also allow having threads.
+    The lack of the option here, was generating a deadlock when running a
+    QMutexLocker inside a QThread::run.
+    The reason of having this change is due to the new way of handling the GIL
+    in the Qt calls on the whole PySide2 module, that started on 5.14.2-->
     <modify-function signature="QMutexLocker(QBasicMutex*)" allow-thread="yes">
         <modify-argument index="1">
             <reference-count action="set" variable-name="mutex()const0"/>
@@ -2296,11 +2326,14 @@
     <modify-function signature="lock()" allow-thread="yes"/>
     <modify-function signature="tryLock(int)" allow-thread="yes"/>
   </object-type>
+  <object-type name="QRecursiveMutex" since="5.14"/>
   <object-type name="QRandomGenerator" since="5.10">
-      <modify-function signature="global()" rename="global_" allow-thread="yes"/>
+      <modify-function signature="global()" rename="global_"/>
       <modify-function signature="operator()()" remove="all"/>
+      <modify-function signature="generate(quint32*,quint32*)" remove="all"/>
   </object-type>
   <object-type name="QRandomGenerator64" since="5.10">
+      <modify-function signature="global()" rename="global_"/>
       <modify-function signature="operator()()" remove="all"/>
   </object-type>
   <object-type name="QSemaphore">
@@ -2324,7 +2357,9 @@
     <extra-includes>
       <!-- Qt5: private <include file-name="QAbstractFileEngine" location="global"/> -->
     </extra-includes>
-    <modify-function signature="createLocalFile(const QString&amp;)" allow-thread="yes"/>
+    <modify-function signature="createNativeFile(QFile&amp;)" allow-thread="yes"/>
+    <modify-function signature="createNativeFile(const QString&amp;)" allow-thread="yes"/>
+    <modify-function signature="open()" allow-thread="yes"/>
   </object-type>
   <object-type name="QTemporaryDir"/>
   <object-type name="QMimeData">
@@ -2371,7 +2406,7 @@
     <enum-type name="State"/>
   </object-type>
   <object-type name="QTranslator">
-    <modify-function signature="load(const uchar*,int,QString)">
+    <modify-function signature="load(const uchar*,int,QString)" allow-thread="yes">
         <modify-argument index="1">
             <replace-type modified-type="PyBuffer"/>
         </modify-argument>
@@ -2476,6 +2511,13 @@
     <add-function signature="QCoreApplication()">
         <inject-code file="../glue/qtcore.cpp" snippet="qcoreapplication-2"/>
     </add-function>
+    <!-- Addition for qApp.
+         To be fixed: This function deletes a little too much ATM that is missing later
+         when creating a new qApp. -->
+    <add-function signature="shutdown()">
+      <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="moduleshutdown"/>
+    </add-function>
+
     <!-- blocking functions -->
     <modify-function signature="processEvents(QFlags&lt;QEventLoop::ProcessEventsFlag&gt;,int)" allow-thread="yes"/>
     <modify-function signature="processEvents(QFlags&lt;QEventLoop::ProcessEventsFlag&gt;)" allow-thread="yes"/>
@@ -2757,16 +2799,23 @@
   </object-type>
 
   <object-type name="QThreadPool">
-    <modify-function signature="start(QRunnable*,int)">
+    <modify-function signature="clear()" allow-thread="yes"/>
+    <modify-function signature="activeThreadCount()const" allow-thread="yes"/>
+    <modify-function signature="releaseThread()" allow-thread="yes"/>
+    <modify-function signature="reserveThread()" allow-thread="yes"/>
+    <modify-function signature="setMaxThreadCount(int)" allow-thread="yes"/>
+    <modify-function signature="waitForDone(int)" allow-thread="yes"/>
+    <modify-function signature="start(QRunnable*,int)" allow-thread="yes">
       <modify-argument index="1">
         <parent index="this" action="add"/>
       </modify-argument>
     </modify-function>
-    <modify-function signature="tryStart(QRunnable*)">
+    <modify-function signature="tryStart(QRunnable*)" allow-thread="yes">
       <modify-argument index="1">
         <parent index="this" action="add"/>
       </modify-argument>
     </modify-function>
+    <modify-function signature="tryTake(QRunnable*)" allow-thread="yes"/>
 
     <modify-function signature="globalInstance()" >
       <inject-code class="target" position="end" file="../glue/qtcore.cpp" snippet="releaseownership"/>
@@ -2820,7 +2869,9 @@
     <include file-name="qobjectdefs.h" location="global"/>
   </value-type>
 
-  <object-type name="QMessageLogContext">
+  <object-type name="QMessageLogContext" since="5.14"/>
+
+  <object-type name="QMessageLogContext" since="5.9" until="5.13.2">
     <modify-function signature="copy(const QMessageLogContext &amp;)" remove="all"/>
   </object-type>
 
@@ -2836,9 +2887,10 @@
     <include file-name="qobjectdefs.h" location="global"/>
     <!-- This isn't part of Qt public API -->
     <modify-function signature="connect(const QObject*,int,const QObject*,int,int,int*)" remove="all"/>
-  </object-type>
-  <object-type name="QMetaObject::Connection">
-    <include file-name="qobjectdefs.h" location="global"/>
+      <object-type name="Connection">
+        <include file-name="qobjectdefs.h" location="global"/>
+      </object-type>
+    <modify-function signature="^invokeMethod\(" allow-thread="yes"/>
   </object-type>
   <value-type name="QMetaProperty" >
     <!-- This isn't part of Qt public API -->
@@ -2850,7 +2902,7 @@
   </value-type>
 
   <value-type name="QMetaEnum">
-    <modify-function signature="keyToValue(const char*,bool*)const" allow-thread="yes">
+    <modify-function signature="keyToValue(const char*,bool*)const">
         <modify-argument index="2">
             <remove-argument />
         </modify-argument>
@@ -2861,7 +2913,7 @@
             <insert-template name="fix_args,bool*"/>
         </inject-code>
     </modify-function>
-    <modify-function signature="keysToValue(const char*,bool*)const" allow-thread="yes">
+    <modify-function signature="keysToValue(const char*,bool*)const">
         <modify-argument index="2">
             <remove-argument />
         </modify-argument>

@@ -61,12 +61,20 @@ static PyObject *qPropertyGetter(PyObject *, PyObject *);
 static int qpropertyTraverse(PyObject *self, visitproc visit, void *arg);
 static int qpropertyClear(PyObject *self);
 
+// Attributes
+static PyObject *qPropertyDocGet(PyObject *, void *);
+
 static PyMethodDef PySidePropertyMethods[] = {
     {"setter", (PyCFunction)qPropertySetter, METH_O, 0},
     {"write", (PyCFunction)qPropertySetter, METH_O, 0},
     {"getter", (PyCFunction)qPropertyGetter, METH_O, 0},
     {"read", (PyCFunction)qPropertyGetter, METH_O, 0},
     {0, 0, 0, 0}
+};
+
+static PyGetSetDef PySidePropertyType_getset[] = {
+    {"__doc__", qPropertyDocGet, nullptr, nullptr, nullptr},
+    {nullptr, nullptr, nullptr, nullptr, nullptr}
 };
 
 static PyType_Slot PySidePropertyType_slots[] = {
@@ -77,11 +85,12 @@ static PyType_Slot PySidePropertyType_slots[] = {
     {Py_tp_methods, (void *)PySidePropertyMethods},
     {Py_tp_init, (void *)qpropertyTpInit},
     {Py_tp_new, (void *)qpropertyTpNew},
+    {Py_tp_getset, PySidePropertyType_getset},
     {0, 0}
 };
-// Dotted modulename is crucial for PyType_FromSpec to work. Is this name right?
+// Dotted modulename is crucial for SbkType_FromSpec to work. Is this name right?
 static PyType_Spec PySidePropertyType_spec = {
-    "PySide2.QtCore.Property",
+    "2:PySide2.QtCore.Property",
     sizeof(PySideProperty),
     0,
     Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_GC|Py_TPFLAGS_BASETYPE,
@@ -91,9 +100,8 @@ static PyType_Spec PySidePropertyType_spec = {
 
 PyTypeObject *PySidePropertyTypeF(void)
 {
-    static PyTypeObject *type = nullptr;
-    if (!type)
-        type = (PyTypeObject *)PyType_FromSpec(&PySidePropertyType_spec);
+    static PyTypeObject *type = reinterpret_cast<PyTypeObject *>(
+        SbkType_FromSpec(&PySidePropertyType_spec));
     return type;
 }
 
@@ -177,12 +185,10 @@ int qpropertyTpInit(PyObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
 
-    if (doc) {
+    if (doc)
         pData->doc = doc;
-        free(doc);
-    } else {
+    else
         pData->doc.clear();
-    }
 
     pData->typeName = PySide::Signal::getTypeName(type);
 
@@ -266,6 +272,24 @@ PyObject *qPropertyGetter(PyObject *self, PyObject *callback)
     PyErr_SetString(PyExc_TypeError, "Invalid property getter argument.");
     return nullptr;
 }
+
+static PyObject *qPropertyDocGet(PyObject *self, void *)
+{
+    auto data = reinterpret_cast<PySideProperty *>(self);
+    PySidePropertyPrivate *pData = data->d;
+
+    QByteArray doc(pData->doc);
+    if (!doc.isEmpty()) {
+#if PY_MAJOR_VERSION >= 3
+        return PyUnicode_FromString(doc);
+#else
+        return PyString_FromString(doc);
+#endif
+    }
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 
 static int qpropertyTraverse(PyObject *self, visitproc visit, void *arg)
 {
@@ -351,11 +375,6 @@ bool checkType(PyObject *pyObj)
         return PyType_IsSubtype(Py_TYPE(pyObj), PySidePropertyTypeF());
     }
     return false;
-}
-
-bool isPropertyType(PyObject *pyObj)
-{
-    return checkType(pyObj);
 }
 
 int setValue(PySideProperty *self, PyObject *source, PyObject *value)

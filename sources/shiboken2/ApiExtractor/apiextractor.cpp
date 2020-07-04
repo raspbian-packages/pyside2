@@ -92,11 +92,6 @@ void ApiExtractor::setTypeSystem(const QString& typeSystemFileName)
     m_typeSystemFileName = typeSystemFileName;
 }
 
-void ApiExtractor::setDebugLevel(ReportHandler::DebugLevel debugLevel)
-{
-    ReportHandler::setDebugLevel(debugLevel);
-}
-
 void ApiExtractor::setSkipDeprecated(bool value)
 {
     m_skipDeprecated = value;
@@ -166,24 +161,6 @@ ContainerTypeEntryList ApiExtractor::containerTypes() const
     return TypeDatabase::instance()->containerTypes();
 }
 
-static const AbstractMetaEnum* findEnumOnClasses(AbstractMetaClassList metaClasses, const EnumTypeEntry* typeEntry)
-{
-    const AbstractMetaEnum *result = nullptr;
-    for (const AbstractMetaClass* metaClass : qAsConst(metaClasses)) {
-        const AbstractMetaEnumList &enums = metaClass->enums();
-        for (const AbstractMetaEnum *metaEnum : enums) {
-            if (metaEnum->typeEntry() == typeEntry) {
-                result = metaEnum;
-                break;
-            }
-        }
-        if (result)
-            break;
-        result = findEnumOnClasses(metaClass->innerClasses(), typeEntry);
-    }
-    return result;
-}
-
 const AbstractMetaEnum* ApiExtractor::findAbstractMetaEnum(const TypeEntry* typeEntry) const
 {
     return m_builder->findEnum(typeEntry);
@@ -230,8 +207,11 @@ bool ApiExtractor::run()
     for (const HeaderPath &headerPath : qAsConst(m_includePaths))
         arguments.append(HeaderPath::includeOption(headerPath));
     arguments.append(QFile::encodeName(preprocessedCppFileName));
-    qCDebug(lcShiboken) << __FUNCTION__ << arguments
-        << "level=" << int(m_languageLevel);
+    if (ReportHandler::isDebug(ReportHandler::SparseDebug)) {
+        qCInfo(lcShiboken).noquote().nospace()
+            << "clang language level: " << int(m_languageLevel)
+            << "\nclang arguments: " << arguments;
+    }
     const bool result = m_builder->build(arguments, m_languageLevel);
     if (!result)
         autoRemove = false;
@@ -273,6 +253,8 @@ QDebug operator<<(QDebug d, const ApiExtractor &ae)
     QDebugStateSaver saver(d);
     d.noquote();
     d.nospace();
+    if (ReportHandler::debugLevel() >= ReportHandler::FullDebug)
+        d.setVerbosity(3); // Trigger verbose output of AbstractMetaClass
     d << "ApiExtractor(typeSystem=\"" << ae.typeSystem() << "\", cppFileName=\""
       << ae.cppFileName() << ", ";
     ae.m_builder->formatDebug(d);

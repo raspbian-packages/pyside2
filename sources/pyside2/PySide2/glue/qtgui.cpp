@@ -78,9 +78,7 @@ QBitmap %0 = QBitmap::fromData(%1, buffer, %3);
 // @snippet qbitmap-fromdata
 
 // @snippet qtextline-cursortox
-%BEGIN_ALLOW_THREADS
 %RETURN_TYPE %0 = %CPPSELF->::%TYPE::%FUNCTION_NAME(&%1, %2);
-%END_ALLOW_THREADS
 %PYARG_0 = PyTuple_New(2);
 PyTuple_SET_ITEM(%PYARG_0, 0, %CONVERTTOPYTHON[%RETURN_TYPE](%0));
 PyTuple_SET_ITEM(%PYARG_0, 1, %CONVERTTOPYTHON[%ARG1_TYPE](%1));
@@ -444,9 +442,7 @@ PyTuple_SET_ITEM(%PYARG_0, 1, %CONVERTTOPYTHON[%ARG1_TYPE](%1));
 // @snippet qclipboard-text
 
 // @snippet qpainter-drawpolygon
-%BEGIN_ALLOW_THREADS
 %CPPSELF.%FUNCTION_NAME(%1.data(), %1.size(), %2);
-%END_ALLOW_THREADS
 // @snippet qpainter-drawpolygon
 
 // @snippet qmatrix-map-point
@@ -455,10 +451,12 @@ QPoint p(%CPPSELF.%FUNCTION_NAME(%1));
 // @snippet qmatrix-map-point
 
 // @snippet qmatrix4x4
-if (PySequence_Size(%PYARG_1) == 16) {
+// PYSIDE-795: All PySequences can be made iterable with PySequence_Fast.
+Shiboken::AutoDecRef seq(PySequence_Fast(%PYARG_1, "Can't turn into sequence"));
+if (PySequence_Size(seq) == 16) {
     float values[16];
     for (int i=0; i < 16; ++i) {
-        PyObject *pv = PySequence_Fast_GET_ITEM(%PYARG_1, i);
+        PyObject *pv = PySequence_Fast_GET_ITEM(seq.object(), i);
         values[i] = PyFloat_AsDouble(pv);
     }
 

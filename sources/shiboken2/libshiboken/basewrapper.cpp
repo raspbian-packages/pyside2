@@ -44,6 +44,8 @@
 #include "sbkconverter.h"
 #include "sbkenum.h"
 #include "sbkstring.h"
+#include "sbkstaticstrings.h"
+#include "sbkstaticstrings_p.h"
 #include "autodecref.h"
 #include "gilstate.h"
 #include <string>
@@ -56,6 +58,8 @@
 #include "signature.h"
 #include "qapp_macro.h"
 #include "voidptr.h"
+
+#include <iostream>
 
 #if defined(__APPLE__)
 #include <dlfcn.h>
@@ -100,6 +104,23 @@ static PyGetSetDef SbkObjectType_Type_getsetlist[] = {
     {nullptr}  // Sentinel
 };
 
+#if PY_VERSION_HEX < 0x03000000
+
+static PyObject *SbkObjectType_repr(PyObject *type)
+{
+    Shiboken::AutoDecRef mod(PyObject_GetAttr(type, Shiboken::PyMagicName::module()));
+    if (mod.isNull())
+        return nullptr;
+    Shiboken::AutoDecRef name(PyObject_GetAttr(type, Shiboken::PyMagicName::qualname()));
+    if (name.isNull())
+        return nullptr;
+    return PyString_FromFormat("<class '%s.%s'>",
+                               PyString_AS_STRING(mod.object()),
+                               PyString_AS_STRING(name.object()));
+}
+
+#endif // PY_VERSION_HEX < 0x03000000
+
 static PyType_Slot SbkObjectType_Type_slots[] = {
     {Py_tp_dealloc, reinterpret_cast<void *>(SbkObjectTypeDealloc)},
     {Py_tp_setattro, reinterpret_cast<void *>(PyObject_GenericSetAttr)},
@@ -108,10 +129,13 @@ static PyType_Slot SbkObjectType_Type_slots[] = {
     {Py_tp_new, reinterpret_cast<void *>(SbkObjectTypeTpNew)},
     {Py_tp_free, reinterpret_cast<void *>(PyObject_GC_Del)},
     {Py_tp_getset, reinterpret_cast<void *>(SbkObjectType_Type_getsetlist)},
+#if PY_VERSION_HEX < 0x03000000
+    {Py_tp_repr, reinterpret_cast<void *>(SbkObjectType_repr)},
+#endif
     {0, nullptr}
 };
 static PyType_Spec SbkObjectType_Type_spec = {
-    "Shiboken.ObjectType",
+    "1:Shiboken.ObjectType",
     0,   // basicsize (inserted later)
     sizeof(PyMemberDef),
     Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,
@@ -175,11 +199,10 @@ patch_tp_new_wrapper(PyTypeObject *type)
      * The old tp_new_wrapper is added to all types that have tp_new.
      * We patch that with a version that ignores the heaptype flag.
      */
-    static PyObject *__new__ = nullptr;
+    auto newMethod = Shiboken::PyMagicName::new_();
     if (old_tp_new_wrapper == nullptr) {
-        if ((__new__ = Py_BuildValue("s", "__new__")) == nullptr)
-            return -1;
-        PyObject *func = PyDict_GetItem(PyType_Type.tp_dict, __new__);
+        PyObject *func = PyDict_GetItem(PyType_Type.tp_dict, newMethod);
+        assert(func);
         PyCFunctionObject *pycf_ob = reinterpret_cast<PyCFunctionObject *>(func);
         old_tp_new_wrapper = reinterpret_cast<ternaryfunc>(pycf_ob->m_ml->ml_meth);
     }
@@ -187,7 +210,7 @@ patch_tp_new_wrapper(PyTypeObject *type)
     Py_ssize_t i, n = PyTuple_GET_SIZE(mro);
     for (i = 0; i < n; i++) {
         type = reinterpret_cast<PyTypeObject *>(PyTuple_GET_ITEM(mro, i));
-        PyObject *existing = PyDict_GetItem(type->tp_dict, __new__);
+        PyObject *existing = PyDict_GetItem(type->tp_dict, newMethod);
         if (existing && PyCFunction_Check(existing)
                      && type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
             auto *pycf_ob = reinterpret_cast<PyCFunctionObject *>(existing);
@@ -197,7 +220,7 @@ patch_tp_new_wrapper(PyTypeObject *type)
             if (existing_wrapper == old_tp_new_wrapper) {
                 PyObject *ob_type = reinterpret_cast<PyObject *>(type);
                 Shiboken::AutoDecRef func(PyCFunction_New(tp_new_methoddef, ob_type));
-                if (func.isNull() || PyDict_SetItem(type->tp_dict, __new__, func))
+                if (func.isNull() || PyDict_SetItem(type->tp_dict, newMethod, func))
                     return -1;
             }
         }
@@ -214,7 +237,7 @@ PyTypeObject *SbkObjectType_TypeF(void)
     if (!type) {
         SbkObjectType_Type_spec.basicsize =
             PepHeapType_SIZE + sizeof(SbkObjectTypePrivate);
-        type = reinterpret_cast<PyTypeObject *>(PyType_FromSpec(&SbkObjectType_Type_spec));
+        type = reinterpret_cast<PyTypeObject *>(SbkType_FromSpec(&SbkObjectType_Type_spec));
 #if PY_VERSION_HEX < 0x03000000
         if (patch_tp_new_wrapper(type) < 0)
             return nullptr;
@@ -288,7 +311,7 @@ static PyType_Slot SbkObject_Type_slots[] = {
     {0, nullptr}
 };
 static PyType_Spec SbkObject_Type_spec = {
-    "Shiboken.Object",
+    "1:Shiboken.Object",
     sizeof(SbkObject),
     0,
     Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC,
@@ -300,7 +323,7 @@ SbkObjectType *SbkObject_TypeF(void)
 {
     static PyTypeObject *type = nullptr;
     if (!type) {
-        type = reinterpret_cast<PyTypeObject *>(PyType_FromSpec(&SbkObject_Type_spec));
+        type = reinterpret_cast<PyTypeObject *>(SbkType_FromSpec(&SbkObject_Type_spec));
         Py_TYPE(type) = SbkObjectType_TypeF();
         Py_INCREF(Py_TYPE(type));
         type->tp_weaklistoffset = offsetof(SbkObject, weakreflist);
@@ -424,7 +447,7 @@ void SbkDeallocQAppWrapper(PyObject *pyObj)
 {
     SbkDeallocWrapper(pyObj);
     // PYSIDE-571: make sure to create a singleton deleted qApp.
-    MakeSingletonQAppWrapper(nullptr);
+    Py_DECREF(MakeQAppWrapper(nullptr));
 }
 
 void SbkDeallocWrapperWithPrivateDtor(PyObject *self)
@@ -505,13 +528,14 @@ PyObject *SbkObjectTypeTpNew(PyTypeObject *metatype, PyObject *args, PyObject *k
 
     // PYSIDE-939: This is a temporary patch that circumvents the problem
     // with Py_TPFLAGS_METHOD_DESCRIPTOR until this is finally solved.
-    PyObject *ob_PyType_Type = reinterpret_cast<PyObject *>(&PyType_Type);
-    static PyObject *const mro_string = Shiboken::String::fromCString("mro");
-    static PyObject *mro = PyObject_GetAttr(ob_PyType_Type, mro_string);
-    auto hold = Py_TYPE(mro)->tp_flags;
-    Py_TYPE(mro)->tp_flags &= ~Py_TPFLAGS_METHOD_DESCRIPTOR;
+    // PyType_Ready uses mro(). We need to temporarily remove the flag from it's type.
+    // We cannot use PyMethodDescr_Type since it is not exported by Python 2.7 .
+    static PyTypeObject *PyMethodDescr_TypePtr = Py_TYPE(
+        PyObject_GetAttr(reinterpret_cast<PyObject *>(&PyType_Type), Shiboken::PyName::mro()));
+    auto hold = PyMethodDescr_TypePtr->tp_flags;
+    PyMethodDescr_TypePtr->tp_flags &= ~Py_TPFLAGS_METHOD_DESCRIPTOR;
     auto *newType = reinterpret_cast<SbkObjectType *>(type_new(metatype, args, kwds));
-    Py_TYPE(mro)->tp_flags = hold;
+    PyMethodDescr_TypePtr->tp_flags = hold;
 
     if (!newType)
         return nullptr;
@@ -609,18 +633,62 @@ PyObject *SbkQAppTpNew(PyTypeObject *subtype, PyObject *, PyObject *)
         subtype->tp_free = PyObject_Del;
     }
 #endif
-    auto self = reinterpret_cast<SbkObject *>(MakeSingletonQAppWrapper(subtype));
+    auto self = reinterpret_cast<SbkObject *>(MakeQAppWrapper(subtype));
     return self == nullptr ? nullptr : _setupNew(self, subtype);
 }
 
-PyObject *
-SbkDummyNew(PyTypeObject *type, PyObject *, PyObject *)
+PyObject *SbkDummyNew(PyTypeObject *type, PyObject *, PyObject *)
 {
     // PYSIDE-595: Give the same error as type_call does when tp_new is NULL.
     PyErr_Format(PyExc_TypeError,
                  "cannot create '%.100s' instances ¯\\_(ツ)_/¯",
                  type->tp_name);
     return nullptr;
+}
+
+PyObject *SbkType_FromSpec(PyType_Spec *spec)
+{
+    return SbkType_FromSpecWithBases(spec, nullptr);
+}
+
+PyObject *SbkType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)
+{
+    // PYSIDE-1286: Generate correct __module__ and __qualname__
+    // The name field can now be extended by an "n:" prefix which is
+    // the number of modules in the name. The default is 1.
+    //
+    // Example:
+    //    "2:mainmod.submod.mainclass.subclass"
+    // results in
+    //    __module__   : "mainmod.submod"
+    //    __qualname__ : "mainclass.subclass"
+    //    __name__     : "subclass"
+
+    PyType_Spec new_spec = *spec;
+    const char *colon = strchr(spec->name, ':');
+    assert(colon);
+    int package_level = atoi(spec->name);
+    const char *mod = new_spec.name = colon + 1;
+
+    PyObject *type = PyType_FromSpecWithBases(&new_spec, bases);
+    if (type == nullptr)
+        return nullptr;
+
+    const char *qual = mod;
+    for (int idx = package_level; idx > 0; --idx) {
+        const char *dot = strchr(qual, '.');
+        if (!dot)
+            break;
+        qual = dot + 1;
+    }
+    int mlen = qual - mod - 1;
+    Shiboken::AutoDecRef module(Shiboken::String::fromCString(mod, mlen));
+    Shiboken::AutoDecRef qualname(Shiboken::String::fromCString(qual));
+    if (PyObject_SetAttr(type, Shiboken::PyMagicName::module(), module) < 0)
+        return nullptr;
+    if (PyObject_SetAttr(type, Shiboken::PyMagicName::qualname(), qualname) < 0)
+        return nullptr;
+    return type;
 }
 
 } //extern "C"
@@ -661,35 +729,6 @@ bool walkThroughClassHierarchy(PyTypeObject *currentType, HierarchyVisitor *visi
         }
     }
     return result;
-}
-
-bool importModule(const char *moduleName, PyTypeObject *** cppApiPtr)
-{
-    PyObject *sysModules = PyImport_GetModuleDict();
-    PyObject *module = PyDict_GetItemString(sysModules, moduleName);
-    if (!module) {
-        module = PyImport_ImportModule(moduleName);
-        if (!module)
-            return false;
-    } else {
-        Py_INCREF(module);
-    }
-
-    Shiboken::AutoDecRef cppApi(PyObject_GetAttrString(module, "_Cpp_Api"));
-    Py_DECREF(module);
-
-    if (cppApi.isNull())
-        return false;
-
-#ifdef IS_PY3K
-    if (PyCapsule_CheckExact(cppApi))
-        *cppApiPtr = reinterpret_cast<PyTypeObject **>(PyCapsule_GetPointer(cppApi, nullptr));
-#else
-    // Python 2.6 doesn't have PyCapsule API, so let's keep usign PyCObject on all Python 2.x
-    if (PyCObject_Check(cppApi))
-        *cppApiPtr = reinterpret_cast<PyTypeObject **>(PyCObject_AsVoidPtr(cppApi));
-#endif
-    return true;
 }
 
 // Wrapper metatype and base type ----------------------------------------------------------
@@ -744,13 +783,13 @@ void init()
     Shiboken::ObjectType::initPrivateData(SbkObject_TypeF());
 
     if (PyType_Ready(SbkEnumType_TypeF()) < 0)
-        Py_FatalError("[libshiboken] Failed to initialise Shiboken.SbkEnumType metatype.");
+        Py_FatalError("[libshiboken] Failed to initialize Shiboken.SbkEnumType metatype.");
 
     if (PyType_Ready(SbkObjectType_TypeF()) < 0)
-        Py_FatalError("[libshiboken] Failed to initialise Shiboken.BaseWrapperType metatype.");
+        Py_FatalError("[libshiboken] Failed to initialize Shiboken.BaseWrapperType metatype.");
 
     if (PyType_Ready(reinterpret_cast<PyTypeObject *>(SbkObject_TypeF())) < 0)
-        Py_FatalError("[libshiboken] Failed to initialise Shiboken.BaseWrapper type.");
+        Py_FatalError("[libshiboken] Failed to initialize Shiboken.BaseWrapper type.");
 
     VoidPtr::init();
 
@@ -900,7 +939,7 @@ introduceWrapperType(PyObject *enclosingObject,
 {
     typeSpec->slots[0].pfunc = reinterpret_cast<void *>(baseType ? baseType : SbkObject_TypeF());
 
-    PyObject *heaptype = PyType_FromSpecWithBases(typeSpec, baseTypes);
+    PyObject *heaptype = SbkType_FromSpecWithBases(typeSpec, baseTypes);
     Py_TYPE(heaptype) = SbkObjectType_TypeF();
     Py_INCREF(Py_TYPE(heaptype));
     auto *type = reinterpret_cast<SbkObjectType *>(heaptype);
@@ -918,8 +957,11 @@ introduceWrapperType(PyObject *enclosingObject,
         }
     }
     // PYSIDE-510: Here is the single change to support signatures.
-    if (SbkSpecial_Type_Ready(enclosingObject, reinterpret_cast<PyTypeObject *>(type), signatureStrings) < 0)
+    if (SbkSpecial_Type_Ready(enclosingObject, reinterpret_cast<PyTypeObject *>(type), signatureStrings) < 0) {
+        std::cerr << "Warning: " << __FUNCTION__ << " returns nullptr for "
+            << typeName << '/' << originalName << " due to SbkSpecial_Type_Ready() failing\n";
         return nullptr;
+    }
 
     initPrivateData(type);
     auto sotp = PepType_SOTP(type);
@@ -935,7 +977,13 @@ introduceWrapperType(PyObject *enclosingObject,
 
     // PyModule_AddObject steals type's reference.
     Py_INCREF(ob_type);
-    return PyModule_AddObject(enclosingObject, typeName, ob_type) == 0 ? type : nullptr;
+    if (PyModule_AddObject(enclosingObject, typeName, ob_type) != 0) {
+        std::cerr << "Warning: " << __FUNCTION__ << " returns nullptr for "
+            << typeName << '/' << originalName << " due to PyModule_AddObject(enclosingObject="
+            << enclosingObject << ",ob_type=" << ob_type << ") failing\n";
+        return nullptr;
+    }
+    return type;
 }
 
 void setSubTypeInitHook(SbkObjectType *type, SubTypeInitHook func)
@@ -1388,11 +1436,6 @@ PyObject *newObject(SbkObjectType *instanceType,
         Py_IncRef(reinterpret_cast<PyObject *>(self));
     }
     return reinterpret_cast<PyObject *>(self);
-}
-
-void destroy(SbkObject *self)
-{
-    destroy(self, nullptr);
 }
 
 void destroy(SbkObject *self, void *cppData)

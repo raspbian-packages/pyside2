@@ -42,7 +42,6 @@ from build_scripts.utils import install_pip_dependencies
 from build_scripts.utils import get_qtci_virtualEnv
 from build_scripts.utils import run_instruction
 from build_scripts.utils import rmtree
-from build_scripts.utils import acceptCITestConfiguration
 from build_scripts.utils import get_ci_qmake_path
 import os
 
@@ -65,9 +64,12 @@ CI_RELEASE_CONF = has_option("packaging")
 def call_testrunner(python_ver, buildnro):
     _pExe, _env, env_pip, env_python = get_qtci_virtualEnv(python_ver, CI_HOST_OS, CI_HOST_ARCH, CI_TARGET_ARCH)
     rmtree(_env, True)
+    # Pinning the virtualenv before creating one
+    run_instruction(["pip", "install", "--user", "virtualenv==20.0.20"], "Failed to pin virtualenv")
     run_instruction(["virtualenv", "-p", _pExe,  _env], "Failed to create virtualenv")
-    # Keeping PyInstaller 3.4, because 3.5 seems to have broken our test
-    install_pip_dependencies(env_pip, ["pip", "numpy", "PyOpenGL", "setuptools", "six", "pyinstaller==3.4", "wheel"])
+    # When the 'python_ver' variable is empty, we are using Python 2
+    # Pip is always upgraded when CI template is provisioned, upgrading it in later phase may cause perm issue
+    run_instruction([env_pip, "install", "-r", "requirements.txt"], "Failed to install dependencies")
     cmd = [env_python, "testrunner.py", "test",
                   "--blacklist", "build_history/blacklist.txt",
                   "--buildno=" + buildnro]
@@ -82,9 +84,6 @@ def call_testrunner(python_ver, buildnro):
         run_instruction(cmd, "Error while running wheel_tester.py")
 
 def run_test_instructions():
-    if not acceptCITestConfiguration(CI_HOST_OS, CI_HOST_OS_VER, CI_TARGET_ARCH, CI_COMPILER):
-        exit()
-
     # Remove some environment variables that impact cmake
     for env_var in ['CC', 'CXX']:
         if os.environ.get(env_var):
@@ -97,7 +96,7 @@ def run_test_instructions():
         call_testrunner("", str(testRun))
         testRun =+ 1
     # We know that second build was with python3
-    if CI_RELEASE_CONF and CI_HOST_OS_VER not in ["RHEL_6_6"]:
+    if CI_RELEASE_CONF:
         call_testrunner("3", str(testRun))
 
 if __name__ == "__main__":

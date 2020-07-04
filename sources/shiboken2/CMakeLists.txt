@@ -18,7 +18,9 @@ option(BUILD_TESTS "Build tests." TRUE)
 option(USE_PYTHON_VERSION "Use specific python version to build shiboken2." "")
 option(DISABLE_DOCSTRINGS "Disable documentation extraction." FALSE)
 
-find_package(Qt5 5.12 REQUIRED COMPONENTS Core)
+set (QT_MAJOR_VERSION 5)
+message(STATUS "Using Qt ${QT_MAJOR_VERSION}")
+find_package(Qt${QT_MAJOR_VERSION} 5.12 REQUIRED COMPONENTS Core)
 
 if (QUIET_BUILD)
     set_quiet_build()
@@ -112,7 +114,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D QT_NO_CAST_FROM_ASCII -D QT_NO_CAST_T
 
 # Force usage of the C++11 standard, without a silent fallback
 # to C++98 if the compiler does not support C++11.
-set(CMAKE_CXX_STANDARD 11)
+if(${QT_MAJOR_VERSION} GREATER_EQUAL 6)
+    set(CMAKE_CXX_STANDARD 17)
+else()
+    set(CMAKE_CXX_STANDARD 11)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(LIB_SUFFIX "" CACHE STRING "Define suffix of directory name (32/64)" )
@@ -208,7 +214,7 @@ add_subdirectory(libshiboken)
 add_subdirectory(doc)
 
 # deps found, compile the generator.
-if (Qt5Core_FOUND AND PYTHONINTERP_FOUND)
+if (Qt${QT_MAJOR_VERSION}Core_FOUND AND PYTHONINTERP_FOUND)
     add_subdirectory(generator)
     add_subdirectory(shibokenmodule)
 

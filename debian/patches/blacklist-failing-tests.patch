@@ -1,48 +1,34 @@
 From: Sophie Brun <sophie@freexian.com>
 Date: Fri, 22 Nov 2019 13:24:54 +0100
-Subject: Blacklist other failing tests
+Subject: Blacklist failing tests
 
 Forwarded:
-https://bugreports.qt.io/projects/PYSIDE/issues/PYSIDE-1145?filter=allopenissues
 https://bugreports.qt.io/projects/PYSIDE/issues/PYSIDE-1146?filter=allopenissues
 ---
- build_history/blacklist.txt | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+ build_history/blacklist.txt | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/build_history/blacklist.txt b/build_history/blacklist.txt
-index c20760c..ba6a9f8 100644
+index adcf520..710d506 100644
 --- a/build_history/blacklist.txt
 +++ b/build_history/blacklist.txt
-@@ -6,6 +6,9 @@
-     darwin py3
- [pysidetest::utils_test]
-     win32
-+# crash on arm64 Debian build
-+[pysidetest::new_inherited_functions_test]
-+    linux
- [signals::signal_signature_test]
-     linux
-     darwin
-@@ -25,6 +28,9 @@
+@@ -25,6 +25,9 @@
      linux
      darwin
      win32
-+# crash on s390x Debian build
++# crash on s390x Debian build, https://bugreports.qt.io/projects/PYSIDE/issues/PYSIDE-1146
 +[QtCore::qbytearray_test]
 +    linux
  [QtGui::qmatrix_test]
      win32
  [QtWidgets::bug_576]
-@@ -88,6 +94,11 @@
+@@ -86,6 +89,9 @@
      win32
      linux
      darwin
--
-+# crash on arm64 Debian build
-+[QtWebEngine::web_engine_initialize]
-+    linux
-+# crash on s390x Debian build
++# crash on s390x Debian build, https://bugreports.qt.io/projects/PYSIDE/issues/PYSIDE-1146
 +[QtQml::qquickitem_grabToImage]
 +    linux
- [QtPositioning::positioning]
-     win32
+ # In addition to a pre-existing windows failure,
+ # qtlocation/ac899dcc40bb3ad09307583fb7e6befd45a77b33 / QTBUG-66304 introduced
+ # a failure in 5.14

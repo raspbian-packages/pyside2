@@ -15,8 +15,6 @@ set(pyside2_tools_MINOR_VERSION "0")
 set(pyside2_tools_MICRO_VERSION "0")
 set(pyside2_tools_VERSION "${pyside2_tools_MAJOR_VERSION}.${pyside2_tools_MINOR_VERSION}.${pyside2_tools_MICRO_VERSION}")
 
-configure_file("pyside2uic/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/pyside2uic/__init__.py" @ONLY)
-
 option(BUILD_TESTS "Build tests." TRUE)
 
 if(CMAKE_HOST_APPLE)
@@ -27,40 +25,66 @@ if(CMAKE_HOST_APPLE)
 endif()
 
 # UIC stuff
-if (NOT SITE_PACKAGE)
+if (NOT PYTHON_SITE_PACKAGES)
     execute_process(
         COMMAND ${SHIBOKEN_PYTHON_INTERPRETER} -c "if True:
             from distutils import sysconfig
             from os.path import sep
             print(sysconfig.get_python_lib(1, 0, prefix='${CMAKE_INSTALL_PREFIX}').replace(sep, '/'))
             "
-        OUTPUT_VARIABLE SITE_PACKAGE
+        OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
     OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if (NOT SITE_PACKAGE)
+    if (NOT PYTHON_SITE_PACKAGES)
         message(FATAL_ERROR "Could not detect Python module installation directory.")
     endif()
 endif()
 
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/pyside2-uic
+# Handling .exe extension for Window and the uic/rcc executables
+if (WIN32)
+    set(EXE_EXT ".exe")
+else()
+    set(EXE_EXT "")
+endif()
+
+set(TOOLS_PATH "${_qt5Core_install_prefix}/bin")
+set(UIC_PATH "${TOOLS_PATH}/uic${EXE_EXT}")
+set(RCC_PATH "${TOOLS_PATH}/rcc${EXE_EXT}")
+if (APPLE)
+    set(DESIGNER_PATH "${TOOLS_PATH}/Designer.app")
+else()
+    set(DESIGNER_PATH "${TOOLS_PATH}/designer${EXE_EXT}")
+endif()
+
+install(FILES "${UIC_PATH}"
         DESTINATION bin
         PERMISSIONS
         OWNER_EXECUTE OWNER_WRITE OWNER_READ
         GROUP_EXECUTE GROUP_READ
         WORLD_EXECUTE WORLD_READ)
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyside2uic/__init__.py"
-        DESTINATION "${SITE_PACKAGE}/pyside2uic")
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pyside2uic
-        DESTINATION ${SITE_PACKAGE}
-        PATTERN "*.in" EXCLUDE
-        PATTERN "*pyside2uic/*.1" EXCLUDE
-        PATTERN "*pyside2uic/__init__.py" EXCLUDE
-        PATTERN "*pyside2uic\\__init__.py" EXCLUDE)
+install(FILES "${RCC_PATH}"
+        DESTINATION bin
+        PERMISSIONS
+        OWNER_EXECUTE OWNER_WRITE OWNER_READ
+        GROUP_EXECUTE GROUP_READ
+        WORLD_EXECUTE WORLD_READ)
 
-# Man pages for pyside2-uic
-if (NOT WIN32)
-    file(GLOB manpages "${CMAKE_CURRENT_SOURCE_DIR}/pyside2uic/*.1")
-    install(FILES ${manpages} DESTINATION share/man/man1)
+if (EXISTS ${DESIGNER_PATH})
+    if (APPLE)
+        install(DIRECTORY "${DESIGNER_PATH}"
+                DESTINATION bin
+                FILE_PERMISSIONS
+                OWNER_EXECUTE OWNER_WRITE OWNER_READ
+                GROUP_EXECUTE GROUP_READ
+                WORLD_EXECUTE WORLD_READ)
+    else()
+        install(FILES "${DESIGNER_PATH}"
+                DESTINATION bin
+                PERMISSIONS
+                OWNER_EXECUTE OWNER_WRITE OWNER_READ
+                GROUP_EXECUTE GROUP_READ
+                WORLD_EXECUTE WORLD_READ)
+    endif()
 endif()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake"
@@ -87,11 +111,9 @@ add_custom_target(dist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 endif()
 
-set(PYSIDE2RCC_EXECUTABLE ${CMAKE_CURRENT_BINARY_DIR}/pyrcc/pyside2-rcc)
-add_subdirectory(pyrcc)
 add_subdirectory(pylupdate)
 
-# pyside2-rcc, shiboken and pyside2-lupdate entrypoints
+# pyside2-rcc, pyside2-uic, pyside2-designer, shiboken and pyside2-lupdate entrypoints
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/pyside_tool.py
         DESTINATION bin
         PERMISSIONS

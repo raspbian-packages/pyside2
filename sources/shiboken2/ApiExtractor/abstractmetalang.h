@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2019 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of Qt for Python.
@@ -249,19 +249,9 @@ public:
         return m_originalAttributes & Private;
     }
 
-    bool wasProtected() const
-    {
-        return m_originalAttributes & Protected;
-    }
-
     bool wasPublic() const
     {
         return m_originalAttributes & Public;
-    }
-
-    bool wasFriendly() const
-    {
-        return m_originalAttributes & Friendly;
     }
 
     void setDocumentation(const Documentation& doc)
@@ -311,6 +301,11 @@ public:
         ArrayPattern
     };
     Q_ENUM(TypeUsagePattern)
+
+    enum ComparisonFlag {
+        ConstRefMatchesValue = 0x1
+    };
+    Q_DECLARE_FLAGS(ComparisonFlags, ComparisonFlag);
 
     AbstractMetaType();
     ~AbstractMetaType();
@@ -438,7 +433,8 @@ public:
     bool isVolatile() const { return m_volatile; }
     void setVolatile(bool v) { m_volatile = v; }
 
-    bool isConstRef() const;
+    bool passByConstRef() const;
+    bool passByValue() const;
 
     ReferenceType referenceType() const { return m_referenceType; }
     void setReferenceType(ReferenceType ref) { m_referenceType = ref; }
@@ -482,6 +478,8 @@ public:
     AbstractMetaTypeCList nestedArrayTypes() const;
 
     QString cppSignature() const;
+
+    QString pythonSignature() const;
 
     AbstractMetaType *copy() const;
     bool applyArrayModification(QString *errorMessage);
@@ -535,17 +533,18 @@ public:
 
     bool hasTemplateChildren() const;
 
-    bool equals(const AbstractMetaType &rhs) const;
+    bool compare(const AbstractMetaType &rhs, ComparisonFlags = {}) const;
 
 private:
     TypeUsagePattern determineUsagePattern() const;
     QString formatSignature(bool minimal) const;
+    QString formatPythonSignature() const;
 
     const TypeEntry *m_typeEntry = nullptr;
     AbstractMetaTypeList m_instantiations;
     QString m_package;
-    mutable QString m_name;
     mutable QString m_cachedCppSignature;
+    mutable QString m_cachedPythonSignature;
     QString m_originalTypeDescription;
 
     int m_arrayElementCount = -1;
@@ -565,10 +564,12 @@ private:
     Q_DISABLE_COPY(AbstractMetaType)
 };
 
+Q_DECLARE_OPERATORS_FOR_FLAGS(AbstractMetaType::ComparisonFlags);
+
 inline bool operator==(const AbstractMetaType &t1, const AbstractMetaType &t2)
-{ return t1.equals(t2); }
+{ return t1.compare(t2); }
 inline bool operator!=(const AbstractMetaType &t1, const AbstractMetaType &t2)
-{ return !t1.equals(t2); }
+{ return !t1.compare(t2); }
 
 #ifndef QT_NO_DEBUG_STREAM
 QDebug operator<<(QDebug d, const AbstractMetaType *at);
@@ -667,7 +668,9 @@ public:
     }
 
     bool hasDefaultValueExpression() const
-    { return !m_originalExpression.isEmpty() || !m_expression.isEmpty(); }
+    { return !m_expression.isEmpty(); }
+    bool hasOriginalDefaultValueExpression() const
+    { return !m_originalExpression.isEmpty(); }
     bool hasUnmodifiedDefaultValueExpression() const
     { return !m_originalExpression.isEmpty() && m_originalExpression == m_expression; }
     bool hasModifiedDefaultValueExpression() const
@@ -701,24 +704,25 @@ private:
     friend class AbstractMetaClass;
 };
 
+class EnclosingClassMixin {
+public:
+    const AbstractMetaClass *enclosingClass() const { return m_enclosingClass; }
+    void setEnclosingClass(const AbstractMetaClass *cls) { m_enclosingClass = cls; }
+    const AbstractMetaClass *targetLangEnclosingClass() const;
+
+private:
+     const AbstractMetaClass *m_enclosingClass = nullptr;
+};
+
 #ifndef QT_NO_DEBUG_STREAM
 QDebug operator<<(QDebug d, const AbstractMetaArgument *aa);
 #endif
 
-class AbstractMetaField : public AbstractMetaVariable, public AbstractMetaAttributes
+class AbstractMetaField : public AbstractMetaVariable, public AbstractMetaAttributes, public EnclosingClassMixin
 {
 public:
     AbstractMetaField();
     ~AbstractMetaField();
-
-    const AbstractMetaClass *enclosingClass() const
-    {
-        return m_class;
-    }
-    void setEnclosingClass(const AbstractMetaClass *cls)
-    {
-        m_class = cls;
-    }
 
     const AbstractMetaFunction *getter() const;
     const AbstractMetaFunction *setter() const;
@@ -738,7 +742,6 @@ public:
 private:
     mutable AbstractMetaFunction *m_getter = nullptr;
     mutable AbstractMetaFunction *m_setter = nullptr;
-    const AbstractMetaClass *m_class = nullptr;
 };
 
 #ifndef QT_NO_DEBUG_STREAM
@@ -760,7 +763,9 @@ public:
         SignalFunction,
         EmptyFunction,
         SlotFunction,
-        GlobalScopeFunction
+        GlobalScopeFunction,
+        GetAttroFunction,
+        SetAttroFunction
     };
     Q_ENUM(FunctionType)
 
@@ -886,7 +891,6 @@ public:
 
     QString minimalSignature() const;
     QString debugSignature() const; // including virtual/override/final, etc., for debugging only.
-    QStringList possibleIntrospectionCompatibleSignatures() const;
 
     bool isModifiedRemoved(int types = TypeSystem::All) const;
 
@@ -1016,8 +1020,6 @@ public:
 
     AbstractMetaFunction *copy() const;
 
-    QString replacedDefaultExpression(const AbstractMetaClass *cls, int idx) const;
-    bool removedDefaultExpression(const AbstractMetaClass *cls, int idx) const;
     QString conversionRule(TypeSystem::Language language, int idx) const;
     QVector<ReferenceCount> referenceCounts(const AbstractMetaClass *cls, int idx = -2) const;
     ArgumentOwner argumentOwner(const AbstractMetaClass *cls, int idx) const;
@@ -1030,9 +1032,6 @@ public:
     bool isRemovedFromAllLanguages(const AbstractMetaClass *) const;
     bool isRemovedFrom(const AbstractMetaClass *, TypeSystem::Language language) const;
     bool argumentRemoved(int) const;
-
-    QString argumentReplaced(int key) const;
-
     /**
     *   Verifies if any modification to the function is an inject code.
     *   \return true if there is inject code modifications to the function.
@@ -1182,7 +1181,7 @@ private:
     Documentation m_doc;
 };
 
-class AbstractMetaEnum : public AbstractMetaAttributes
+class AbstractMetaEnum : public AbstractMetaAttributes, public EnclosingClassMixin
 {
 public:
     AbstractMetaEnum();
@@ -1237,23 +1236,12 @@ public:
         m_typeEntry = entry;
     }
 
-    AbstractMetaClass *enclosingClass() const
-    {
-        return m_class;
-    }
-
-    void setEnclosingClass(AbstractMetaClass *c)
-    {
-        m_class = c;
-    }
-
     bool isSigned() const { return m_signed; }
     void setSigned(bool s) { m_signed = s; }
 
 private:
     AbstractMetaEnumValueList m_enumValues;
     EnumTypeEntry *m_typeEntry = nullptr;
-    AbstractMetaClass *m_class = nullptr;
 
     EnumKind m_enumKind = CEnum;
     uint m_hasQenumsDeclaration : 1;
@@ -1264,7 +1252,7 @@ private:
 QDebug operator<<(QDebug d, const AbstractMetaEnum *ae);
 #endif
 
-class AbstractMetaClass : public AbstractMetaAttributes
+class AbstractMetaClass : public AbstractMetaAttributes, public EnclosingClassMixin
 {
     Q_GADGET
 public:
@@ -1285,7 +1273,9 @@ public:
         VirtualInTargetLangFunctions = 0x0080000, // Only functions which are virtual in TargetLang
         NotRemovedFromTargetLang     = 0x0400000, // Only functions that have not been removed from TargetLang
         OperatorOverloads            = 0x2000000, // Only functions that are operator overloads
-        GenerateExceptionHandling    = 0x4000000
+        GenerateExceptionHandling    = 0x4000000,
+        GetAttroFunction             = 0x8000000,
+        SetAttroFunction            = 0x10000000
     };
     Q_DECLARE_FLAGS(FunctionQueryOptions, FunctionQueryOption)
     Q_FLAG(FunctionQueryOption)
@@ -1309,7 +1299,6 @@ public:
     AbstractMetaClass();
     ~AbstractMetaClass();
 
-    AbstractMetaClass *extractInterface();
     void fixFunctions();
 
     AbstractMetaFunctionList functions() const
@@ -1377,10 +1366,7 @@ public:
         return m_hasVirtualDestructor;
     }
 
-    void setHasVirtualDestructor(bool value)
-    {
-        m_hasVirtualDestructor = value;
-    }
+    void setHasVirtualDestructor(bool value);
 
     bool isConstructible() const
     {
@@ -1450,13 +1436,6 @@ public:
     AbstractMetaEnum *findEnum(const QString &enumName);
     AbstractMetaEnumValue *findEnumValue(const QString &enumName);
 
-    AbstractMetaClassList interfaces() const
-    {
-        return m_interfaces;
-    }
-    void addInterface(AbstractMetaClass *interface);
-    void setInterfaces(const AbstractMetaClassList &interface);
-
     QString fullName() const
     {
         return package() + QLatin1Char('.') + name();
@@ -1470,31 +1449,23 @@ public:
 
     QString baseClassName() const
     {
-        return m_baseClass ? m_baseClass->name() : QString();
+        return m_baseClasses.isEmpty() ? QString() : m_baseClasses.constFirst()->name();
     }
 
     AbstractMetaClass *baseClass() const
     {
-        return m_baseClass;
+        return m_baseClasses.value(0, nullptr);
     }
+    const AbstractMetaClassList &baseClasses() const { return m_baseClasses; }
 
+    void addBaseClass(AbstractMetaClass *base_class);
     void setBaseClass(AbstractMetaClass *base_class);
-
-    const AbstractMetaClass *enclosingClass() const
-    {
-        return m_enclosingClass;
-    }
 
     /**
      *   \return the namespace from another package which this namespace extends.
      */
     AbstractMetaClass *extendedNamespace() const { return m_extendedNamespace; }
     void setExtendedNamespace(AbstractMetaClass *e) { m_extendedNamespace = e; }
-
-    void setEnclosingClass(AbstractMetaClass *cl)
-    {
-        m_enclosingClass = cl;
-    }
 
     const AbstractMetaClassList& innerClasses() const
     {
@@ -1513,8 +1484,6 @@ public:
 
     QString package() const;
 
-    bool isInterface() const;
-
     bool isNamespace() const;
 
     bool isQObject() const;
@@ -1528,11 +1497,6 @@ public:
 
     bool hasSignals() const;
     bool inheritsFrom(const AbstractMetaClass *other) const;
-
-    void setForceShellClass(bool on)
-    {
-        m_forceShellClass = on;
-    }
 
     /**
     *   Says if the class that declares or inherits a virtual function.
@@ -1720,6 +1684,8 @@ public:
 
 private:
 #ifndef QT_NO_DEBUG_STREAM
+    void format(QDebug &d) const;
+    void formatMembers(QDebug &d) const;
     friend QDebug operator<<(QDebug d, const AbstractMetaClass *ac);
 #endif
     uint m_hasVirtuals : 1;
@@ -1731,7 +1697,6 @@ private:
     uint m_hasPrivateDestructor : 1;
     uint m_hasProtectedDestructor : 1;
     uint m_hasVirtualDestructor : 1;
-    uint m_forceShellClass : 1;
     uint m_hasHashFunction : 1;
     uint m_hasEqualsOperator : 1;
     uint m_hasCloneOperator : 1;
@@ -1739,21 +1704,19 @@ private:
     uint m_hasToStringCapability : 1;
 
     const AbstractMetaClass *m_enclosingClass = nullptr;
-    AbstractMetaClass *m_baseClass = nullptr;
+    AbstractMetaClassList m_baseClasses; // Real base classes after setting up inheritance
     AbstractMetaClass *m_extendedNamespace = nullptr;
 
     const AbstractMetaClass *m_templateBaseClass = nullptr;
     AbstractMetaFunctionList m_functions;
     AbstractMetaFieldList m_fields;
     AbstractMetaEnumList m_enums;
-    AbstractMetaClassList m_interfaces;
-    AbstractMetaClass *m_extractedInterface = nullptr;
     QVector<QPropertySpec *> m_propertySpecs;
     AbstractMetaClassList m_innerClasses;
 
     AbstractMetaFunctionList m_externalConversionOperators;
 
-    QStringList m_baseClassNames;
+    QStringList m_baseClassNames;  // Base class names from C++, including rejected
     QVector<TypeEntry *> m_templateArgs;
     ComplexTypeEntry *m_typeEntry = nullptr;
 //     FunctionModelItem m_qDebugStreamFunction;

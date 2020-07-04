@@ -33,6 +33,7 @@
 #include <iostream>
 #include <apiextractor.h>
 #include <fileout.h>
+#include <reporthandler.h>
 #include <typedatabase.h>
 #include <messages.h>
 #include "generator.h"
@@ -387,7 +388,8 @@ int main(int argc, char *argv[])
     // needed by qxmlpatterns
     QCoreApplication app(argc, argv);
     ReportHandler::install();
-    qCDebug(lcShiboken()).noquote().nospace() << QCoreApplication::arguments().join(QLatin1Char(' '));
+    if (ReportHandler::isDebug(ReportHandler::SparseDebug))
+        qCInfo(lcShiboken()).noquote().nospace() << QCoreApplication::arguments().join(QLatin1Char(' '));
 
     // Store command arguments in a map
     CommandArgumentMap args = getCommandLineArgs();
@@ -487,14 +489,11 @@ int main(int argc, char *argv[])
     } else {
         ait = args.find(QLatin1String("debug-level"));
         if (ait != args.end()) {
-            const QString level = ait.value();
+            if (!ReportHandler::setDebugLevelFromArg(ait.value())) {
+                errorPrint(QLatin1String("Invalid debug level: ") + ait.value());
+                return EXIT_FAILURE;
+            }
             args.erase(ait);
-            if (level == QLatin1String("sparse"))
-                extractor.setDebugLevel(ReportHandler::SparseDebug);
-            else if (level == QLatin1String("medium"))
-                extractor.setDebugLevel(ReportHandler::MediumDebug);
-            else if (level == QLatin1String("full"))
-                extractor.setDebugLevel(ReportHandler::FullDebug);
         }
     }
     ait = args.find(QLatin1String("no-suppress-warnings"));
@@ -618,8 +617,11 @@ int main(int argc, char *argv[])
     if (!extractor.classCount())
         qCWarning(lcShiboken) << "No C++ classes found!";
 
-    qCDebug(lcShiboken) << extractor << '\n'
-        << *TypeDatabase::instance();
+    if (ReportHandler::isDebug(ReportHandler::FullDebug)
+        || qEnvironmentVariableIsSet("SHIBOKEN_DUMP_CODEMODEL")) {
+        qCInfo(lcShiboken) << "API Extractor:\n" << extractor
+            << "\n\nType datase:\n" << *TypeDatabase::instance();
+    }
 
     for (const GeneratorPtr &g : qAsConst(generators)) {
         g->setOutputDirectory(outputDirectory);
@@ -635,7 +637,6 @@ int main(int argc, char *argv[])
     }
 
     const QByteArray doneMessage = ReportHandler::doneMessage();
-    qCDebug(lcShiboken, "%s", doneMessage.constData());
     std::cout << doneMessage.constData() << std::endl;
 
     return EXIT_SUCCESS;

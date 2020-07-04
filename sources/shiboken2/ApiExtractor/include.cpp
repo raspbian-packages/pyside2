@@ -41,7 +41,7 @@ QString Include::toString() const
     return QLatin1String("import ") + m_name + QLatin1Char(';');
 }
 
-uint qHash(const Include& inc)
+QtCompatHashFunctionType qHash(const Include& inc)
 {
     return qHash(inc.m_name);
 }

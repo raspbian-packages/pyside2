@@ -2,14 +2,16 @@ Source: pyside2
 Section: python
 Priority: optional
 Maintainer: Debian Qt/KDE Maintainers <debian-qt-kde@lists.debian.org>
-Uploaders: Kurt Kremitzki <kurt@kwk.systems>
+Uploaders: Sophie Brun <sophie@freexian.com>,
+           Raphaël Hertzog <hertzog@debian.org>,
+	   Sebastien Delafond <seb@debian.org>
 Build-Depends: chrpath,
                cmake (>= 3.1),
-               debhelper-compat (= 12),
+               debhelper-compat (= 13),
                dh-exec,
                dh-python,
 	       graphviz,
-               libclang-dev,
+               libclang-9-dev,
                libqt5charts5-dev,
 	       libqt5datavisualization5-dev [!mips64el !mipsel !mips],
                libqt5opengl5-dev,
@@ -25,9 +27,10 @@ Build-Depends: chrpath,
                libqt5xmlpatterns5-dev,
                libxml2-dev,
                libxslt1-dev,
-               llvm-dev,
+               llvm-9-dev,
 	       patchelf [!mips64el !mipsel !mips],
                python3-all-dev,
+               python3-distro,
                python3-setuptools,
                python3-sphinx,
                python3-sphinx-rtd-theme,
@@ -50,13 +53,13 @@ Build-Depends: chrpath,
                qtscript5-dev,
                qttools5-dev,
                qtwebengine5-dev [amd64 arm64 i386 mipsel],
-               python3-distro,
 	       qml-module-qtquick2,
 	       qml-module-qtquick-layouts,
 	       qml-module-qtquick-controls,
 	       xvfb,
 	       xauth
-Standards-Version: 4.4.1
+Rules-Requires-Root: no
+Standards-Version: 4.5.0
 Homepage: https://wiki.qt.io/Qt_for_Python
 Vcs-Git: https://salsa.debian.org/qt-kde-team/qt/pyside2.git
 Vcs-Browser: https://salsa.debian.org/qt-kde-team/qt/pyside2
@@ -73,13 +76,13 @@ Description: Python bindings for Qt5 (common documentation)
  .
  This package contains the common documentation package.
 
-Package: libpyside2-py3-5.13
+Package: libpyside2-py3-5.15
 Section: libs
 Architecture: any
 Depends: ${misc:Depends}, ${python3:Depends}, ${shlibs:Depends}
-Conflicts: libpyside2-py3-5.11
-Replaces: libpyside2-py3-5.11
-Provides: libpyside2-py3-5.11
+Conflicts: libpyside2-py3-5.11, libpyside2-py3-5.13, libpyside2-py3-5.14
+Replaces: libpyside2-py3-5.11, libpyside2-py3-5.13, libpyside2-py3-5.14
+Provides: libpyside2-py3
 Description: Python 3 bindings for Qt5 (base files)
  pyside2 provides Python bindings for Qt 5.x framework.
  .
@@ -91,7 +94,7 @@ Description: Python 3 bindings for Qt5 (base files)
 Package: libpyside2-dev
 Section: libdevel
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, libpyside2-py3-5.13 (= ${binary:Version})
+Depends: ${misc:Depends}, ${shlibs:Depends}, libpyside2-py3-5.15 (= ${binary:Version})
 Description: Python bindings for Qt5 (development files)
  pyside2 provides Python bindings for Qt 5.x framework.
  .
@@ -124,10 +127,13 @@ Description: CPython bindings generator for C++ libraries
  .
  Shiboken2 is the binding generator used to create the PySide2 bindings.
 
-Package: libshiboken2-py3-5.13
+Package: libshiboken2-py3-5.15
 Section: libs
 Architecture: any
 Depends: ${misc:Depends}, ${python3:Depends}, ${shlibs:Depends}
+Conflicts: libshiboken2-py3-5.11, libshiboken2-py3-5.13, libshiboken2-py3-5.14
+Replaces: libshiboken2-py3-5.11, libshiboken2-py3-5.13, libshiboken2-py3-5.14
+Provides: libshiboken2-py3
 Description: CPython bindings generator for C++ libraries (Python3 shared library)
  Shiboken2 is a bindings generator for C++ libraries that outputs CPython
  source code. It collects information from library headers, and then
@@ -142,7 +148,7 @@ Package: libshiboken2-dev
 Section: libdevel
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends},
- libshiboken2-py3-5.13 (= ${binary:Version}), shiboken2 (= ${binary:Version}), python3-dev
+ libshiboken2-py3-5.15 (= ${binary:Version}), shiboken2 (= ${binary:Version}), python3-dev
 Description: CPython bindings generator for C++ libraries (development files)
  Shiboken2 is a bindings generator for C++ libraries that outputs CPython
  source code. It collects information from library headers, and then
@@ -169,29 +175,14 @@ Description: CPython bindings generator for C++ libraries (common documentation)
 
 Package: pyside2-tools
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, python3-pyside2uic,
- ${python3:Depends}, python3-pyside2.qtcore
-Description: development tools for PySide2 (uic, rcc, lupdate)
+Depends: ${misc:Depends}, ${shlibs:Depends}, ${python3:Depends}, python3-pyside2.qtcore
+Description: development tools for PySide2 (lupdate)
  Qt is a cross-platform C++ application framework. Qt's primary feature
  is its rich set of widgets that provide standard GUI functionality.
  .
  PySide2 ships Python bindings for the Qt5 framework. This package ships
  the following accompanying tools:
-  * pyside2-rcc - PySide resource compiler
-  * pyside2-uic - Python User Interface Compiler for PySide
   * pyside2-lupdate - update Qt Linguist translation files for PySide
-
-Package: python3-pyside2uic
-Architecture: all
-Depends: ${misc:Depends}, ${python3:Depends}, ${shlibs:Depends}
-Description: User Interface Compiler for PySide2 (Python 3)
- Qt is a cross-platform C++ application framework. Qt's primary feature
- is its rich set of widgets that provide standard GUI functionality.
- .
- PySide2 ships Python bindings for the Qt5 framework.
- .
- This package contains the Python User Interface Compiler for PySide2 in
- Python 3.
 
 Package: python3-pyside2.qtwidgets
 Architecture: any

@@ -43,6 +43,7 @@
 
 // @snippet include-pyside
 #include <pyside.h>
+#include <limits>
 // @snippet include-pyside
 
 // @snippet pystring-check
@@ -63,10 +64,15 @@ bool py2kStrCheck(PyObject *obj)
 // defaultValue can also be passed as positional argument,
 // not only as keyword.
 QVariant out;
-if (kwds || numArgs > 1)
+if (kwds || numArgs > 1) {
+    Py_BEGIN_ALLOW_THREADS
     out = %CPPSELF.value(%1, %2);
-else
+    Py_END_ALLOW_THREADS
+} else {
+    Py_BEGIN_ALLOW_THREADS
     out = %CPPSELF.value(%1);
+    Py_END_ALLOW_THREADS
+}
 
 PyTypeObject *typeObj = reinterpret_cast<PyTypeObject*>(%PYARG_3);
 
@@ -81,7 +87,6 @@ if (typeObj) {
                 for (int i = 0; i < valuesSize; i++) {
                     PyObject *item = PyUnicode_FromString(valuesList[i].data());
                     PyList_SET_ITEM(list, i, item);
-                    Py_DECREF(item);
                 }
                 %PYARG_0 = list;
 
@@ -110,15 +115,23 @@ if (typeObj) {
         float asFloat = out.toFloat();
         %PYARG_0 = PyFloat_FromDouble(asFloat);
     } else if (typeObj == &PyBool_Type) {
-        %PYARG_0 = out.toBool() ? Py_True : Py_False;
+        if (out.toBool()) {
+            Py_INCREF(Py_True);
+            %PYARG_0 = Py_True;
+        } else {
+            Py_INCREF(Py_False);
+            %PYARG_0 = Py_False;
+        }
     }
     // TODO: PyDict_Type and PyTuple_Type
 }
 else {
-    if (!out.isValid())
+    if (!out.isValid()) {
+        Py_INCREF(Py_None);
         %PYARG_0 = Py_None;
-    else
+    } else {
         %PYARG_0 = %CONVERTTOPYTHON[QVariant](out);
+    }
 }
 
 // @snippet qsettings-value
@@ -325,7 +338,7 @@ PyModule_AddStringConstant(module, "__version__", qVersion());
 // @snippet qobject-connect
 static bool isDecorator(PyObject *method, PyObject *self)
 {
-    Shiboken::AutoDecRef methodName(PyObject_GetAttrString(method, "__name__"));
+    Shiboken::AutoDecRef methodName(PyObject_GetAttr(method, Shiboken::PyMagicName::name()));
     if (!PyObject_HasAttr(self, methodName))
         return true;
     Shiboken::AutoDecRef otherMethod(PyObject_GetAttr(self, methodName));
@@ -386,9 +399,7 @@ static bool qobjectConnect(QObject *source, const char *signal, QObject *receive
     slot++;
     PySide::SignalManager::registerMetaMethod(receiver, slot, isSignal ? QMetaMethod::Signal : QMetaMethod::Slot);
     bool connection;
-    Py_BEGIN_ALLOW_THREADS
     connection = QObject::connect(source, signal - 1, receiver, slot - 1, type);
-    Py_END_ALLOW_THREADS
     return connection;
 }
 
@@ -444,9 +455,7 @@ static bool qobjectConnectCallback(QObject *source, const char *signal, PyObject
         }
     }
     bool connection;
-    Py_BEGIN_ALLOW_THREADS
     connection = QMetaObject::connect(source, signalIndex, receiver, slotIndex, type);
-    Py_END_ALLOW_THREADS
     if (connection) {
         if (usingGlobalReceiver)
             signalManager.notifyGlobalReceiver(receiver);
@@ -492,9 +501,7 @@ static bool qobjectDisconnectCallback(QObject *source, const char *signal, PyObj
     slotMethod = metaObject->method(slotIndex);
 
     bool disconnected;
-    Py_BEGIN_ALLOW_THREADS
     disconnected = QMetaObject::disconnectOne(source, signalIndex, receiver, slotIndex);
-    Py_END_ALLOW_THREADS
 
     if (disconnected) {
         if (usingGlobalReceiver)
@@ -570,8 +577,10 @@ bool %0 = qobjectConnect(%1, %2, %3, %4, %5);
 // qFatal doesn't have a stream version, so we do a
 // qWarning call followed by a qFatal() call using a
 // literal.
+Py_BEGIN_ALLOW_THREADS
 qWarning() << %1;
 qFatal("[A qFatal() call was made from Python code]");
+Py_END_ALLOW_THREADS
 // @snippet qfatal
 
 // @snippet moduleshutdown
@@ -599,7 +608,7 @@ static void msgHandlerCallback(QtMsgType type, const QMessageLogContext &ctx, co
     Shiboken::AutoDecRef arglist(PyTuple_New(3));
     PyTuple_SET_ITEM(arglist, 0, %CONVERTTOPYTHON[QtMsgType](type));
     PyTuple_SET_ITEM(arglist, 1, %CONVERTTOPYTHON[QMessageLogContext &](ctx));
-    QByteArray array = msg.toLocal8Bit();
+    QByteArray array = msg.toUtf8();  // Python handler requires UTF-8
     char *data = array.data();
     PyTuple_SET_ITEM(arglist, 2, %CONVERTTOPYTHON[char *](data));
     Shiboken::AutoDecRef ret(PyObject_CallObject(qtmsghandler, arglist));
@@ -662,9 +671,7 @@ if (!PyDateTimeAPI)
 
 // @snippet qdate-getdate
 int year, month, day;
-%BEGIN_ALLOW_THREADS
 %CPPSELF.%FUNCTION_NAME(&year, &month, &day);
-%END_ALLOW_THREADS
 %PYARG_0 = PyTuple_New(3);
 PyTuple_SET_ITEM(%PYARG_0, 0, %CONVERTTOPYTHON[int](year));
 PyTuple_SET_ITEM(%PYARG_0, 1, %CONVERTTOPYTHON[int](month));
@@ -673,9 +680,7 @@ PyTuple_SET_ITEM(%PYARG_0, 2, %CONVERTTOPYTHON[int](day));
 
 // @snippet qdate-weeknumber
 int yearNumber;
-%BEGIN_ALLOW_THREADS
 int week = %CPPSELF.%FUNCTION_NAME(&yearNumber);
-%END_ALLOW_THREADS
 %PYARG_0 = PyTuple_New(2);
 PyTuple_SET_ITEM(%PYARG_0, 0, %CONVERTTOPYTHON[int](week));
 PyTuple_SET_ITEM(%PYARG_0, 1, %CONVERTTOPYTHON[int](yearNumber));
@@ -828,8 +833,8 @@ _findChildrenHelper(%CPPSELF, %2, reinterpret_cast<PyTypeObject *>(%PYARG_1), %P
 // @snippet qobject-tr
 QString result;
 if (QCoreApplication::instance()) {
-    PyObject *klass = PyObject_GetAttrString(%PYSELF, "__class__");
-    PyObject *cname = PyObject_GetAttrString(klass, "__name__");
+    PyObject *klass = PyObject_GetAttr(%PYSELF, Shiboken::PyMagicName::class_());
+    PyObject *cname = PyObject_GetAttr(klass, Shiboken::PyMagicName::name());
     result = QString(QCoreApplication::instance()->translate(Shiboken::String::toCString(cname),
                                                         /*   %1, %2, QCoreApplication::CodecForTr, %3)); */
                                                              %1, %2, %3));
@@ -1039,6 +1044,7 @@ static int SbkQByteArray_getbufferproc(PyObject *obj, Py_buffer *view, int flags
 
     QByteArray * cppSelf = %CONVERTTOCPP[QByteArray *](obj);
     //XXX      /|\ omitting this space crashes shiboken!
+ #ifdef Py_LIMITED_API
     view->obj = obj;
     view->buf = reinterpret_cast<void *>(cppSelf->data());
     view->len = cppSelf->size();
@@ -1046,13 +1052,20 @@ static int SbkQByteArray_getbufferproc(PyObject *obj, Py_buffer *view, int flags
     view->itemsize = 1;
     view->format = const_cast<char *>("c");
     view->ndim = 1;
-    view->shape = NULL;
+    view->shape = (flags & PyBUF_ND) == PyBUF_ND ? &(view->len) : nullptr;
     view->strides = &view->itemsize;
     view->suboffsets = NULL;
     view->internal = NULL;
 
     Py_XINCREF(obj);
     return 0;
+#else // Py_LIMITED_API
+    const int result = PyBuffer_FillInfo(view, obj, reinterpret_cast<void *>(cppSelf->data()),
+                                         cppSelf->size(), 0, flags);
+    if (result == 0)
+        Py_XINCREF(obj);
+    return result;
+#endif
 }
 
 #if PY_VERSION_HEX < 0x03000000
@@ -1415,8 +1428,8 @@ if (qApp) {
         // this will keep app live after python exit (extra ref)
 }
 // PYSIDE-571: make sure that we return the singleton "None"
-if (pyApp == Py_None)
-    Py_DECREF(MakeSingletonQAppWrapper(nullptr)); // here qApp and instance() diverge
+if (Py_TYPE(pyApp) == Py_TYPE(Py_None))
+    Py_DECREF(MakeQAppWrapper(nullptr));
 %PYARG_0 = pyApp;
 Py_XINCREF(%PYARG_0);
 // @snippet qcoreapplication-instance
@@ -1424,7 +1437,10 @@ Py_XINCREF(%PYARG_0);
 // @snippet qdatastream-readrawdata
 QByteArray data;
 data.resize(%2);
-int result = %CPPSELF.%FUNCTION_NAME(data.data(), data.size());
+int result = 0;
+Py_BEGIN_ALLOW_THREADS
+result = %CPPSELF.%FUNCTION_NAME(data.data(), data.size());
+Py_END_ALLOW_THREADS
 if (result == -1) {
     Py_INCREF(Py_None);
     %PYARG_0 = Py_None;
@@ -1434,7 +1450,10 @@ if (result == -1) {
 // @snippet qdatastream-readrawdata
 
 // @snippet qdatastream-writerawdata
-int r = %CPPSELF.%FUNCTION_NAME(%1, Shiboken::String::len(%PYARG_1));
+int r = 0;
+Py_BEGIN_ALLOW_THREADS
+r = %CPPSELF.%FUNCTION_NAME(%1, Shiboken::String::len(%PYARG_1));
+Py_END_ALLOW_THREADS
 %PYARG_0 = %CONVERTTOPYTHON[int](r);
 // @snippet qdatastream-writerawdata
 
@@ -1565,7 +1584,9 @@ QT_END_NAMESPACE
 // @snippet use-stream-for-format-security
 // Uses the stream version for security reasons
 // see gcc man page at -Wformat-security
+Py_BEGIN_ALLOW_THREADS
 %FUNCTION_NAME() << %1;
+Py_END_ALLOW_THREADS
 // @snippet use-stream-for-format-security
 
 // @snippet qresource-registerResource
@@ -1579,12 +1600,16 @@ QT_END_NAMESPACE
 // @snippet qstring-return
 
 // @snippet stream-write-method
+Py_BEGIN_ALLOW_THREADS
 (*%CPPSELF) << %1;
+Py_END_ALLOW_THREADS
 // @snippet stream-write-method
 
 // @snippet stream-read-method
 %RETURN_TYPE _cpp_result;
+Py_BEGIN_ALLOW_THREADS
 (*%CPPSELF) >> _cpp_result;
+Py_END_ALLOW_THREADS
 %PYARG_0 = %CONVERTTOPYTHON[%RETURN_TYPE](_cpp_result);
 // @snippet stream-read-method
 
@@ -1606,7 +1631,9 @@ if (PyBytes_Check(%PYARG_0)) {
 
 // @snippet qiodevice-readData
 QByteArray ba(1 + int(%2), char(0));
+Py_BEGIN_ALLOW_THREADS
 %CPPSELF.%FUNCTION_NAME(ba.data(), int(%2));
+Py_END_ALLOW_THREADS
 %PYARG_0 = Shiboken::String::fromCString(ba.constData());
 // @snippet qiodevice-readData
 
@@ -1651,14 +1678,30 @@ QByteArray ba(1 + int(%2), char(0));
 %out = %OUTTYPE(PyLong_AsUnsignedLong(%in));
 // @snippet conversion-pylong-unsigned
 
+// @snippet conversion-pylong-quintptr
+#if defined(IS_PY3K) && QT_POINTER_SIZE == 8
+%out = %OUTTYPE(PyLong_AsUnsignedLongLong(%in));
+#else
+%out = %OUTTYPE(PyLong_AsUnsignedLong(%in));
+#endif
+// @snippet conversion-pylong-quintptr
+
 // @snippet conversion-pyunicode
 #ifndef Py_LIMITED_API
 Py_UNICODE *unicode = PyUnicode_AS_UNICODE(%in);
-# if defined(Py_UNICODE_WIDE)
+#  if defined(Py_UNICODE_WIDE)
 // cast as Py_UNICODE can be a different type
-%out = QString::fromUcs4((const uint *)unicode);
-# else
-%out = QString::fromUtf16((const ushort *)unicode, PyUnicode_GET_SIZE(%in));
+#    if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+%out = QString::fromUcs4(reinterpret_cast<const char32_t *>(unicode));
+#    else
+%out = QString::fromUcs4(reinterpret_cast<const uint *>(unicode));
+#    endif // Qt 6
+#  else // Py_UNICODE_WIDE
+#    if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+%out = QString::fromUtf16(reinterpret_cast<const char16_t *>(unicode), PepUnicode_GetLength(%in));
+#    else
+%out = QString::fromUtf16(reinterpret_cast<const ushort *>(unicode), PepUnicode_GetLength(%in));
+#    endif // Qt 6
 # endif
 #else
 wchar_t *temp = PyUnicode_AsWideCharString(%in, NULL);
@@ -1690,8 +1733,11 @@ int i = %CONVERTTOCPP[int](%in);
 // @snippet conversion-pyint
 
 // @snippet conversion-qlonglong
+// PYSIDE-1250: For QVariant, if the type fits into an int; use int preferably.
 qlonglong in = %CONVERTTOCPP[qlonglong](%in);
-%out = %OUTTYPE(in);
+constexpr qlonglong intMax = qint64(std::numeric_limits<int>::max());
+constexpr qlonglong intMin = qint64(std::numeric_limits<int>::min());
+%out = in >= intMin && in <= intMax ? %OUTTYPE(int(in)) : %OUTTYPE(in);
 // @snippet conversion-qlonglong
 
 // @snippet conversion-qstring
@@ -1839,6 +1885,14 @@ return PyLong_FromLong(%in);
 // @snippet return-pylong-unsigned
 return PyLong_FromUnsignedLong(%in);
 // @snippet return-pylong-unsigned
+
+// @snippet return-pylong-quintptr
+#if defined(IS_PY3K) && QT_POINTER_SIZE == 8
+return PyLong_FromUnsignedLongLong(%in);
+#else
+return PyLong_FromUnsignedLong(%in);
+#endif
+// @snippet return-pylong-quintptr
 
 // @snippet return-pyunicode
 QByteArray ba = %in.toUtf8();

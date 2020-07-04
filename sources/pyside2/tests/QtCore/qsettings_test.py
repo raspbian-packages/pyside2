@@ -28,10 +28,15 @@
 
 '''Test cases for QDate'''
 
+import os
+import sys
 import unittest
 
-import os
-from helper import adjust_filename
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from init_paths import init_test_paths
+init_test_paths(False)
+
+from helper.helper import adjust_filename
 import py3kcompat as py3k
 from PySide2.QtCore import QSettings
 
@@ -70,10 +75,7 @@ class TestQSettings(unittest.TestCase):
 
         # Handling zero value
         r = settings.value('zero_value')
-        if py3k.IS_PY3K:
-            self.assertEqual(type(r), int)
-        else:
-            self.assertEqual(type(r), long)
+        self.assertEqual(type(r), int)
 
         r = settings.value('zero_value', type=int)
         self.assertEqual(type(r), int)

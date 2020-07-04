@@ -45,11 +45,11 @@
 #include "pysideproperty.h"
 #include "pysidesignal.h"
 #include "pysidesignal_p.h"
+#include "pysidestaticstrings.h"
 #include "pysideslot_p.h"
 #include "pysidemetafunction_p.h"
 #include "pysidemetafunction.h"
 #include "dynamicqmetaobject.h"
-#include "destroylistener.h"
 
 #include <autodecref.h>
 #include <basewrapper.h>
@@ -57,6 +57,7 @@
 #include <gilstate.h>
 #include <sbkconverter.h>
 #include <sbkstring.h>
+#include <sbkstaticstrings.h>
 #include <qapp_macro.h>
 
 #include <QtCore/QByteArray>
@@ -92,6 +93,7 @@ void init(PyObject *module)
     MetaFunction::init(module);
     // Init signal manager, so it will register some meta types used by QVariant.
     SignalManager::instance();
+    initQApp();
 }
 
 static bool _setProperty(PyObject *qObj, PyObject *name, PyObject *value, bool *accept)
@@ -163,12 +165,10 @@ void registerCleanupFunction(CleanupFunction func)
 
 void runCleanupFunctions()
 {
-    //PySide::DestroyListener::instance()->destroy();
     while (!cleanupFunctionList.isEmpty()) {
         CleanupFunction f = cleanupFunctionList.pop();
         f();
     }
-    PySide::DestroyListener::destroy();
 }
 
 static void destructionVisitor(SbkObject *pyObj, void *data)
@@ -212,7 +212,7 @@ void destroyQCoreApplication()
     delete app;
     Py_END_ALLOW_THREADS
     // PYSIDE-571: make sure to create a singleton deleted qApp.
-    MakeSingletonQAppWrapper(NULL);
+    Py_DECREF(MakeQAppWrapper(nullptr));
 }
 
 std::size_t getSizeOfQObject(SbkObjectType *type)
@@ -234,7 +234,8 @@ void initDynamicMetaObject(SbkObjectType *type, const QMetaObject *base, std::si
     if (!converter)
         return;
     Shiboken::AutoDecRef pyMetaObject(Shiboken::Conversions::pointerToPython(converter, metaObjectPtr));
-    PyObject_SetAttrString(reinterpret_cast<PyObject *>(type), "staticMetaObject", pyMetaObject);
+    PyObject_SetAttr(reinterpret_cast<PyObject *>(type),
+                     PySide::PyName::qtStaticMetaObject(), pyMetaObject);
 }
 
 TypeUserData *retrieveTypeUserData(SbkObjectType *sbkTypeObj)
@@ -267,11 +268,6 @@ const QMetaObject *retrieveMetaObject(PyObject *pyObj)
     return retrieveMetaObject(pyTypeObj);
 }
 
-void initDynamicMetaObject(SbkObjectType *type, const QMetaObject *base)
-{
-    initDynamicMetaObject(type, base, 0);
-}
-
 void initQObjectSubType(SbkObjectType *type, PyObject *args, PyObject * /* kwds */)
 {
     PyTypeObject *qObjType = Shiboken::Conversions::getPythonTypeObject("QObject*");
@@ -294,6 +290,23 @@ void initQObjectSubType(SbkObjectType *type, PyObject *args, PyObject * /* kwds 
         return;
     }
     initDynamicMetaObject(type, userData->mo.update(), userData->cppObjSize);
+}
+
+void initQApp()
+{
+    /*
+     * qApp will not be initialized when embedding is active.
+     * That means that qApp exists already when PySide is initialized.
+     * We could solve that by creating a qApp variable, but in embedded
+     * mode, we also have the effect that the first assignment to qApp
+     * is persistent! Therefore, we can never be sure to have created
+     * qApp late enough to get the right type for the instance.
+     *
+     * I would appreciate very much if someone could explain or even fix
+     * this issue. It exists only when a pre-existing application exists.
+     */
+    if (!qApp)
+        Py_DECREF(MakeQAppWrapper(nullptr));
 }
 
 PyObject *getMetaDataFromQObject(QObject *cppSelf, PyObject *self, PyObject *name)
@@ -398,6 +411,24 @@ static void invalidatePtr(any_t *object)
 
 static const char invalidatePropertyName[] = "_PySideInvalidatePtr";
 
+// PYSIDE-1214, when creating new wrappers for classes inheriting QObject but
+// not exposed to Python, try to find the best-matching (most-derived) Qt
+// class by walking up the meta objects.
+static const char *typeName(QObject *cppSelf)
+{
+    const char *typeName = typeid(*cppSelf).name();
+    if (!Shiboken::Conversions::getConverter(typeName)) {
+        for (auto metaObject = cppSelf->metaObject(); metaObject; metaObject = metaObject->superClass()) {
+            const char *name = metaObject->className();
+            if (Shiboken::Conversions::getConverter(name)) {
+                typeName = name;
+                break;
+            }
+        }
+    }
+    return typeName;
+}
+
 PyObject *getWrapperForQObject(QObject *cppSelf, SbkObjectType *sbk_type)
 {
     PyObject *pyOut = reinterpret_cast<PyObject *>(Shiboken::BindingManager::instance().retrieveWrapper(cppSelf));
@@ -420,8 +451,7 @@ PyObject *getWrapperForQObject(QObject *cppSelf, SbkObjectType *sbk_type)
         }
     }
 
-    const char *typeName = typeid(*cppSelf).name();
-    pyOut = Shiboken::Object::newObject(sbk_type, cppSelf, false, false, typeName);
+    pyOut = Shiboken::Object::newObject(sbk_type, cppSelf, false, false, typeName(cppSelf));
 
     return pyOut;
 }
@@ -540,7 +570,7 @@ bool registerInternalQtConf()
     // Querying __file__ should be done only for modules that have finished their initialization.
     // Thus querying for the top-level PySide2 package works for us whenever any Qt-wrapped module
     // is loaded.
-    PyObject *pysideInitFilePath = PyObject_GetAttrString(pysideModule, "__file__");
+    PyObject *pysideInitFilePath = PyObject_GetAttr(pysideModule, Shiboken::PyMagicName::file());
     Py_DECREF(pysideModule);
     if (!pysideInitFilePath)
         return false;

@@ -10,10 +10,10 @@ Last-Update: 2018-07-12
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/sources/pyside2/libpyside/pysideproperty.cpp b/sources/pyside2/libpyside/pysideproperty.cpp
-index d9d15eb..e1e2c29 100644
+index 009a17a..4d3f450 100644
 --- a/sources/pyside2/libpyside/pysideproperty.cpp
 +++ b/sources/pyside2/libpyside/pysideproperty.cpp
-@@ -242,7 +242,7 @@ PyObject *qPropertySetter(PyObject *self, PyObject *callback)
+@@ -253,7 +253,7 @@ PyObject *qPropertySetter(PyObject *self, PyObject *callback)
          Py_INCREF(callback);
          return callback;
      }
@@ -22,7 +22,7 @@ index d9d15eb..e1e2c29 100644
      return nullptr;
  }
  
-@@ -258,7 +258,7 @@ PyObject *qPropertyGetter(PyObject *self, PyObject *callback)
+@@ -269,7 +269,7 @@ PyObject *qPropertyGetter(PyObject *self, PyObject *callback)
          Py_INCREF(callback);
          return callback;
      }
@@ -31,7 +31,7 @@ index d9d15eb..e1e2c29 100644
      return nullptr;
  }
  
-@@ -365,7 +365,7 @@ int setValue(PySideProperty *self, PyObject *source, PyObject *value)
+@@ -389,7 +389,7 @@ int setValue(PySideProperty *self, PyObject *source, PyObject *value)
          Shiboken::AutoDecRef result(PyObject_CallObject(fset, args));
          return (result.isNull() ? -1 : 0);
      } else {

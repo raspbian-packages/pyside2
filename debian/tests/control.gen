@@ -14,8 +14,3 @@ Restrictions: allow-stderr, superficial
 " >>debian/tests/control
 done
 
-echo "Test-Command: debian/tests/test_install_python3.sh pyside2uic pyside2uic
-Depends: python3-pyside2uic, python3-all
-Restrictions: allow-stderr, superficial
-" >>debian/tests/control
-

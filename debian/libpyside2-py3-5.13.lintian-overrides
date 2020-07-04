@@ -1,2 +1,0 @@
-# We ship compiled versions for each supported python3 version, with a symlink to the default version
-libpyside2-py3-5.13: package-name-doesnt-match-sonames *

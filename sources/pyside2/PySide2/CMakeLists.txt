@@ -8,6 +8,9 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/__init__.py.in"
                "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" @ONLY)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/_config.py.in"
                "${CMAKE_CURRENT_BINARY_DIR}/_config.py" @ONLY)
+# typing support for mypy
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/py.typed.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/py.typed" @ONLY)
 
 # Use absolute path instead of relative path, to avoid ninja build errors due to
 # duplicate file dependency inconsistency.
@@ -37,15 +40,19 @@ endif()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/support/__init__.py"
                "${CMAKE_CURRENT_BINARY_DIR}/support/__init__.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/support/generate_pyi.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/support/generate_pyi.py" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/support/deprecated.py"
+               "${CMAKE_CURRENT_BINARY_DIR}/support/deprecated.py" COPYONLY)
 
 # now compile all modules.
 file(READ "${CMAKE_CURRENT_BINARY_DIR}/pyside2_global.h" pyside2_global_contents)
 
 foreach(shortname IN LISTS all_module_shortnames)
-    set(name "Qt5${shortname}")
+    set(name "Qt${QT_MAJOR_VERSION}${shortname}")
     set(_qt_module_name "${name}")
     if ("${shortname}" STREQUAL "OpenGLFunctions")
-        set(_qt_module_name "Qt5Gui")
+        set(_qt_module_name "Qt${QT_MAJOR_VERSION}Gui")
     endif()
     HAS_QT_MODULE(${_qt_module_name}_FOUND Qt${shortname})
 

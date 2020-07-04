@@ -38,16 +38,54 @@
 ## $QT_END_LICENSE$
 ##
 #############################################################################
+from __future__ import print_function
+
 import sys
 import os
 import subprocess
 
+from subprocess import Popen, PIPE
+import PySide2 as ref_mod
+
+
 def main():
-    # The tools listed as entrypoints in setup.py are copied to 'scripts/..'
+    # This will take care of "pyside2-lupdate" listed as an entrypoint
+    # in setup.py are copied to 'scripts/..'
     cmd = os.path.join("..", os.path.basename(sys.argv[0]))
     command = [os.path.join(os.path.dirname(os.path.realpath(__file__)), cmd)]
     command.extend(sys.argv[1:])
     sys.exit(subprocess.call(command))
 
+
+def qt_tool_wrapper(qt_tool, args):
+    # Taking care of pyside2-uic, pyside2-rcc, and pyside2-designer
+    # listed as an entrypoint in setup.py
+    pyside_dir = os.path.dirname(ref_mod.__file__)
+    exe = os.path.join(pyside_dir, qt_tool)
+
+    cmd = [exe] + args
+    proc = Popen(cmd, stderr=PIPE)
+    out, err = proc.communicate()
+    if err:
+        msg = err.decode("utf-8")
+        print(msg, file=sys.stderr)
+    sys.exit(proc.returncode)
+
+
+def uic():
+    qt_tool_wrapper("uic", ['-g', 'python'] + sys.argv[1:])
+
+
+def rcc():
+    qt_tool_wrapper("rcc", ['-g', 'python'] + sys.argv[1:])
+
+
+def designer():
+    if sys.platform == "darwin":
+        qt_tool_wrapper("Designer.app/Contents/MacOS/Designer", sys.argv[1:])
+    else:
+        qt_tool_wrapper("designer", sys.argv[1:])
+
+
 if __name__ == "__main__":
-     main()
+    main()

@@ -1,7 +1,7 @@
 # This Python file uses the following encoding: utf-8
 #############################################################################
 ##
-## Copyright (C) 2019 The Qt Company Ltd.
+## Copyright (C) 2020 The Qt Company Ltd.
 ## Contact: https://www.qt.io/licensing/
 ##
 ## This file is part of Qt for Python.
@@ -138,7 +138,10 @@ class Formatter(Writer):
         self.print("# Module", mod_name)
         self.print("import PySide2")
         from PySide2.support.signature import typing
-        self.print("from PySide2.support.signature import typing")
+        self.print("try:")
+        self.print("    import typing")
+        self.print("except ImportError:")
+        self.print("    from PySide2.support.signature import typing")
         self.print("from PySide2.support.signature.mapping import (")
         self.print("    Virtual, Missing, Invalid, Default, Instance)")
         self.print()
@@ -161,20 +164,11 @@ class Formatter(Writer):
         if self.level == 0:
             self.print()
         here = self.outfile.tell()
-        self.print("{spaces}class {class_str}:".format(**locals()))
-        pos = self.outfile.tell()
-        yield
-        if pos == self.outfile.tell():
-            # we have not written any function
-            self.outfile.seek(here)
-            self.outfile.truncate()
+        if self.have_body:
+            self.print("{spaces}class {class_str}:".format(**locals()))
+        else:
             self.print("{spaces}class {class_str}: ...".format(**locals()))
-        if "<" in class_name:
-            # This is happening in QtQuick for some reason:
-            ## class QSharedPointer<QQuickItemGrabResult >:
-            # We simply skip over this class.
-            self.outfile.seek(here)
-            self.outfile.truncate()
+        yield
 
     @contextmanager
     def function(self, func_name, signature, modifier=None):

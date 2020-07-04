@@ -187,7 +187,7 @@ DynamicSlotDataV2::~DynamicSlotDataV2()
 
 GlobalReceiverV2::GlobalReceiverV2(PyObject *callback, SharedMap map) :
     QObject(nullptr),
-    m_metaObject(GLOBAL_RECEIVER_CLASS_NAME, &QObject::staticMetaObject),
+    m_metaObject("__GlobalReceiver__", &QObject::staticMetaObject),
     m_sharedMap(std::move(map))
 {
     m_data = new DynamicSlotDataV2(callback, this);
@@ -283,7 +283,11 @@ int GlobalReceiverV2::refCount(const QObject *link) const
 
 void GlobalReceiverV2::notify()
 {
+#if QT_VERSION >= 0x050E00
+    const QSet<const QObject *> objSet(m_refs.cbegin(), m_refs.cend());
+#else
     const auto objSet = QSet<const QObject *>::fromList(m_refs);
+#endif
     Py_BEGIN_ALLOW_THREADS
     for (const QObject *o : objSet) {
         QMetaObject::disconnect(o, DESTROY_SIGNAL_ID, this, DESTROY_SLOT_ID);

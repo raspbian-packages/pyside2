@@ -86,6 +86,11 @@ extern "C" {
         return PyLong_AsLong(number);
     }
 
+    static PyObject *qflag_int(PyObject *self)
+    {
+        return PyLong_FromLong(reinterpret_cast<PySideQFlagsObject*>(self)->ob_value);
+    }
+
     PyObject *PySideQFlagsRichCompare(PyObject *self, PyObject *other, int op)
     {
         int result = 0;
@@ -146,7 +151,8 @@ namespace QFlags
         {Py_nb_and, 0},
         {Py_nb_xor, 0},
         {Py_nb_or, 0},
-        {Py_nb_int, 0},
+        {Py_nb_int, reinterpret_cast<void*>(qflag_int)},
+        {Py_nb_index, reinterpret_cast<void*>(qflag_int)},
 #ifndef IS_PY3K
         {Py_nb_long, 0},
 #endif
@@ -168,7 +174,7 @@ namespace QFlags
         char qualname[200];
         // PYSIDE-747: Here we insert now the full class name.
         strcpy(qualname, name);
-        // Careful: PyType_FromSpec does not allocate the string.
+        // Careful: SbkType_FromSpec does not allocate the string.
         PyType_Spec *newspec = new PyType_Spec;
         newspec->name = strdup(qualname);
         newspec->basicsize = SbkNewQFlagsType_spec.basicsize;
@@ -180,7 +186,7 @@ namespace QFlags
             SbkNewQFlagsType_slots[idx].pfunc = numberMethods[idx].pfunc;
         }
         newspec->slots = SbkNewQFlagsType_spec.slots;
-        PyTypeObject *type = (PyTypeObject *)PyType_FromSpec(newspec);
+        PyTypeObject *type = (PyTypeObject *)SbkType_FromSpec(newspec);
         Py_TYPE(type) = &PyType_Type;
 
         PySideQFlagsType *flagsType = reinterpret_cast<PySideQFlagsType *>(type);

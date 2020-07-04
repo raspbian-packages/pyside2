@@ -37,12 +37,15 @@
 
 #include <QSet>
 #include <QFileInfo>
+#include <QVector>
 
 class TypeDatabase;
 
 class AbstractMetaBuilderPrivate
 {
 public:
+    using TranslateTypeFlags = AbstractMetaBuilder::TranslateTypeFlags;
+
     Q_DISABLE_COPY(AbstractMetaBuilderPrivate)
 
     AbstractMetaBuilderPrivate();
@@ -133,16 +136,20 @@ public:
     QString fixDefaultValue(const ArgumentModelItem &item, AbstractMetaType *type,
                             AbstractMetaFunction *fnc, AbstractMetaClass *,
                             int argumentIndex);
-    AbstractMetaType *translateType(const AddedFunction::TypeInfo &typeInfo);
+    AbstractMetaType *translateType(const AddedFunction::TypeInfo &typeInfo,
+                                    QString *errorMessage);
     AbstractMetaType *translateType(const TypeInfo &type,
                                     AbstractMetaClass *currentClass,
-                                    bool resolveType = true,
+                                    TranslateTypeFlags flags = {},
                                     QString *errorMessage = nullptr);
     static AbstractMetaType *translateTypeStatic(const TypeInfo &type,
                                                  AbstractMetaClass *current,
                                                  AbstractMetaBuilderPrivate *d = nullptr,
-                                                 bool resolveType = true,
+                                                 TranslateTypeFlags flags = {},
                                                  QString *errorMessageIn = nullptr);
+    static TypeEntries findTypeEntries(const QString &qualifiedName, const QString &name,
+                                       AbstractMetaClass *currentClass = nullptr,
+                                       AbstractMetaBuilderPrivate *d = nullptr);
 
     qint64 findOutValueFromString(const QString &stringValue, bool &ok);
 
@@ -185,7 +192,7 @@ public:
 
     QHash<const TypeEntry *, AbstractMetaEnum *> m_enums;
 
-    QList<NamespaceModelItem> m_scopes;
+    QVector<NamespaceModelItem> m_scopes;
 
     QSet<AbstractMetaClass *> m_setupInheritanceDone;
 

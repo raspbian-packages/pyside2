@@ -43,9 +43,10 @@ from build_scripts.utils import get_qtci_virtualEnv
 from build_scripts.utils import run_instruction
 from build_scripts.utils import rmtree
 from build_scripts.utils import get_python_dict
-from build_scripts.utils import acceptCITestConfiguration
 from build_scripts.utils import get_ci_qmake_path
 import os
+import datetime
+import calendar
 
 # Values must match COIN thrift
 CI_HOST_OS = option_value("os")
@@ -56,7 +57,7 @@ CI_HOST_OS_VER = option_value("osVer")
 CI_ENV_INSTALL_DIR = option_value("instdir")
 CI_ENV_AGENT_DIR = option_value("agentdir")
 CI_COMPILER = option_value("compiler")
-CI_INTEGRATION_ID = option_value("coinIntegrationId")
+CI_INTEGRATION_ID = option_value("coinIntegrationId") or str(calendar.timegm(datetime.datetime.now().timetuple()))
 CI_FEATURES = []
 _ci_features = option_value("features")
 if _ci_features is not None:
@@ -94,19 +95,26 @@ def is_snapshot_build():
         setup_script_dir, "sources", "pyside2", "pyside_version.py")
     d = get_python_dict(pyside_version_py)
 
-    pre_release_version_type = d['pre_release_version_type']
+    release_version_type = d['release_version_type']
     pre_release_version = d['pre_release_version']
-    if pre_release_version or pre_release_version_type:
+    if pre_release_version and release_version_type:
         return True
     return False
 
 def call_setup(python_ver, phase):
+    print("call_setup")
+    print("python_ver", python_ver)
+    print("phase", phase)
     _pExe, _env, env_pip, env_python = get_qtci_virtualEnv(python_ver, CI_HOST_OS, CI_HOST_ARCH, CI_TARGET_ARCH)
 
     if phase in ["BUILD"]:
         rmtree(_env, True)
+        # Pinning the virtualenv before creating one
+        run_instruction(["pip", "install", "--user", "virtualenv==20.0.20"], "Failed to pin virtualenv")
         run_instruction(["virtualenv", "-p", _pExe,  _env], "Failed to create virtualenv")
-        install_pip_dependencies(env_pip, ["pip", "numpy", "setuptools", "sphinx", "six", "wheel"])
+        # When the 'python_ver' variable is empty, we are using Python 2
+        # Pip is always upgraded when CI template is provisioned, upgrading it in later phase may cause perm issue
+        run_instruction([env_pip, "install", "-r", "requirements.txt"], "Failed to install dependencies")
 
     cmd = [env_python, "-u", "setup.py"]
     if phase in ["BUILD"]:
@@ -137,7 +145,6 @@ def call_setup(python_ver, phase):
     env = os.environ
     run_instruction(cmd, "Failed to run setup.py for build", initial_env=env)
 
-
 def run_build_instructions(phase):
 
     # Uses default python, hopefully we have python2 installed on all hosts
@@ -145,12 +152,11 @@ def run_build_instructions(phase):
     if CI_HOST_OS != "Windows":
         call_setup("", phase)
     # In case of packaging build, we have to build also python3 wheel
+
     if CI_RELEASE_CONF and CI_HOST_OS_VER not in ["RHEL_6_6"]:
         call_setup("3", phase)
 
 if __name__ == "__main__":
-    if not acceptCITestConfiguration(CI_HOST_OS, CI_HOST_OS_VER, CI_TARGET_ARCH, CI_COMPILER):
-        exit()
 
     # Remove some environment variables that impact cmake
     for env_var in ['CC', 'CXX']:
