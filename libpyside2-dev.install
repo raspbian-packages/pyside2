@@ -1,0 +1,6 @@
+#!/usr/bin/dh-exec --with=subst
+pyside3_install/py3*-relwithdebinfo/include/PySide2 usr/include
+pyside3_install/py3*-relwithdebinfo/share/PySide2 usr/share
+pyside3_install/py3*-relwithdebinfo/lib/pkgconfig/pyside2.pc usr/lib/${DEB_HOST_MULTIARCH}/pkgconfig
+pyside3_install/py3*-relwithdebinfo/lib/libpyside2*.so usr/lib/${DEB_HOST_MULTIARCH}
+pyside3_install/py3*-relwithdebinfo/lib/cmake/PySide2* usr/lib/${DEB_HOST_MULTIARCH}/cmake
