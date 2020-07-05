@@ -570,7 +570,7 @@ QTextStream &formatCode(QTextStream &s, const QString &code, Indentor &indentor)
 
             s << indentor << line.remove(0, limit);
         }
-        s << Qt::endl;
+        s << endl;
     }
     return s;
 }
