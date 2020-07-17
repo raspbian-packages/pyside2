@@ -1,4 +1,4 @@
-pyside2 (5.15.0-2+rpi1) bullseye-staging; urgency=medium
+pyside2 (5.15.0-3+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -7,7 +7,21 @@ pyside2 (5.15.0-2+rpi1) bullseye-staging; urgency=medium
   [changes introduced in 5.13.2-3+rpi1 by Peter Michael Green]
   * Disable testsuite.
 
- -- Peter Michael Green <plugwash@raspbian.org>  Sat, 04 Jul 2020 19:50:29 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Fri, 17 Jul 2020 08:34:30 +0000
+
+pyside2 (5.15.0-3) unstable; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Bump Qt build-dependencies to 5.14. As most Qt packages have a
+    Build-Depends-Package field in their symbols files, dpkg-shlibdeps will
+    use that information and generate a runtime dependency on a new enough
+    Qt version (closes: #963983).
+
+  [ Kurt Kremitzki ]
+  * Remove Freexian folks and add myself to Uploaders
+  * Correct libshiboken2 CMake include path (Closes: #964201)
+
+ -- Kurt Kremitzki <kkremitzki@debian.org>  Sun, 05 Jul 2020 05:13:51 -0500
 
 pyside2 (5.15.0-2) unstable; urgency=medium
 
