@@ -97,7 +97,7 @@ static QString resolveScopePrefix(const QStringList &scopeList, const QString &v
 
 static inline QStringList splitClassScope(const AbstractMetaClass *scope)
 {
-    return scope->qualifiedCppName().split(QLatin1String("::"), Qt::SkipEmptyParts);
+    return scope->qualifiedCppName().split(QLatin1String("::"), QString::SkipEmptyParts);
 }
 
 static QString resolveScopePrefix(const AbstractMetaClass *scope, const QString &value)
@@ -2827,7 +2827,7 @@ void ShibokenGenerator::writeMinimalConstructorExpression(QTextStream &s, const 
     } else {
         const QString message = msgCouldNotFindMinimalConstructor(QLatin1String(__FUNCTION__), type->qualifiedCppName());
         qCWarning(lcShiboken()).noquote() << message;
-        s << ";\n#error " << message << Qt::endl;
+        s << ";\n#error " << message << endl;
     }
 }
 
