@@ -1,0 +1,5 @@
+fix-spelling-errors.patch
+update-patchelf.patch
+blacklist-failing-tests.patch
+ftbfs-old-qt.patch
+python3.9.patch
