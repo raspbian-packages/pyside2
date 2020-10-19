@@ -1,0 +1,156 @@
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtcore PySide2.QtCore
+Depends: python3-pyside2.qtcore, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtwidgets PySide2.QtWidgets
+Depends: python3-pyside2.qtwidgets, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qt3drender PySide2.Qt3DRender
+Depends: python3-pyside2.qt3drender, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtquick PySide2.QtQuick
+Depends: python3-pyside2.qtquick, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtpositioning PySide2.QtPositioning
+Depends: python3-pyside2.qtpositioning, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtx11extras PySide2.QtX11Extras
+Depends: python3-pyside2.qtx11extras, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtqml PySide2.QtQml
+Depends: python3-pyside2.qtqml, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtwebenginecore PySide2.QtWebEngineCore
+Depends: python3-pyside2.qtwebenginecore, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qttexttospeech PySide2.QtTextToSpeech
+Depends: python3-pyside2.qttexttospeech, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qthelp PySide2.QtHelp
+Depends: python3-pyside2.qthelp, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtscripttools PySide2.QtScriptTools
+Depends: python3-pyside2.qtscripttools, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtnetwork PySide2.QtNetwork
+Depends: python3-pyside2.qtnetwork, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtmultimediawidgets PySide2.QtMultimediaWidgets
+Depends: python3-pyside2.qtmultimediawidgets, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtlocation PySide2.QtLocation
+Depends: python3-pyside2.qtlocation, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qt3dlogic PySide2.Qt3DLogic
+Depends: python3-pyside2.qt3dlogic, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtsensors PySide2.QtSensors
+Depends: python3-pyside2.qtsensors, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtmultimedia PySide2.QtMultimedia
+Depends: python3-pyside2.qtmultimedia, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtscript PySide2.QtScript
+Depends: python3-pyside2.qtscript, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtwebchannel PySide2.QtWebChannel
+Depends: python3-pyside2.qtwebchannel, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtprintsupport PySide2.QtPrintSupport
+Depends: python3-pyside2.qtprintsupport, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtquickwidgets PySide2.QtQuickWidgets
+Depends: python3-pyside2.qtquickwidgets, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qt3dinput PySide2.Qt3DInput
+Depends: python3-pyside2.qt3dinput, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtxml PySide2.QtXml
+Depends: python3-pyside2.qtxml, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qttest PySide2.QtTest
+Depends: python3-pyside2.qttest, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtwebenginewidgets PySide2.QtWebEngineWidgets
+Depends: python3-pyside2.qtwebenginewidgets, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtconcurrent PySide2.QtConcurrent
+Depends: python3-pyside2.qtconcurrent, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtxmlpatterns PySide2.QtXmlPatterns
+Depends: python3-pyside2.qtxmlpatterns, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtcharts PySide2.QtCharts
+Depends: python3-pyside2.qtcharts, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtuitools PySide2.QtUiTools
+Depends: python3-pyside2.qtuitools, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtopengl PySide2.QtOpenGL
+Depends: python3-pyside2.qtopengl, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qt3dcore PySide2.Qt3DCore
+Depends: python3-pyside2.qt3dcore, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtsql PySide2.QtSql
+Depends: python3-pyside2.qtsql, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtgui PySide2.QtGui
+Depends: python3-pyside2.qtgui, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtsvg PySide2.QtSvg
+Depends: python3-pyside2.qtsvg, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtwebsockets PySide2.QtWebSockets
+Depends: python3-pyside2.qtwebsockets, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtdatavisualization PySide2.QtDataVisualization
+Depends: python3-pyside2.qtdatavisualization, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtopenglfunctions PySide2.QtOpenGLFunctions
+Depends: python3-pyside2.qtopenglfunctions, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtscxml PySide2.QtScxml
+Depends: python3-pyside2.qtscxml, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtwebengine PySide2.QtWebEngine
+Depends: python3-pyside2.qtwebengine, python3-all
+Restrictions: allow-stderr, superficial
+
