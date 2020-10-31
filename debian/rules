@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-include /usr/share/dpkg/pkg-info.mk
+include /usr/share/dpkg/default.mk
 
 # Safety measure to ensure package names match SONAMEs
 PYSIDE_MAJOR := $(shell echo $(DEB_VERSION_UPSTREAM) | cut -d. -f1-2)
@@ -63,4 +63,9 @@ override_dh_auto_clean:
 	find . -name *.qdoconf -delete
 
 override_dh_auto_test:
+ifeq (mips64el,$(DEB_HOST_ARCH))
+	# See https://bugs.debian.org/868745
+	#QSG_NO_DEPTH_BUFFER=1 xvfb-run python3 testrunner.py test
+else
 	#xvfb-run python3 testrunner.py test
+endif

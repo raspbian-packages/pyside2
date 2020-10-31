@@ -1,4 +1,4 @@
-pyside2 (5.15.0-3+rpi1) bullseye-staging; urgency=medium
+pyside2 (5.15.0-5+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -7,7 +7,22 @@ pyside2 (5.15.0-3+rpi1) bullseye-staging; urgency=medium
   [changes introduced in 5.13.2-3+rpi1 by Peter Michael Green]
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 17 Jul 2020 08:34:30 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Mon, 26 Oct 2020 14:48:23 +0000
+
+pyside2 (5.15.0-5) unstable; urgency=medium
+
+  * Team upload.
+  * Run tests with QSG_NO_DEPTH_BUFFER=1 on mips64el (see #868745).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 19 Oct 2020 21:50:57 +0300
+
+pyside2 (5.15.0-4) unstable; urgency=medium
+
+  * Team upload.
+  * Drop preload-libglx-mesa.patch, not needed with glibc ≥ 2.31-1.
+  * Backport upstream patch to add support for Python 3.9 (closes: #972194).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 15 Oct 2020 20:06:52 +0300
 
 pyside2 (5.15.0-3) unstable; urgency=medium
 

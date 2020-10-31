@@ -1,0 +1,214 @@
+From: Christian Tismer <tismer@stackless.com>
+Date: Thu, 18 Jun 2020 14:11:14 +0200
+Subject: support Python 3.9
+
+Thanks Cristian for adding cosmetic changes which should already
+have been applied in Python 3.8 or earlier.
+
+(cherry picked from commit 401f4ff22833f2be900d9a6d8887e7dae7b07011)
+---
+ build_scripts/config.py                            |  3 ++-
+ build_scripts/wheel_override.py                    |  2 +-
+ sources/pyside2/libpyside/pysidesignal.cpp         | 12 +++++++--
+ sources/shiboken2/libshiboken/basewrapper.cpp      |  2 ++
+ sources/shiboken2/libshiboken/pep384impl.cpp       |  4 +--
+ sources/shiboken2/libshiboken/pep384impl.h         | 30 ++++++++++++----------
+ sources/shiboken2/libshiboken/threadstatesaver.cpp |  4 +++
+ .../samplebinding/pointerprimitivetype_test.py     |  5 +---
+ 8 files changed, 39 insertions(+), 23 deletions(-)
+
+diff --git a/build_scripts/config.py b/build_scripts/config.py
+index 4ec2af3..29bed2e 100644
+--- a/build_scripts/config.py
++++ b/build_scripts/config.py
+@@ -92,6 +92,7 @@ class Config(object):
+             'Programming Language :: Python :: 3.6',
+             'Programming Language :: Python :: 3.7',
+             'Programming Language :: Python :: 3.8',
++            'Programming Language :: Python :: 3.9',
+         ]
+ 
+         self.setup_script_dir = None
+@@ -134,7 +135,7 @@ class Config(object):
+         setup_kwargs['zip_safe'] = False
+         setup_kwargs['cmdclass'] = cmd_class_dict
+         setup_kwargs['version'] = package_version
+-        setup_kwargs['python_requires'] = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <3.9"
++        setup_kwargs['python_requires'] = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <3.10"
+ 
+ 
+         if quiet:
+diff --git a/build_scripts/wheel_override.py b/build_scripts/wheel_override.py
+index 03c9c92..2982874 100644
+--- a/build_scripts/wheel_override.py
++++ b/build_scripts/wheel_override.py
+@@ -89,7 +89,7 @@ class PysideBuildWheel(_bdist_wheel):
+         # create a properly named package.
+         limited_api_enabled = OPTION["LIMITED_API"] and sys.version_info[0] >= 3
+         if limited_api_enabled:
+-            self.py_limited_api = "cp35.cp36.cp37.cp38"
++            self.py_limited_api = "cp35.cp36.cp37.cp38.cp39"
+ 
+         _bdist_wheel.finalize_options(self)
+ 
+diff --git a/sources/pyside2/libpyside/pysidesignal.cpp b/sources/pyside2/libpyside/pysidesignal.cpp
+index 39ed1a6..b2ef835 100644
+--- a/sources/pyside2/libpyside/pysidesignal.cpp
++++ b/sources/pyside2/libpyside/pysidesignal.cpp
+@@ -361,7 +361,7 @@ PyObject *signalInstanceConnect(PyObject *self, PyObject *args, PyObject *kwds)
+ 
+         if (isMethod || isFunction) {
+             PyObject *function = isMethod ? PyMethod_GET_FUNCTION(slot) : slot;
+-            PyCodeObject *objCode = reinterpret_cast<PyCodeObject *>(PyFunction_GET_CODE(function));
++            auto *objCode = reinterpret_cast<PepCodeObject *>(PyFunction_GET_CODE(function));
+             useSelf = isMethod;
+             slotArgs = PepCode_GET_FLAGS(objCode) & CO_VARARGS ? -1 : PepCode_GET_ARGCOUNT(objCode);
+             if (useSelf)
+@@ -568,7 +568,11 @@ PyObject *signalCall(PyObject *self, PyObject *args, PyObject *kw)
+     Shiboken::AutoDecRef homonymousMethod(getDescriptor(signal->homonymousMethod, 0, 0));
+     if (PyCFunction_Check(homonymousMethod)
+             && (PyCFunction_GET_FLAGS(homonymousMethod.object()) & METH_STATIC)) {
++#if PY_VERSION_HEX >=  0x03090000
++        return PyObject_Call(homonymousMethod, args, kw);
++#else
+         return PyCFunction_Call(homonymousMethod, args, kw);
++#endif
+     }
+ 
+     // Assumes homonymousMethod is not a static method.
+@@ -586,7 +590,11 @@ PyObject *signalInstanceCall(PyObject *self, PyObject *args, PyObject *kw)
+ 
+     descrgetfunc getDescriptor = Py_TYPE(PySideSignal->d->homonymousMethod)->tp_descr_get;
+     Shiboken::AutoDecRef homonymousMethod(getDescriptor(PySideSignal->d->homonymousMethod, PySideSignal->d->source, 0));
++#if PY_VERSION_HEX >=  0x03090000
++        return PyObject_Call(homonymousMethod, args, kw);
++#else
+     return PyCFunction_Call(homonymousMethod, args, kw);
++#endif
+ }
+ 
+ static PyObject *metaSignalCheck(PyObject * /* klass */, PyObject *arg)
+@@ -928,7 +936,7 @@ QString getCallbackSignature(const char *signal, QObject *receiver, PyObject *ca
+ 
+     if (isMethod || isFunction) {
+         PyObject *function = isMethod ? PyMethod_GET_FUNCTION(callback) : callback;
+-        auto objCode = reinterpret_cast<PyCodeObject *>(PyFunction_GET_CODE(function));
++        auto objCode = reinterpret_cast<PepCodeObject *>(PyFunction_GET_CODE(function));
+         functionName = Shiboken::String::toCString(PepFunction_GetName(function));
+         useSelf = isMethod;
+         numArgs = PepCode_GET_FLAGS(objCode) & CO_VARARGS ? -1 : PepCode_GET_ARGCOUNT(objCode);
+diff --git a/sources/shiboken2/libshiboken/basewrapper.cpp b/sources/shiboken2/libshiboken/basewrapper.cpp
+index 443d25c..570b1ec 100644
+--- a/sources/shiboken2/libshiboken/basewrapper.cpp
++++ b/sources/shiboken2/libshiboken/basewrapper.cpp
+@@ -775,7 +775,9 @@ void init()
+ 
+     Conversions::init();
+ 
++#if PY_VERSION_HEX < 0x03070000
+     PyEval_InitThreads();
++#endif
+ 
+     //Init private data
+     Pep384_Init();
+diff --git a/sources/shiboken2/libshiboken/pep384impl.cpp b/sources/shiboken2/libshiboken/pep384impl.cpp
+index f07cac6..1821e0b 100644
+--- a/sources/shiboken2/libshiboken/pep384impl.cpp
++++ b/sources/shiboken2/libshiboken/pep384impl.cpp
+@@ -307,9 +307,9 @@ Pep_GetVerboseFlag()
+ #ifdef Py_LIMITED_API
+ 
+ int
+-PepCode_Get(PyCodeObject *co, const char *name)
++PepCode_Get(PepCodeObject *co, const char *name)
+ {
+-    PyObject *ob = (PyObject *)co;
++    PyObject *ob = reinterpret_cast<PyObject *>(co);
+     PyObject *ob_ret;
+     int ret = -1;
+ 
+diff --git a/sources/shiboken2/libshiboken/pep384impl.h b/sources/shiboken2/libshiboken/pep384impl.h
+index 541b0e7..3d000dd 100644
+--- a/sources/shiboken2/libshiboken/pep384impl.h
++++ b/sources/shiboken2/libshiboken/pep384impl.h
+@@ -327,7 +327,7 @@ LIBSHIBOKEN_API PyObject *PyRun_String(const char *, int, PyObject *, PyObject *
+ // But this is no problem as we check it's validity for every version.
+ 
+ #define PYTHON_BUFFER_VERSION_COMPATIBLE    (PY_VERSION_HEX >= 0x03030000 && \
+-                                             PY_VERSION_HEX <  0x0308FFFF)
++                                             PY_VERSION_HEX <  0x0309FFFF)
+ #if !PYTHON_BUFFER_VERSION_COMPATIBLE
+ # error Please check the buffer compatibility for this python version!
+ #endif
+@@ -411,23 +411,27 @@ LIBSHIBOKEN_API PyObject *PyMethod_Self(PyObject *);
+ /* Bytecode object */
+ 
+ // we have to grab the code object from python
+-typedef struct _code PyCodeObject;
++typedef struct _code PepCodeObject;
+ 
+-LIBSHIBOKEN_API int PepCode_Get(PyCodeObject *co, const char *name);
++LIBSHIBOKEN_API int PepCode_Get(PepCodeObject *co, const char *name);
+ 
+-#define PepCode_GET_FLAGS(o)         PepCode_Get(o, "co_flags")
+-#define PepCode_GET_ARGCOUNT(o)      PepCode_Get(o, "co_argcount")
++#  define PepCode_GET_FLAGS(o)         PepCode_Get(o, "co_flags")
++#  define PepCode_GET_ARGCOUNT(o)      PepCode_Get(o, "co_argcount")
+ 
+ /* Masks for co_flags above */
+-#define CO_OPTIMIZED    0x0001
+-#define CO_NEWLOCALS    0x0002
+-#define CO_VARARGS      0x0004
+-#define CO_VARKEYWORDS  0x0008
+-#define CO_NESTED       0x0010
+-#define CO_GENERATOR    0x0020
++#  define CO_OPTIMIZED    0x0001
++#  define CO_NEWLOCALS    0x0002
++#  define CO_VARARGS      0x0004
++#  define CO_VARKEYWORDS  0x0008
++#  define CO_NESTED       0x0010
++#  define CO_GENERATOR    0x0020
++
+ #else
+-#define PepCode_GET_FLAGS(o)         ((o)->co_flags)
+-#define PepCode_GET_ARGCOUNT(o)      ((o)->co_argcount)
++
++#  define PepCodeObject                PyCodeObject
++#  define PepCode_GET_FLAGS(o)         ((o)->co_flags)
++#  define PepCode_GET_ARGCOUNT(o)      ((o)->co_argcount)
++
+ #endif
+ 
+ /*****************************************************************************
+diff --git a/sources/shiboken2/libshiboken/threadstatesaver.cpp b/sources/shiboken2/libshiboken/threadstatesaver.cpp
+index 0d19528..085535f 100644
+--- a/sources/shiboken2/libshiboken/threadstatesaver.cpp
++++ b/sources/shiboken2/libshiboken/threadstatesaver.cpp
+@@ -51,7 +51,11 @@ ThreadStateSaver::~ThreadStateSaver()
+ 
+ void ThreadStateSaver::save()
+ {
++#if PY_VERSION_HEX >=  0x0309000
++    if (Py_IsInitialized())
++#else
+     if (PyEval_ThreadsInitialized())
++#endif
+         m_threadState = PyEval_SaveThread();
+ }
+ 
+diff --git a/sources/shiboken2/tests/samplebinding/pointerprimitivetype_test.py b/sources/shiboken2/tests/samplebinding/pointerprimitivetype_test.py
+index 532f222..9ce641f 100644
+--- a/sources/shiboken2/tests/samplebinding/pointerprimitivetype_test.py
++++ b/sources/shiboken2/tests/samplebinding/pointerprimitivetype_test.py
+@@ -70,10 +70,7 @@ class PointerPrimitiveTypeTest(unittest.TestCase):
+         self.assertTrue(found)
+         ann = sig.parameters["data"].annotation
+         self.assertEqual(ann.__args__, (int,))
+-        # un-specify this class (forget "int") by setting the _special
+-        # flag, so we can check using issubclass (undocumented feature).
+-        ann._special = True
+-        self.assertTrue(issubclass(ann, typing.Iterable))
++        self.assertTrue(issubclass(ann.__origin__, typing.Iterable))
+ 
+     def testReturnVarSignature(self):
+         # signature="getMargins(int*,int*,int*,int*)const">
