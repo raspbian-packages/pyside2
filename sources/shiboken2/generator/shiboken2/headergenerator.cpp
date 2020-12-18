@@ -119,7 +119,7 @@ void HeaderGenerator::generateClass(QTextStream &s, const GeneratorContext &clas
         s << "#define protected public\n\n";
 
     //Includes
-    s << metaClass->typeEntry()->include() << endl;
+    s << metaClass->typeEntry()->include() << Qt::endl;
 
     if (classContext.useWrapper() && usePySideExtensions() && metaClass->isQObject())
         s << "namespace PySide { class DynamicQMetaObject; }\n\n";
@@ -416,7 +416,7 @@ bool HeaderGenerator::finishGeneration()
     for (const AbstractMetaType *metaType : instantiatedSmartPtrs) {
         QString indexName = getTypeIndexVariableName(metaType);
         _writeTypeIndexValue(macrosStream, indexName, smartPointerCountIndex);
-        macrosStream << ", // " << metaType->cppSignature() << endl;
+        macrosStream << ", // " << metaType->cppSignature() << Qt::endl;
         // Add a the same value for const pointees (shared_ptr<const Foo>).
         const auto ptrName = metaType->typeEntry()->entryName();
         int pos = indexName.indexOf(ptrName, 0, Qt::CaseInsensitive);
@@ -460,7 +460,7 @@ bool HeaderGenerator::finishGeneration()
     const QVector<const AbstractMetaType *> &containers = instantiatedContainers();
     for (const AbstractMetaType *container : containers) {
         _writeTypeIndexValue(macrosStream, getTypeIndexVariableName(container), pCount);
-        macrosStream << ", // " << container->cppSignature() << endl;
+        macrosStream << ", // " << container->cppSignature() << Qt::endl;
         pCount++;
     }
 
@@ -528,10 +528,10 @@ bool HeaderGenerator::finishGeneration()
     FileOut file(moduleHeaderFileName);
     QTextStream &s = file.stream;
     // write license comment
-    s << licenseComment() << endl << endl;
+    s << licenseComment() << Qt::endl << Qt::endl;
 
-    s << "#ifndef " << includeShield << endl;
-    s << "#define " << includeShield << endl << endl;
+    s << "#ifndef " << includeShield << Qt::endl;
+    s << "#define " << includeShield << Qt::endl << Qt::endl;
     if (!avoidProtectedHack()) {
         s << "//workaround to access protected functions\n";
         s << "#define protected public\n\n";
@@ -545,7 +545,7 @@ bool HeaderGenerator::finishGeneration()
         s << "// Module Includes\n";
         for (const QString &requiredModule : qAsConst(requiredTargetImports))
             s << "#include <" << getModuleHeaderFileName(requiredModule) << ">\n";
-        s << endl;
+        s << Qt::endl;
     }
 
     s << "// Bound library includes\n";
@@ -557,7 +557,7 @@ bool HeaderGenerator::finishGeneration()
         const PrimitiveTypeEntryList &primitiveTypeList = primitiveTypes();
         for (const PrimitiveTypeEntry *ptype : primitiveTypeList)
             s << ptype->include();
-        s << endl;
+        s << Qt::endl;
     }
 
     if (!containerTypes().isEmpty()) {
@@ -565,24 +565,24 @@ bool HeaderGenerator::finishGeneration()
         const ContainerTypeEntryList &containerTypeList = containerTypes();
         for (const ContainerTypeEntry *ctype : containerTypeList)
             s << ctype->include();
-        s << endl;
+        s << Qt::endl;
     }
 
-    s << macros << endl;
+    s << macros << Qt::endl;
 
     if (!protectedEnumSurrogates.isEmpty()) {
         s << "// Protected enum surrogates\n";
-        s << protectedEnumSurrogates << endl;
+        s << protectedEnumSurrogates << Qt::endl;
     }
 
     s << "namespace Shiboken\n{\n\n";
 
     s << "// PyType functions, to get the PyObjectType for a type T\n";
-    s << sbkTypeFunctions << endl;
+    s << sbkTypeFunctions << Qt::endl;
 
     s << "} // namespace Shiboken\n\n";
 
-    s << "#endif // " << includeShield << endl << endl;
+    s << "#endif // " << includeShield << Qt::endl << Qt::endl;
 
     return file.done() != FileOut::Failure;
 }

@@ -1,4 +1,4 @@
-pyside2 (5.15.0-5+rpi1) bullseye-staging; urgency=medium
+pyside2 (5.15.0-6+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -7,7 +7,23 @@ pyside2 (5.15.0-5+rpi1) bullseye-staging; urgency=medium
   [changes introduced in 5.13.2-3+rpi1 by Peter Michael Green]
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Mon, 26 Oct 2020 14:48:23 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Fri, 18 Dec 2020 18:57:52 +0000
+
+pyside2 (5.15.0-6) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Debian Janitor ]
+  * Apply multi-arch hints.
+    + python-pyside2-doc, shiboken2-doc: Add Multi-Arch: foreign.
+    + libshiboken2-dev, python3-pyside2.qt*: Add Multi-Arch: same.
+
+  [ Dmitry Shachnev ]
+  * Drop ftbfs-old-qt.patch. Not needed since Debian has Qt 5.15.
+  * Stop hardcoding py3.8 in debian/shiboken2-doc.docs (closes: #976900).
+  * Blacklist QtWidgets::bug_307 test for now (closes: #976516).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 14 Dec 2020 20:31:39 +0300
 
 pyside2 (5.15.0-5) unstable; urgency=medium
 

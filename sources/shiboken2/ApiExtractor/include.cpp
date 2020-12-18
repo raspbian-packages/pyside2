@@ -49,7 +49,7 @@ QtCompatHashFunctionType qHash(const Include& inc)
 QTextStream& operator<<(QTextStream& out, const Include& include)
 {
     if (include.isValid())
-        out << include.toString() << endl;
+        out << include.toString() << Qt::endl;
     return out;
 }
 
