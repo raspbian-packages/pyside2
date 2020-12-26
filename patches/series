@@ -1,0 +1,5 @@
+update-sip-import.patch
+fix-spelling-errors.patch
+blacklist-failing-tests.patch
+fix-reuse-build.patch
+qApp-fix-flag-handling.patch
