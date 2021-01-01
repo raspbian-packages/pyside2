@@ -69,7 +69,7 @@ Usage
 
 ::
 
-   shiboken [options] header-file typesystem-file
+   shiboken [options] header-file(s) typesystem-file
 
 
 Options
@@ -123,7 +123,9 @@ Options
 
 ``--drop-type-entries="<TypeEntry0>[;TypeEntry1;...]"``
     Semicolon separated list of type system entries (classes, namespaces,
-    global functions and enums) to be dropped from generation.
+    global functions and enums) to be dropped from generation. Values are
+    fully qualified Python type names ('Module.Class'), but the module can
+    be omitted ('Class').
 
 .. _generation-set:
 

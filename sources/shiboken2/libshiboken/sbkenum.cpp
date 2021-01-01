@@ -608,11 +608,16 @@ newItem(PyTypeObject *enumType, long itemValue, const char *itemName)
     enumObj->ob_value = itemValue;
 
     if (newValue) {
-        PyObject *values = PyDict_GetItem(enumType->tp_dict, Shiboken::PyName::values());
-        if (!values) {
-            values = PyDict_New();
-            PyDict_SetItem(enumType->tp_dict, Shiboken::PyName::values(), values);
-            Py_DECREF(values); // ^ values still alive, because setitem increfs it
+        auto dict = enumType->tp_dict;  // Note: 'values' is borrowed
+        PyObject *values = PyDict_GetItemWithError(dict, Shiboken::PyName::values());
+        if (values == nullptr) {
+            if (PyErr_Occurred())
+                return nullptr;
+            Shiboken::AutoDecRef new_values(values = PyDict_New());
+            if (values == nullptr)
+                return nullptr;
+            if (PyDict_SetItem(dict, Shiboken::PyName::values(), values) < 0)
+                return nullptr;
         }
         PyDict_SetItemString(values, itemName, reinterpret_cast<PyObject *>(enumObj));
     }
@@ -720,11 +725,11 @@ newTypeWithName(const char *name,
 {
     // Careful: SbkType_FromSpec does not allocate the string.
     PyType_Slot newslots[99] = {};  // enough but not too big for the stack
-    auto *newspec = new PyType_Spec;
-    newspec->name = strdup(name);
-    newspec->basicsize = SbkNewType_spec.basicsize;
-    newspec->itemsize = SbkNewType_spec.itemsize;
-    newspec->flags = SbkNewType_spec.flags;
+    PyType_Spec newspec;
+    newspec.name = strdup(name);
+    newspec.basicsize = SbkNewType_spec.basicsize;
+    newspec.itemsize = SbkNewType_spec.itemsize;
+    newspec.flags = SbkNewType_spec.flags;
     // we must append all the number methods, so rebuild everything:
     int idx = 0;
     while (SbkNewType_slots[idx].slot) {
@@ -734,8 +739,8 @@ newTypeWithName(const char *name,
     }
     if (numbers_fromFlag)
         copyNumberMethods(numbers_fromFlag, newslots, &idx);
-    newspec->slots = newslots;
-    auto *type = reinterpret_cast<PyTypeObject *>(SbkType_FromSpec(newspec));
+    newspec.slots = newslots;
+    auto *type = reinterpret_cast<PyTypeObject *>(SbkType_FromSpec(&newspec));
     Py_TYPE(type) = SbkEnumType_TypeF();
 
     auto *enumType = reinterpret_cast<SbkEnumType *>(type);

@@ -32,5 +32,5 @@
 #include "otherderived.h"
 #include "otherobjecttype.h"
 #include "othermultiplederived.h"
+#include "othertypesystypedef.h"
 #include "smartptrtester.h"
-

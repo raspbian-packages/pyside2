@@ -42,6 +42,7 @@
 #include "autodecref.h"
 
 #include <vector>
+#include <unordered_set>
 
 namespace Shiboken
 {
@@ -231,12 +232,10 @@ Py_ssize_t len(PyObject *str)
 //
 //     PyObject *attr = PyObject_GetAttr(obj, name());
 //
-// Missing:
-// There is no finalization for the string structures, yet.
-// But this is a global fault in shiboken. We are missing a true
-// finalization like in all other modules.
 
-using StaticStrings = std::vector<PyObject *>;
+using StaticStrings = std::unordered_set<PyObject *>;
+
+static void finalizeStaticStrings();    // forward
 
 static StaticStrings &staticStrings()
 {
@@ -244,8 +243,23 @@ static StaticStrings &staticStrings()
     return result;
 }
 
+static void finalizeStaticStrings()
+{
+    auto &set = staticStrings();
+    for (PyObject *ob : set) {
+        Py_REFCNT(ob) = 1;
+        Py_DECREF(ob);
+    }
+    set.clear();
+}
+
 PyObject *createStaticString(const char *str)
 {
+    static bool initialized = false;
+    if (!initialized) {
+        Py_AtExit(finalizeStaticStrings);
+        initialized = true;
+    }
 #if PY_VERSION_HEX >= 0x03000000
     PyObject *result = PyUnicode_InternFromString(str);
 #else
@@ -256,16 +270,69 @@ PyObject *createStaticString(const char *str)
         PyErr_Print();
         Py_FatalError("unexpected error in createStaticString()");
     }
-    staticStrings().push_back(result);
+    auto it = staticStrings().find(result);
+    if (it == staticStrings().end())
+        staticStrings().insert(result);
+    /*
+     * Note: We always add one reference even if we have a new string.
+     *       This makes the strings immortal, and we are safe if someone
+     *       uses AutoDecRef, although the set cannot cope with deletions.
+     *       The exit handler cleans that up, anyway.
+     */
+    Py_INCREF(result);
     return result;
 }
 
-void finalizeStaticStrings() // Currently unused
+///////////////////////////////////////////////////////////////////////
+//
+// PYSIDE-1019: Helper function for snake_case vs. camelCase names
+// ---------------------------------------------------------------
+//
+// When renaming dict entries, `BindingManager::getOverride` must
+// use adapted names.
+//
+// This might become more complex when we need to register
+// exceptions from this rule.
+//
+
+PyObject *getSnakeCaseName(const char *name, bool lower)
 {
-    auto &list = staticStrings();
-    for (auto s : list)
-        Py_DECREF(s);
-    list.clear();
+    /*
+     * Convert `camelCase` to `snake_case`.
+     * Gives up when there are two consecutive upper chars.
+     *
+     * Also functions beginning with `gl` followed by upper case stay
+     * unchanged since that are the special OpenGL functions.
+     */
+    if (!lower
+        || strlen(name) < 3
+        || (name[0] == 'g' && name[1] == 'l' && isupper(name[2])))
+        return createStaticString(name);
+
+    char new_name[200 + 1] = {};
+    const char *p = name;
+    char *q = new_name;
+    for (; *p && q - new_name < 200; ++p, ++q) {
+        if (isupper(*p)) {
+            if (p != name && isupper(*(p - 1)))
+                return createStaticString(name);
+            *q = '_';
+            ++q;
+            *q = tolower(*p);
+        }
+        else {
+            *q = *p;
+        }
+    }
+    return createStaticString(new_name);
+}
+
+PyObject *getSnakeCaseName(PyObject *name, bool lower)
+{
+    // This is all static strings, not refcounted.
+    if (lower)
+        return getSnakeCaseName(toCString(name), lower);
+    return name;
 }
 
 } // namespace String

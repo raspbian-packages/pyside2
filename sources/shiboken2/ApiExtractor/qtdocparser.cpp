@@ -29,6 +29,7 @@
 #include "qtdocparser.h"
 #include "abstractmetalang.h"
 #include "messages.h"
+#include "propertyspec.h"
 #include "reporthandler.h"
 #include "typesystem.h"
 #include "xmlutils.h"
@@ -284,8 +285,7 @@ void QtDocParser::fillDocumentation(AbstractMetaClass* metaClass)
     }
 #endif
     // Enums
-    const AbstractMetaEnumList &enums = metaClass->enums();
-    for (AbstractMetaEnum *meta_enum : enums) {
+    for (AbstractMetaEnum *meta_enum : metaClass->enums()) {
         query.clear();
         QTextStream(&query) << classQuery << "/enum[@name=\""
             << meta_enum->name() << "\"]/description";

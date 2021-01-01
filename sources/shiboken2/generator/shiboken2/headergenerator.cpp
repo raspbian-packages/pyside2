@@ -119,7 +119,13 @@ void HeaderGenerator::generateClass(QTextStream &s, const GeneratorContext &clas
         s << "#define protected public\n\n";
 
     //Includes
-    s << metaClass->typeEntry()->include() << Qt::endl;
+    auto typeEntry = metaClass->typeEntry();
+    s << typeEntry->include() << '\n';
+    if (classContext.useWrapper() && !typeEntry->extraIncludes().isEmpty()) {
+        s << "\n// Extra includes\n";
+        for (const Include &inc : typeEntry->extraIncludes())
+            s << inc.toString() << '\n';
+    }
 
     if (classContext.useWrapper() && usePySideExtensions() && metaClass->isQObject())
         s << "namespace PySide { class DynamicQMetaObject; }\n\n";
@@ -233,7 +239,8 @@ void HeaderGenerator::writeFunction(QTextStream &s, const AbstractMetaFunction *
         s << INDENT << "inline " << (func->isStatic() ? "static " : "");
         s << functionSignature(func, QString(), QLatin1String("_protected"), Generator::EnumAsInts|Generator::OriginalTypeDescription)
             << " { ";
-        s << (func->type() ? "return " : "");
+        if (!func->isVoid())
+            s << "return ";
         if (!func->isAbstract())
             s << func->ownerClass()->qualifiedCppName() << "::";
         s << func->originalName() << '(';
@@ -340,15 +347,15 @@ void HeaderGenerator::writeTypeIndexValueLine(QTextStream &s, const TypeEntry *t
 void HeaderGenerator::writeTypeIndexValueLines(QTextStream &s, const AbstractMetaClass *metaClass)
 {
     auto typeEntry = metaClass->typeEntry();
-    if (!typeEntry->generateCode() || !NamespaceTypeEntry::isVisibleScope(typeEntry))
+    if (!typeEntry->generateCode())
         return;
-    writeTypeIndexValueLine(s, metaClass->typeEntry());
-    const AbstractMetaEnumList &enums = metaClass->enums();
-    for (const AbstractMetaEnum *metaEnum : enums) {
-        if (metaEnum->isPrivate())
-            continue;
-        writeTypeIndexValueLine(s, metaEnum->typeEntry());
+    // enum indices are required for invisible namespaces as well.
+    for (const AbstractMetaEnum *metaEnum : metaClass->enums()) {
+        if (!metaEnum->isPrivate())
+            writeTypeIndexValueLine(s, metaEnum->typeEntry());
     }
+    if (NamespaceTypeEntry::isVisibleScope(typeEntry))
+        writeTypeIndexValueLine(s, metaClass->typeEntry());
 }
 
 // Format the typedefs for the typedef entries to be generated
@@ -391,22 +398,25 @@ bool HeaderGenerator::finishGeneration()
     QString protectedEnumSurrogates;
     QTextStream protEnumsSurrogates(&protectedEnumSurrogates);
 
+    const auto snips = TypeDatabase::instance()->defaultTypeSystemType()->codeSnips();
+    if (!snips.isEmpty()) {
+        writeCodeSnips(macrosStream, snips, TypeSystem::CodeSnipPositionDeclaration,
+                       TypeSystem::TargetLangCode);
+    }
+
     Indentation indent(INDENT);
 
     macrosStream << "// Type indices\nenum : int {\n";
-    AbstractMetaEnumList globalEnums = this->globalEnums();
     AbstractMetaClassList classList = classes();
 
     std::sort(classList.begin(), classList.end(), [](AbstractMetaClass *a, AbstractMetaClass *b) {
         return a->typeEntry()->sbkIndex() < b->typeEntry()->sbkIndex();
     });
 
-    for (const AbstractMetaClass *metaClass : classList) {
+    for (const AbstractMetaClass *metaClass : classList)
         writeTypeIndexValueLines(macrosStream, metaClass);
-        lookForEnumsInClassesNotToBeGenerated(globalEnums, metaClass);
-    }
 
-    for (const AbstractMetaEnum *metaEnum : qAsConst(globalEnums))
+    for (const AbstractMetaEnum *metaEnum : globalEnums())
         writeTypeIndexValueLine(macrosStream, metaEnum->typeEntry());
 
     // Write the smart pointer define indexes.
@@ -481,12 +491,11 @@ bool HeaderGenerator::finishGeneration()
         typeFunctions << "QT_WARNING_PUSH\n";
         typeFunctions << "QT_WARNING_DISABLE_DEPRECATED\n";
     }
-    for (const AbstractMetaEnum *cppEnum : qAsConst(globalEnums)) {
-        if (cppEnum->isAnonymous() || cppEnum->isPrivate())
-            continue;
-        includes << cppEnum->typeEntry()->include();
-        writeProtectedEnumSurrogate(protEnumsSurrogates, cppEnum);
-        writeSbkTypeFunction(typeFunctions, cppEnum);
+    for (const AbstractMetaEnum *cppEnum : globalEnums()) {
+        if (!cppEnum->isAnonymous()) {
+            includes << cppEnum->typeEntry()->include();
+            writeSbkTypeFunction(typeFunctions, cppEnum);
+        }
     }
 
     for (AbstractMetaClass *metaClass : classList) {
@@ -497,8 +506,7 @@ bool HeaderGenerator::finishGeneration()
         const TypeEntry *classType = metaClass->typeEntry();
         includes << classType->include();
 
-        const AbstractMetaEnumList &enums = metaClass->enums();
-        for (const AbstractMetaEnum *cppEnum : enums) {
+        for (const AbstractMetaEnum *cppEnum : metaClass->enums()) {
             if (cppEnum->isAnonymous() || cppEnum->isPrivate())
                 continue;
             EnumTypeEntry *enumType = cppEnum->typeEntry();
@@ -630,8 +638,10 @@ void HeaderGenerator::writeInheritedOverloads(QTextStream &s)
 {
     for (const AbstractMetaFunction *func : qAsConst(m_inheritedOverloads)) {
         s << INDENT << "inline ";
-        s << functionSignature(func, QString(), QString(), Generator::EnumAsInts|Generator::OriginalTypeDescription) << " { ";
-        s << (func->type() ? "return " : "");
+        s << functionSignature(func, QString(), QString(), Generator::EnumAsInts|Generator::OriginalTypeDescription)
+            << " { ";
+        if (!func->isVoid())
+            s << "return ";
         s << func->ownerClass()->qualifiedCppName() << "::" << func->originalName() << '(';
         QStringList args;
         const AbstractMetaArgumentList &arguments = func->arguments();

@@ -1,4 +1,4 @@
-pyside2 (5.15.0-6+rpi1) bullseye-staging; urgency=medium
+pyside2 (5.15.2-1+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -7,7 +7,48 @@ pyside2 (5.15.0-6+rpi1) bullseye-staging; urgency=medium
   [changes introduced in 5.13.2-3+rpi1 by Peter Michael Green]
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 18 Dec 2020 18:57:52 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Fri, 01 Jan 2021 14:16:24 +0000
+
+pyside2 (5.15.2-1) unstable; urgency=medium
+
+  * Team upload.
+  * Add missing dependencies to make the autopkgtest pass again.
+  * Backport proposed upstream patch to fix qApp flags handling.
+    - Unblacklist QtWidgets::bug_307 test, it should not fail anymore.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 26 Dec 2020 11:39:45 +0300
+
+pyside2 (5.15.2-1~exp2) experimental; urgency=medium
+
+  * Add packages for Qt3DExtras and Qt3DAnimation
+  * Add update-sip-import.patch (Closes: #966041)
+
+ -- Kurt Kremitzki <kkremitzki@debian.org>  Sun, 20 Dec 2020 11:32:30 -0600
+
+pyside2 (5.15.2-1~exp1) experimental; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * New upstream release.
+  * Drop python3.9.patch, included in the new release.
+  * Rebase other patches.
+  * Backport upstream changes to pass --reuse-build only to commands that
+    support it.
+  * Build with system patchelf on all architectures. It is now available on
+    mipsel and mips64el too.
+    - Drop update-patchelf.patch, not needed with system patchelf.
+  * Continue building HTML documentation (upstream defaults to qch now).
+  * Replace Qt Quick Controls 1 build-dependency with Qt Quick Controls 2.
+  * Build with default llvm version (closes: #974784).
+  * Revert addition of “Multi-Arch: same” from the previous upload.
+    libpyside2-py3-5.15 is not multi-arch ready because the list of built
+    modules (in _config.py) may be different on different architectures.
+  * Bump Qt build-dependencies to 5.15 (as ftbfs-old-qt.patch was dropped).
+  * Minor debian/rules cleanup.
+
+  [ Alexander Volkov ]
+  * Add python3-pyside2.qt{quickcontrols2,remoteobjects,serialport} packages.
+
+ -- Kurt Kremitzki <kkremitzki@debian.org>  Sat, 19 Dec 2020 14:26:09 -0600
 
 pyside2 (5.15.0-6) unstable; urgency=medium
 

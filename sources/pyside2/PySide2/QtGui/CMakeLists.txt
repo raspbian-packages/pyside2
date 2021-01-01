@@ -8,7 +8,8 @@ endif()
 
 set(QtGui_DROPPED_ENTRIES)
 
-get_property(QtGui_enabled_features TARGET Qt${QT_MAJOR_VERSION}::Gui PROPERTY INTERFACE_QT_ENABLED_FEATURES)
+get_property(QtGui_enabled_features TARGET Qt${QT_MAJOR_VERSION}::Gui
+             PROPERTY QT_ENABLED_PUBLIC_FEATURES)
 
 set(QtGui_SRC
 ${QtGui_GEN_DIR}/qabstractopenglfunctions_wrapper.cpp
@@ -138,6 +139,7 @@ ${QtGui_GEN_DIR}/qpytextobject_wrapper.cpp
 ${QtGui_GEN_DIR}/qquaternion_wrapper.cpp
 ${QtGui_GEN_DIR}/qradialgradient_wrapper.cpp
 ${QtGui_GEN_DIR}/qregexpvalidator_wrapper.cpp
+${QtGui_GEN_DIR}/qregularexpressionvalidator_wrapper.cpp
 ${QtGui_GEN_DIR}/qregion_wrapper.cpp
 ${QtGui_GEN_DIR}/qresizeevent_wrapper.cpp
 ${QtGui_GEN_DIR}/qsessionmanager_wrapper.cpp
@@ -217,6 +219,8 @@ ${QtGui_GEN_DIR}/qtgui_module_wrapper.cpp
 if (Qt${QT_MAJOR_VERSION}Gui_VERSION VERSION_EQUAL 5.14.0
     OR Qt${QT_MAJOR_VERSION}Gui_VERSION VERSION_GREATER 5.14.0)
     list(APPEND QtGui_SRC ${QtGui_GEN_DIR}/qcolorspace_wrapper.cpp)
+    list(APPEND QtGui_SRC ${QtGui_GEN_DIR}/qcolorconstants_wrapper.cpp)
+    list(APPEND QtGui_SRC ${QtGui_GEN_DIR}/qcolorconstants_svg_wrapper.cpp)
 endif()
 
 # cf qtbase/src/gui/opengl/opengl.pri

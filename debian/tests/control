@@ -86,6 +86,10 @@ Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qt3dinput PyS
 Depends: python3-pyside2.qt3dinput, python3-all
 Restrictions: allow-stderr, superficial
 
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qt3dextras PySide2.Qt3DExtras
+Depends: python3-pyside2.qt3dextras, python3-all
+Restrictions: allow-stderr, superficial
+
 Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtxml PySide2.QtXml
 Depends: python3-pyside2.qtxml, python3-all
 Restrictions: allow-stderr, superficial
@@ -116,6 +120,10 @@ Restrictions: allow-stderr, superficial
 
 Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtopengl PySide2.QtOpenGL
 Depends: python3-pyside2.qtopengl, python3-all
+Restrictions: allow-stderr, superficial
+
+Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qt3danimation PySide2.Qt3DAnimation
+Depends: python3-pyside2.qt3danimation, python3-all
 Restrictions: allow-stderr, superficial
 
 Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qt3dcore PySide2.Qt3DCore
@@ -153,4 +161,3 @@ Restrictions: allow-stderr, superficial
 Test-Command: debian/tests/test_install_python3.sh python3-pyside2.qtwebengine PySide2.QtWebEngine
 Depends: python3-pyside2.qtwebengine, python3-all
 Restrictions: allow-stderr, superficial
-

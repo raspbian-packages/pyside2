@@ -36,7 +36,8 @@ inject-code
 
 
     The ``class`` attribute specifies which module of the generated code that
-    will be affected by the code injection. The ``class`` attribute accepts the
+    will be affected by the code injection
+    (see :ref:`codegenerationterminology`). The ``class`` attribute accepts the
     following values:
 
         * native: The c++ code
@@ -61,6 +62,8 @@ inject-code
         // @snippet label
 
     will be extracted.
+
+    For a detailed description, see :ref:`codeinjectionsemantics`.
 
 modify-field
 ^^^^^^^^^^^^
@@ -103,6 +106,7 @@ modify-function
                               access="public | private | protected"
                               allow-thread="true | auto | false"
                               exception-handling="off | auto-off | auto-on | on"
+                              overload-number="number"
                               rename="..." />
          </object-type>
 
@@ -131,6 +135,47 @@ modify-function
            * auto-on: Generate exception handling code unless function
              declares ``noexcept``
            * yes, true: Always generate exception handling code
+
+    The optional ``overload-number`` attribute specifies the position of the
+    overload when checking arguments. Typically, when a number of overloads
+    exists, as for in example in Qt:
+
+    .. code-block:: c++
+
+        void QPainter::drawLine(QPointF, QPointF);
+        void QPainter::drawLine(QPoint, QPoint);
+
+    they will be reordered such that the check for matching arguments for the
+    one taking a ``QPoint`` is done first. This is to avoid a potentially
+    costly implicit conversion from ``QPoint`` to ``QPointF`` when using the
+    2nd overload. There are cases though in which this is not desired;
+    most prominently when a class inherits from a container and overloads exist
+    for both types as is the case for the ``QPolygon`` class:
+
+    .. code-block:: c++
+
+        class QPolygon : public QList<QPoint> {};
+
+        void QPainter::drawPolygon(QPolygon);
+        void QPainter::drawPolygon(QList<QPoint>);
+
+    By default, the overload taking a ``QList`` will be checked first, trying
+    to avoid constructing a ``QPolygon`` from ``QList``. The type check for a
+    list of points will succeed for a parameter of type ``QPolygon``, too,
+    since it inherits ``QList``. This presents a problem since the sequence
+    type check is costly due to it checking that each container element is a
+    ``QPoint``. It is thus preferable to check for the ``QPolygon`` overload
+    first. This is achieved by specifying numbers as follows:
+
+    .. code-block:: xml
+
+        <object-type name="QPainter">
+            <modify-function signature="drawPolygon(QPolygon)" overload-number="0"/>
+            <modify-function signature="drawPolygon(QList&lt;QPoint&gt;)" overload-number="1"/>
+        </object-type>
+
+    Numbers should be given for all overloads; otherwise, the order will be in
+    declaration order.
 
     The ``remove``, ``access`` and ``rename`` attributes are *optional* attributes
     for added convenience; they serve the same purpose as the deprecated tags :ref:`remove`, :ref:`access` and :ref:`rename`.
@@ -161,7 +206,7 @@ add-function
     Within the signature, names for the function parameters can be specified by
     enclosing them within the delimiter *@*:
 
-    .. code-block:: c++
+    .. code-block::
 
         void foo(int @parameter1@,float)
 
@@ -188,3 +233,78 @@ conversion-rule
     .. note:: You can also use the conversion-rule node to specify :ref:`how the conversion of a single function argument should be done in a function <conversion-rule>`.
 
     The ``file`` and ``snippet`` attributes are also supported (see :ref:`inject-code` nodes).
+
+
+property
+^^^^^^^^
+
+    The ``property`` element allows you to specify properties consisting of
+    a type and getter and setter functions.
+
+    It may appear as a child of a complex type such as ``object-type`` or
+    ``value-type``.
+
+    If the PySide2 extension is not present, code will be generated using the
+    ``PyGetSetDef`` struct, similar to what is generated for fields.
+
+    If the PySide2 extension is present, those properties complement the
+    properties obtained from the ``Q_PROPERTY`` macro in Qt-based code.
+    The properties will be handled in ``libpyside`` unless code generation
+    is forced.
+
+    .. code-block:: xml
+
+        <property name="..." type="..." get="..." set="..." " generate-getsetdef="yes | no" since="..."/>
+
+    The ``name`` attribute specifies the name of the property, the ``type``
+    attribute specifies the C++ type and the ``get`` attribute specifies the
+    name of the accessor function.
+
+    The optional ``set`` attribute specifies name of the setter function.
+
+    The optional ``generate-getsetdef`` attribute specifies whether to generate
+    code for if the PySide2 extension is present (indicating this property is not
+    handled by libpyside). It defaults to *no*.
+
+    The optional ``since`` attribute specifies the API version when this
+    property appears.
+
+    For a typical C++ class, like:
+
+    .. code-block:: c++
+
+        class Test {
+        public:
+            int getValue() const;
+            void setValue();
+        };
+
+    ``value`` can then be specified to be a property:
+
+    .. code-block:: xml
+
+        <value-type name="Test">
+            <property name="value" type="int" get="getValue" set="setValue"/>
+
+    With that, a more pythonic style can be used:
+
+    .. code-block:: python
+
+        test = Test()
+        test.value = 42
+
+    For Qt classes (with the PySide2 extension present), additional setters
+    and getters that do not appear as ``Q_PROPERTY``, can be specified to
+    be properties:
+
+    .. code-block:: xml
+
+        <object-type name="QMainWindow">
+            <property name="centralWidget" type="QWidget *" get="centralWidget" set="setCentralWidget"/>
+
+    in addition to the normal properties of ``QMainWindow`` defined for
+    Qt Designer usage.
+
+    .. note:: In the *Qt* coding style, the property name typically conflicts
+        with the getter name. It is recommended to exclude the getter from the
+        wrapper generation using the ``remove`` function modification.

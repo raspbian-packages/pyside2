@@ -63,6 +63,7 @@ ${QtCore_GEN_DIR}/qfiledevice_wrapper.cpp
 ${QtCore_GEN_DIR}/qfileinfo_wrapper.cpp
 ${QtCore_GEN_DIR}/qfilesystemwatcher_wrapper.cpp
 ${QtCore_GEN_DIR}/qfinalstate_wrapper.cpp
+${QtCore_GEN_DIR}/qfutureinterfacebase_wrapper.cpp
 ${QtCore_GEN_DIR}/qgenericargument_wrapper.cpp
 ${QtCore_GEN_DIR}/qgenericreturnargument_wrapper.cpp
 ${QtCore_GEN_DIR}/qhistorystate_wrapper.cpp
@@ -129,6 +130,7 @@ ${QtCore_GEN_DIR}/qsignalmapper_wrapper.cpp
 ${QtCore_GEN_DIR}/qsignaltransition_wrapper.cpp
 ${QtCore_GEN_DIR}/qsize_wrapper.cpp
 ${QtCore_GEN_DIR}/qsizef_wrapper.cpp
+${QtCore_GEN_DIR}/qsocketdescriptor_wrapper.cpp
 ${QtCore_GEN_DIR}/qsocketnotifier_wrapper.cpp
 ${QtCore_GEN_DIR}/qsortfilterproxymodel_wrapper.cpp
 ${QtCore_GEN_DIR}/qstate_wrapper.cpp
@@ -194,6 +196,12 @@ if (Qt${QT_MAJOR_VERSION}Core_VERSION VERSION_EQUAL 5.14.0
          ${QtCore_GEN_DIR}/qcalendar_wrapper.cpp
          ${QtCore_GEN_DIR}/qcalendar_yearmonthday_wrapper.cpp
          ${QtCore_GEN_DIR}/qrecursivemutex_wrapper.cpp)
+endif()
+
+if (Qt${QT_MAJOR_VERSION}Core_VERSION VERSION_EQUAL 5.15.0
+    OR Qt${QT_MAJOR_VERSION}Core_VERSION VERSION_GREATER 5.15.0)
+    list(APPEND QtCore_SRC
+         ${QtCore_GEN_DIR}/qbytearray_frombase64result_wrapper.cpp)
 endif()
 
 set(QtCore_glue_sources

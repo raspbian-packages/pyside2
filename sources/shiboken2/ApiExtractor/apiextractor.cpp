@@ -82,9 +82,9 @@ void ApiExtractor::setLogDirectory(const QString& logDir)
     m_logDirectory = logDir;
 }
 
-void ApiExtractor::setCppFileName(const QString& cppFileName)
+void ApiExtractor::setCppFileNames(const QFileInfoList &cppFileName)
 {
-    m_cppFileName = cppFileName;
+    m_cppFileNames = cppFileName;
 }
 
 void ApiExtractor::setTypeSystem(const QString& typeSystemFileName)
@@ -121,25 +121,25 @@ void ApiExtractor::setDropTypeEntries(QString dropEntries)
     TypeDatabase::instance()->setDropTypeEntries(entries);
 }
 
-AbstractMetaEnumList ApiExtractor::globalEnums() const
+const AbstractMetaEnumList &ApiExtractor::globalEnums() const
 {
     Q_ASSERT(m_builder);
     return m_builder->globalEnums();
 }
 
-AbstractMetaFunctionList ApiExtractor::globalFunctions() const
+const AbstractMetaFunctionList &ApiExtractor::globalFunctions() const
 {
     Q_ASSERT(m_builder);
     return m_builder->globalFunctions();
 }
 
-AbstractMetaClassList ApiExtractor::classes() const
+const AbstractMetaClassList &ApiExtractor::classes() const
 {
     Q_ASSERT(m_builder);
     return m_builder->classes();
 }
 
-AbstractMetaClassList ApiExtractor::smartPointers() const
+const AbstractMetaClassList &ApiExtractor::smartPointers() const
 {
     Q_ASSERT(m_builder);
     return m_builder->smartPointers();
@@ -172,7 +172,20 @@ int ApiExtractor::classCount() const
     return m_builder->classes().count();
 }
 
-bool ApiExtractor::run()
+// Add defines required for parsing Qt code headers
+static void addPySideExtensions(QByteArrayList *a)
+{
+    // Make "signals:", "slots:" visible as access specifiers
+    a->append(QByteArrayLiteral("-DQT_ANNOTATE_ACCESS_SPECIFIER(a)=__attribute__((annotate(#a)))"));
+
+    // Q_PROPERTY is defined as class annotation which does not work since a
+    // sequence of properties will to expand to a sequence of annotations
+    // annotating nothing, causing clang to complain. Instead, define it away in a
+    // static assert with the stringified argument in a ','-operator (cf qdoc).
+    a->append(QByteArrayLiteral("-DQT_ANNOTATE_CLASS(type,...)=static_assert(sizeof(#__VA_ARGS__),#type);"));
+}
+
+bool ApiExtractor::run(bool usePySideExtensions)
 {
     if (m_builder)
         return false;
@@ -182,8 +195,9 @@ bool ApiExtractor::run()
         return false;
     }
 
-    const QString pattern = QDir::tempPath() + QLatin1Char('/') +
-        QFileInfo(m_cppFileName).baseName() + QStringLiteral("_XXXXXX.hpp");
+    const QString pattern = QDir::tempPath() + QLatin1Char('/')
+        + m_cppFileNames.constFirst().baseName()
+        + QStringLiteral("_XXXXXX.hpp");
     QTemporaryFile ppFile(pattern);
     bool autoRemove = !qEnvironmentVariableIsSet("KEEP_TEMP_FILES");
     // make sure that a tempfile can be written
@@ -192,14 +206,16 @@ bool ApiExtractor::run()
             << ": " << qPrintable(ppFile.errorString()) << '\n';
         return false;
     }
-    ppFile.write("#include \"");
-    ppFile.write(m_cppFileName.toLocal8Bit());
-    ppFile.write("\"\n");
+    for (const auto &cppFileName : qAsConst(m_cppFileNames)) {
+        ppFile.write("#include \"");
+        ppFile.write(cppFileName.absoluteFilePath().toLocal8Bit());
+        ppFile.write("\"\n");
+    }
     const QString preprocessedCppFileName = ppFile.fileName();
     ppFile.close();
     m_builder = new AbstractMetaBuilder;
     m_builder->setLogDirectory(m_logDirectory);
-    m_builder->setGlobalHeader(m_cppFileName);
+    m_builder->setGlobalHeaders(m_cppFileNames);
     m_builder->setSkipDeprecated(m_skipDeprecated);
     m_builder->setHeaderPaths(m_includePaths);
     QByteArrayList arguments;
@@ -212,6 +228,10 @@ bool ApiExtractor::run()
             << "clang language level: " << int(m_languageLevel)
             << "\nclang arguments: " << arguments;
     }
+
+    if (usePySideExtensions)
+        addPySideExtensions(&arguments);
+
     const bool result = m_builder->build(arguments, m_languageLevel);
     if (!result)
         autoRemove = false;
@@ -255,8 +275,8 @@ QDebug operator<<(QDebug d, const ApiExtractor &ae)
     d.nospace();
     if (ReportHandler::debugLevel() >= ReportHandler::FullDebug)
         d.setVerbosity(3); // Trigger verbose output of AbstractMetaClass
-    d << "ApiExtractor(typeSystem=\"" << ae.typeSystem() << "\", cppFileName=\""
-      << ae.cppFileName() << ", ";
+    d << "ApiExtractor(typeSystem=\"" << ae.typeSystem() << "\", cppFileNames=\""
+      << ae.cppFileNames() << ", ";
     ae.m_builder->formatDebug(d);
     d << ')';
     return d;

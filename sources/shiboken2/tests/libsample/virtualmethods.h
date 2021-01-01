@@ -106,6 +106,12 @@ public:
     virtual int recursionOnModifiedVirtual(Str arg) const { return 0; }
     int callRecursionOnModifiedVirtual(Str arg) const { return recursionOnModifiedVirtual(arg); }
 
+    virtual const Str & returnConstRef() const;
+
+protected:
+    // PYSIDE-1388: Protected hack with final classes (see VirtualFinalDaughter).
+    void protectedMethod() {}
+
 private:
     Str m_name;
     int m_left;

@@ -35,6 +35,8 @@
 
 #include "clangparser/compilersupport.h"
 
+#include <QFileInfoList>
+
 QT_FORWARD_DECLARE_CLASS(QIODevice)
 
 class AbstractMetaBuilderPrivate;
@@ -61,11 +63,11 @@ public:
     AbstractMetaBuilder();
     virtual ~AbstractMetaBuilder();
 
-    AbstractMetaClassList classes() const;
-    AbstractMetaClassList templates() const;
-    AbstractMetaClassList smartPointers() const;
-    AbstractMetaFunctionList globalFunctions() const;
-    AbstractMetaEnumList globalEnums() const;
+    const AbstractMetaClassList &classes() const;
+    const AbstractMetaClassList &templates() const;
+    const AbstractMetaClassList &smartPointers() const;
+    const AbstractMetaFunctionList &globalFunctions() const;
+    const AbstractMetaEnumList &globalEnums() const;
     AbstractMetaEnum *findEnum(const TypeEntry *typeEntry) const;
 
     /**
@@ -85,7 +87,7 @@ public:
     *   so any class declared under this header wont have the include file
     *   filled.
     */
-    void setGlobalHeader(const QString& globalHeader);
+    void setGlobalHeaders(const QFileInfoList& globalHeaders);
     void setHeaderPaths(const HeaderPaths &h);
 
     void setSkipDeprecated(bool value);

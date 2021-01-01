@@ -30,9 +30,6 @@
     linux
 [QtGui::qmatrix_test]
     win32
-# segfault on exit, https://bugreports.qt.io/browse/PYSIDE-1447
-[QtWidgets::bug_307]
-    linux
 [QtWidgets::bug_576]
     linux
     win32

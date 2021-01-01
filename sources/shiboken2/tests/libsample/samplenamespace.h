@@ -41,25 +41,6 @@ enum {
     AnonymousGlobalEnum_Value1
 };
 
-// Invisible namespace
-namespace Invisible
-{
-
-enum EnumOnNamespace {
-    Option1     = 1,
-    Option2     = 2,
-    Option3     = 3
-};
-
-struct ObjectOnInvisibleNamespace
-{
-    bool exists() const { return true; }
-    static int toInt(EnumOnNamespace e) { return static_cast<int>(e); }
-    static ObjectOnInvisibleNamespace consume(const ObjectOnInvisibleNamespace &other) { return other; }
-};
-
-};
-
 namespace SampleNamespace
 {
 
@@ -172,6 +153,8 @@ LIBSAMPLE_API void forceDecisorSideB(int a, const Point &pt, const Str &text, Ob
 LIBSAMPLE_API double passReferenceToValueType(const Point& point, double multiplier);
 // Add a new signature on type system with only a ObjectType pointer as parameter.
 LIBSAMPLE_API int passReferenceToObjectType(const ObjectType& obj, int multiplier);
+
+extern LIBSAMPLE_API int variableInNamespace;
 
 } // namespace SampleNamespace
 

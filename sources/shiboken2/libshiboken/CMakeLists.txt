@@ -14,7 +14,7 @@ macro(get_numpy_location)
                   break"
       OUTPUT_VARIABLE PYTHON_NUMPY_LOCATION
       OUTPUT_STRIP_TRAILING_WHITESPACE)
-  message("PYTHON_NUMPY_LOCATION: " ${PYTHON_NUMPY_LOCATION})
+  message(STATUS "PYTHON_NUMPY_LOCATION: " ${PYTHON_NUMPY_LOCATION})
 endmacro()
 
 option(ENABLE_VERSION_SUFFIX "Used to use current version in suffix to generated files. This is used to allow multiples versions installed simultaneous." FALSE)
@@ -57,14 +57,19 @@ sbkstaticstrings.cpp
 bindingmanager.cpp
 threadstatesaver.cpp
 shibokenbuffer.cpp
-signature.cpp
 qapp_macro.cpp
 pep384impl.cpp
 voidptr.cpp
 typespec.cpp
 bufferprocs_py37.cpp
+
 embed/signature_bootstrap_inc.h
 embed/signature_inc.h
+
+signature/signature.cpp
+signature/signature_globals.cpp
+signature/signature_extend.cpp
+signature/signature_helper.cpp
 )
 
 get_numpy_location()
@@ -115,7 +120,7 @@ endif()
 set_target_properties(libshiboken PROPERTIES OUTPUT_NAME "shiboken2${shiboken2_SUFFIX}${PYTHON_SHARED_LIBRARY_SUFFIX}"
                                              VERSION ${libshiboken_VERSION}
                                              SOVERSION ${libshiboken_SOVERSION}
-                                             DEFINE_SYMBOL LIBSHIBOKEN_EXPORTS)
+                                             DEFINE_SYMBOL BUILD_LIBSHIBOKEN)
 
 install(FILES
         autodecref.h
@@ -137,12 +142,15 @@ install(FILES
         shibokenbuffer.h
         sbkpython.h
         pep384impl.h
-        signature.h
         qapp_macro.h
         voidptr.h
         typespec.h
         bufferprocs_py37.h
         "${CMAKE_CURRENT_BINARY_DIR}/sbkversion.h"
+
+        signature.h
+        signature/signature_p.h
+
         DESTINATION include/shiboken2${shiboken2_SUFFIX})
 install(TARGETS libshiboken EXPORT Shiboken2Targets
                             LIBRARY DESTINATION "${LIB_INSTALL_DIR}"

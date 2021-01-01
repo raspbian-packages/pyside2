@@ -223,8 +223,7 @@ std::size_t getSizeOfQObject(SbkObjectType *type)
 void initDynamicMetaObject(SbkObjectType *type, const QMetaObject *base, std::size_t cppObjSize)
 {
     //create DynamicMetaObject based on python type
-    auto userData =
-        new TypeUserData(reinterpret_cast<PyTypeObject *>(type), base, cppObjSize);
+    auto userData = new TypeUserData(reinterpret_cast<PyTypeObject *>(type), base, cppObjSize);
     userData->mo.update();
     Shiboken::ObjectType::setTypeUserData(type, userData, Shiboken::callCppDestructor<TypeUserData>);
 
@@ -320,7 +319,6 @@ PyObject *getMetaDataFromQObject(QObject *cppSelf, PyObject *self, PyObject *nam
         Py_DECREF(attr);
         if (!value)
             return 0;
-        Py_INCREF(value);
         attr = value;
     }
 
@@ -588,16 +586,22 @@ bool registerInternalQtConf()
 #ifdef PYSIDE_QT_CONF_PREFIX
     setupPrefix = QStringLiteral(PYSIDE_QT_CONF_PREFIX);
 #endif
-    QString prefixPath = pysideDir.absoluteFilePath(setupPrefix);
+    const QString prefixPathStr = pysideDir.absoluteFilePath(setupPrefix);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    const QByteArray prefixPath = prefixPathStr.toLocal8Bit();
+#else
+    // PYSIDE-972, QSettings used by QtCore uses Latin1
+    const QByteArray prefixPath = prefixPathStr.toLatin1();
+#endif
 
     // rccData needs to be static, otherwise when it goes out of scope, the Qt resource system
     // will point to invalid memory.
-    static QByteArray rccData = QByteArray("[Paths]\nPrefix = ") + prefixPath.toLocal8Bit()
+    static QByteArray rccData = QByteArrayLiteral("[Paths]\nPrefix = ") + prefixPath
 #ifdef Q_OS_WIN
             // LibraryExecutables needs to point to Prefix instead of ./bin because we don't
             // currently conform to the Qt default directory layout on Windows. This is necessary
             // for QtWebEngineCore to find the location of QtWebEngineProcess.exe.
-            + QByteArray("\nLibraryExecutables = ") + prefixPath.toLocal8Bit()
+            + QByteArray("\nLibraryExecutables = ") + prefixPath
 #endif
             ;
     rccData.append('\n');

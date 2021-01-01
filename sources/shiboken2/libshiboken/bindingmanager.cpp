@@ -44,6 +44,7 @@
 #include "sbkdbg.h"
 #include "gilstate.h"
 #include "sbkstring.h"
+#include "sbkstaticstrings.h"
 #include "debugfreehook.h"
 
 #include <cstddef>
@@ -273,7 +274,17 @@ SbkObject *BindingManager::retrieveWrapper(const void *cptr)
     return iter->second;
 }
 
-PyObject *BindingManager::getOverride(const void *cptr, const char *methodName)
+static inline int currentSelectId(PyTypeObject *type)
+{
+    int sel = SbkObjectType_GetReserved(type);
+    // This could theoretically be -1 if used too early.
+    assert(sel >= 0);
+    return sel;
+}
+
+PyObject *BindingManager::getOverride(const void *cptr,
+                                      PyObject *nameCache[],
+                                      const char *methodName)
 {
     SbkObject *wrapper = retrieveWrapper(cptr);
     // The refcount can be 0 if the object is dieing and someone called
@@ -281,15 +292,29 @@ PyObject *BindingManager::getOverride(const void *cptr, const char *methodName)
     if (!wrapper || reinterpret_cast<const PyObject *>(wrapper)->ob_refcnt == 0)
         return nullptr;
 
+    int flag = currentSelectId(Py_TYPE(wrapper));
+    int propFlag = isdigit(methodName[0]) ? methodName[0] - '0' : 0;
+    if ((flag & 0x02) != 0 && (propFlag & 3) != 0) {
+        // PYSIDE-1019: Handle overriding with properties.
+        // They cannot be overridden (make that sure by the metaclass).
+        return nullptr;
+    }
+    PyObject *pyMethodName = nameCache[(flag & 1) != 0];  // borrowed
+    if (pyMethodName == nullptr) {
+        if (propFlag)
+            methodName += 2;    // skip the propFlag and ':'
+        pyMethodName = Shiboken::String::getSnakeCaseName(methodName, flag);
+        nameCache[(flag & 1) != 0] = pyMethodName;
+    }
+
     if (wrapper->ob_dict) {
-        PyObject *method = PyDict_GetItemString(wrapper->ob_dict, methodName);
+        PyObject *method = PyDict_GetItem(wrapper->ob_dict, pyMethodName);
         if (method) {
-            Py_INCREF(reinterpret_cast<PyObject *>(method));
+            Py_INCREF(method);
             return method;
         }
     }
 
-    Shiboken::AutoDecRef pyMethodName(Shiboken::String::fromCString(methodName));
     PyObject *method = PyObject_GetAttr(reinterpret_cast<PyObject *>(wrapper), pyMethodName);
 
     if (method && PyMethod_Check(method)
@@ -297,19 +322,20 @@ PyObject *BindingManager::getOverride(const void *cptr, const char *methodName)
         PyObject *defaultMethod;
         PyObject *mro = Py_TYPE(wrapper)->tp_mro;
 
+        int size = PyTuple_GET_SIZE(mro);
         // The first class in the mro (index 0) is the class being checked and it should not be tested.
         // The last class in the mro (size - 1) is the base Python object class which should not be tested also.
-        for (int i = 1; i < PyTuple_GET_SIZE(mro) - 1; i++) {
-            auto *parent = reinterpret_cast<PyTypeObject *>(PyTuple_GET_ITEM(mro, i));
+        for (int idx = 1; idx < size - 1; ++idx) {
+            auto *parent = reinterpret_cast<PyTypeObject *>(PyTuple_GET_ITEM(mro, idx));
             if (parent->tp_dict) {
                 defaultMethod = PyDict_GetItem(parent->tp_dict, pyMethodName);
                 if (defaultMethod && PyMethod_GET_FUNCTION(method) != defaultMethod)
                     return method;
             }
         }
+    } else {
+        Py_XDECREF(method);
     }
-
-    Py_XDECREF(method);
     return nullptr;
 }
 

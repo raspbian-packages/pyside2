@@ -374,9 +374,15 @@ static bool getReceiver(QObject *source, const char *signal, PyObject *callback,
             usingGlobalReceiver = true;
     }
 
+    const auto receiverThread = *receiver ? (*receiver)->thread() : nullptr;
+
     if (usingGlobalReceiver) {
         PySide::SignalManager &signalManager = PySide::SignalManager::instance();
         *receiver = signalManager.globalReceiver(source, callback);
+        // PYSIDE-1354: Move the global receiver to the original receivers's thread
+        // so that autoconnections work correctly.
+        if (receiverThread && receiverThread != (*receiver)->thread())
+            (*receiver)->moveToThread(receiverThread);
         *callbackSig = PySide::Signal::getCallbackSignature(signal, *receiver, callback, usingGlobalReceiver).toLatin1();
     }
 
@@ -587,6 +593,18 @@ Py_END_ALLOW_THREADS
 PySide::runCleanupFunctions();
 // @snippet moduleshutdown
 
+// @snippet qt-qenum
+%PYARG_0 = PySide::QEnum::QEnumMacro(%1, false);
+// @snippet qt-qenum
+
+// @snippet qt-qflag
+%PYARG_0 = PySide::QEnum::QEnumMacro(%1, true);
+// @snippet qt-qflag
+
+// @snippet qt-init-feature
+PySide::Feature::init();
+// @snippet qt-init-feature
+
 // @snippet qt-pysideinit
 Shiboken::Conversions::registerConverterName(SbkPySide2_QtCoreTypeConverters[SBK_QSTRING_IDX], "unicode");
 Shiboken::Conversions::registerConverterName(SbkPySide2_QtCoreTypeConverters[SBK_QSTRING_IDX], "str");
@@ -639,7 +657,7 @@ if (%PYARG_0 == Py_None)
 
 // @snippet qline-hash
 namespace PySide {
-    template<> inline uint hash(const QLine &v) {
+    template<> inline Py_ssize_t hash(const QLine &v) {
         return qHash(qMakePair(qMakePair(v.x1(), v.y1()), qMakePair(v.x2(), v.y2())));
     }
 };
@@ -707,7 +725,7 @@ if (!PyDateTimeAPI) PySideDateTime_IMPORT;
 
 // @snippet qpoint
 namespace PySide {
-    template<> inline uint hash(const QPoint &v) {
+    template<> inline Py_ssize_t hash(const QPoint &v) {
         return qHash(qMakePair(v.x(), v.y()));
     }
 };
@@ -715,7 +733,7 @@ namespace PySide {
 
 // @snippet qrect
 namespace PySide {
-    template<> inline uint hash(const QRect &v) {
+    template<> inline Py_ssize_t hash(const QRect &v) {
         return qHash(qMakePair(qMakePair(v.x(), v.y()), qMakePair(v.width(), v.height())));
     }
 };
@@ -723,7 +741,7 @@ namespace PySide {
 
 // @snippet qsize
 namespace PySide {
-    template<> inline uint hash(const QSize &v) {
+    template<> inline Py_ssize_t hash(const QSize &v) {
         return qHash(qMakePair(v.width(), v.height()));
     }
 };
@@ -798,6 +816,11 @@ static inline bool _findChildrenComparator(const QObject *&child, const QRegExp 
     return name.indexIn(child->objectName()) != -1;
 }
 
+static inline bool _findChildrenComparator(const QObject *&child, const QRegularExpression &name)
+{
+    return name.match(child->objectName()).hasMatch();
+}
+
 static inline bool _findChildrenComparator(const QObject *&child, const QString &name)
 {
     return name.isNull() || name == child->objectName();
@@ -820,15 +843,10 @@ QObject *child = _findChildHelper(%CPPSELF, %2, reinterpret_cast<PyTypeObject *>
 %PYARG_0 = %CONVERTTOPYTHON[QObject *](child);
 // @snippet qobject-findchild-2
 
-// @snippet qobject-findchildren-1
+// @snippet qobject-findchildren
 %PYARG_0 = PyList_New(0);
 _findChildrenHelper(%CPPSELF, %2, reinterpret_cast<PyTypeObject *>(%PYARG_1), %PYARG_0);
-// @snippet qobject-findchildren-1
-
-// @snippet qobject-findchildren-2
-%PYARG_0 = PyList_New(0);
-_findChildrenHelper(%CPPSELF, %2, reinterpret_cast<PyTypeObject *>(%PYARG_1), %PYARG_0);
-// @snippet qobject-findchildren-2
+// @snippet qobject-findchildren
 
 // @snippet qobject-tr
 QString result;
@@ -1287,6 +1305,14 @@ QByteArray ba(1 + int(%2), char(0));
 // @snippet qcryptographichash-adddata
 %CPPSELF.%FUNCTION_NAME(Shiboken::String::toCString(%PYARG_1), Shiboken::String::len(%PYARG_1));
 // @snippet qcryptographichash-adddata
+
+// @snippet qsocketdescriptor
+#ifdef WIN32
+using DescriptorType = Qt::HANDLE;
+#else
+using DescriptorType = int;
+#endif
+// @snippet qsocketdescriptor
 
 // @snippet qsocketnotifier
 PyObject *socket = %PYARG_1;
@@ -1968,3 +1994,41 @@ PyTuple_SET_ITEM(%out, 0, %CONVERTTOPYTHON[%INTYPE_0](%in.first));
 PyTuple_SET_ITEM(%out, 1, %CONVERTTOPYTHON[%INTYPE_1](%in.second));
 return %out;
 // @snippet return-qpair
+
+// @snippet qthread_pthread_cleanup
+#ifdef Q_OS_UNIX
+#  include <stdio.h>
+#  include <pthread.h>
+static void qthread_pthread_cleanup(void *arg)
+{
+    // PYSIDE 1282: When terminating a thread using QThread::terminate()
+    // (pthread_cancel()), QThread::run() is aborted and the lock is released,
+    // but ~GilState() is still executed for some reason. Prevent it from
+    // releasing.
+    auto gil = reinterpret_cast<Shiboken::GilState *>(arg);
+    gil->abandon();
+}
+#endif // Q_OS_UNIX
+// @snippet qthread_pthread_cleanup
+
+// @snippet qthread_pthread_cleanup_install
+#ifdef Q_OS_UNIX
+pthread_cleanup_push(qthread_pthread_cleanup, &gil);
+#endif
+// @snippet qthread_pthread_cleanup_install
+
+// @snippet qthread_pthread_cleanup_uninstall
+#ifdef Q_OS_UNIX
+pthread_cleanup_pop(0);
+#endif
+// @snippet qthread_pthread_cleanup_uninstall
+
+// @snippet qlibraryinfo_build
+#if defined(IS_PY3K) && defined(Py_LIMITED_API)
+auto suffix = PyUnicode_FromString(" [limited API]");
+auto oldResult = pyResult;
+pyResult = PyUnicode_Concat(pyResult, suffix);
+Py_DECREF(oldResult);
+Py_DECREF(suffix);
+#endif
+// @snippet qlibraryinfo_build

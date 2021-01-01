@@ -93,6 +93,19 @@ typedef void (*ObjectDestructor)(void *);
 
 typedef void (*SubTypeInitHook)(SbkObjectType *, PyObject *, PyObject *);
 
+// PYSIDE-1019: Set the function to select the current feature.
+typedef PyObject *(*SelectableFeatureHook)(PyTypeObject *);
+LIBSHIBOKEN_API void initSelectableFeature(SelectableFeatureHook func);
+
+// PYSIDE-1019: Get access to PySide reserved bits.
+LIBSHIBOKEN_API int SbkObjectType_GetReserved(PyTypeObject *type);
+LIBSHIBOKEN_API void SbkObjectType_SetReserved(PyTypeObject *type, int value);
+
+// PYSIDE-1019: Get access to PySide property strings.
+LIBSHIBOKEN_API const char **SbkObjectType_GetPropertyStrings(PyTypeObject *type);
+LIBSHIBOKEN_API void SbkObjectType_SetPropertyStrings(PyTypeObject *type, const char **strings);
+
+
 extern LIBSHIBOKEN_API PyTypeObject *SbkObjectType_TypeF(void);
 extern LIBSHIBOKEN_API SbkObjectType *SbkObject_TypeF(void);
 
@@ -122,6 +135,9 @@ LIBSHIBOKEN_API PyObject *SbkDummyNew(PyTypeObject *type, PyObject *, PyObject *
 /// PYSIDE-1286: Generate correct __module__ and __qualname__
 LIBSHIBOKEN_API PyObject *SbkType_FromSpec(PyType_Spec *);
 LIBSHIBOKEN_API PyObject *SbkType_FromSpecWithBases(PyType_Spec *, PyObject *);
+
+/// PYSIDE-74: Fallback used in all types now.
+LIBSHIBOKEN_API PyObject *FallbackRichCompare(PyObject *self, PyObject *other, int op);
 
 } // extern "C"
 
@@ -218,7 +234,6 @@ LIBSHIBOKEN_API SbkObjectType *introduceWrapperType(PyObject *enclosingObject,
                                                     const char *typeName,
                                                     const char *originalName,
                                                     PyType_Spec *typeSpec,
-                                                    const char *signatureStrings[],
                                                     ObjectDestructor cppObjDtor,
                                                     SbkObjectType *baseType,
                                                     PyObject *baseTypes,

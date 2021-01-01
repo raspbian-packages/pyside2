@@ -12,12 +12,14 @@ add_definitions(-DRXX_ALLOCATOR_INIT_0)
 find_package(Qt${QT_MAJOR_VERSION}Widgets)
 
 set(pysidetest_SRC
+flagstest.cpp
 testobject.cpp
 testview.cpp
 hiddenobject.cpp
 )
 
 set(pysidetest_MOC_HEADERS
+flagstest.h
 testobject.h
 testview.h
 hiddenobject.h
@@ -30,6 +32,7 @@ else()
 endif()
 
 set(testbinding_SRC
+${CMAKE_CURRENT_BINARY_DIR}/testbinding/flagsnamespace_classforenum_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/testbinding/testobject_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/testbinding/intvalue_wrapper.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/testbinding/pysidecpp_wrapper.cpp
@@ -66,6 +69,7 @@ endif()
 
 make_path(testbinding_include_dirs  ${pyside2_BINARY_DIR}
                                     ${CMAKE_CURRENT_SOURCE_DIR}
+                                    ${CMAKE_CURRENT_SOURCE_DIR}/../../../shiboken2/libshiboken
                                     ${CMAKE_CURRENT_SOURCE_DIR}/../../PySide2
                                     ${CMAKE_CURRENT_SOURCE_DIR}/../../libpyside
                                     ${QT_INCLUDE_DIR}
@@ -104,6 +108,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}
                     ${libpyside_SOURCE_DIR})
 
 add_library(pysidetest SHARED ${pysidetest_SRC} ${pysidetest_MOC_SRC})
+set_target_properties(pysidetest PROPERTIES
+                      DEFINE_SYMBOL BUILD_PYSIDETEST)
+
 target_link_libraries(pysidetest
                       Shiboken2::libshiboken
                       ${Qt${QT_MAJOR_VERSION}Core_LIBRARIES}
@@ -154,9 +161,11 @@ PYSIDE_TEST(modelview_test.py)
 PYSIDE_TEST(new_inherited_functions_test.py)
 PYSIDE_TEST(notify_id.py)
 PYSIDE_TEST(properties_test.py)
+PYSIDE_TEST(property_python_test.py)
 PYSIDE_TEST(qapp_like_a_macro_test.py)
 PYSIDE_TEST(qvariant_test.py)
 PYSIDE_TEST(repr_test.py)
+PYSIDE_TEST(signal_tp_descr_get_test.py)
 PYSIDE_TEST(signal_slot_warning.py)
 PYSIDE_TEST(signalandnamespace_test.py)
 PYSIDE_TEST(signalemissionfrompython_test.py)

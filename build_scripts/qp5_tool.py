@@ -68,6 +68,8 @@ Modules-pyside-setup512=Core,Gui,Widgets,Network,Test
 Configuration keys:
 Acceleration     Incredibuild or unset
 BuildArguments   Arguments to setup.py
+Generator        Generator to be used for CMake. Currently, only Ninja is
+                 supported.
 Jobs             Number of jobs to be run simultaneously
 Modules          Comma separated list of modules to be built
                  (for --module-subset=)
@@ -99,6 +101,7 @@ INCREDIBUILD_CONSOLE = 'BuildConsole' if IS_WINDOWS else '/opt/incredibuild/bin/
 # Config file keys
 ACCELERATION_KEY = 'Acceleration'
 BUILDARGUMENTS_KEY = 'BuildArguments'
+GENERATOR_KEY = 'Generator'
 JOBS_KEY = 'Jobs'
 MODULES_KEY = 'Modules'
 PYTHON_KEY = 'Python'
@@ -208,9 +211,10 @@ def read_config_file(file_name):
     keyPattern = re.compile(r'^\s*([A-Za-z0-9\_\-]+)\s*=\s*(.*)$')
     with open(file_name) as f:
         while True:
-            line = f.readline().rstrip()
+            line = f.readline()
             if not line:
                 break
+            line = line.rstrip()
             match = keyPattern.match(line)
             if match:
                 key = match.group(1)
@@ -270,7 +274,9 @@ def read_config_python_binary():
     binary = read_config(PYTHON_KEY)
     if binary:
         return binary
-    return 'python3' if which('python3') else 'python'
+    # Use 'python3' unless virtualenv is set
+    use_py3 = (not os.environ.get('VIRTUAL_ENV') and which('python3'))
+    return 'python3' if use_py3 else 'python'
 
 
 def get_config_file(base_name):
@@ -304,6 +310,9 @@ def build(target):
         arguments.append('--avoid')  # caching, v0.96.74
     arguments.extend([read_config_python_binary(), 'setup.py', target])
     arguments.extend(read_config_build_arguments())
+    generator = read_config(GENERATOR_KEY)
+    if generator == 'Ninja':
+        arguments.extend(['--make-spec', 'ninja'])
     jobs = read_int_config(JOBS_KEY)
     if jobs > 1:
         arguments.extend(['-j', str(jobs)])
@@ -384,12 +393,12 @@ if __name__ == '__main__':
         build_mode = BuildMode.RECONFIGURE
 
     if build_mode == BuildMode.NONE and not (options.clean or options.reset
-        or options.pull or options.test):
+                                             or options.pull or options.test):
         argument_parser.print_help()
         sys.exit(0)
 
-    git = which('git')
-    if git is None:
+    git = 'git'
+    if which(git) is None:
         warnings.warn('Unable to find git', RuntimeWarning)
         sys.exit(-1)
 

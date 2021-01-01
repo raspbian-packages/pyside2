@@ -40,9 +40,11 @@ endif()
 
 set(libpyside_SRC
     dynamicqmetaobject.cpp
+    feature_select.cpp
     signalmanager.cpp
     globalreceiverv2.cpp
     pysideclassinfo.cpp
+    pysideqenum.cpp
     pysidemetafunction.cpp
     pysidesignal.cpp
     pysideslot.cpp
@@ -98,7 +100,7 @@ set_target_properties(pyside2 PROPERTIES
                       VERSION ${BINDING_API_VERSION}
                       SOVERSION "${PYSIDE_SO_VERSION}"
                       OUTPUT_NAME "pyside2${pyside2_SUFFIX}${SHIBOKEN_PYTHON_SHARED_LIBRARY_SUFFIX}"
-                      DEFINE_SYMBOL PYSIDE_EXPORTS)
+                      DEFINE_SYMBOL BUILD_LIBPYSIDE)
 
 if(${QT_MAJOR_VERSION} GREATER_EQUAL 6)
     set_property(TARGET pyside2 PROPERTY CXX_STANDARD 17)
@@ -124,7 +126,9 @@ endif()
 
 set(libpyside_HEADERS
     dynamicqmetaobject.h
+    feature_select.h
     pysideclassinfo.h
+    pysideqenum.h
     pysidemacros.h
     signalmanager.h
     pyside.h

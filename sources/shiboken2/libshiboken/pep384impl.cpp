@@ -78,16 +78,24 @@ static PyGetSetDef probe_getseters[] = {
     {nullptr}  /* Sentinel */
 };
 
+static PyMemberDef probe_members[] = {
+    {nullptr}  /* Sentinel */
+};
+
 #define probe_tp_dealloc    make_dummy(1)
 #define probe_tp_repr       make_dummy(2)
 #define probe_tp_call       make_dummy(3)
+#define probe_tp_getattro   make_dummy(16)
+#define probe_tp_setattro   make_dummy(17)
 #define probe_tp_str        make_dummy(4)
 #define probe_tp_traverse   make_dummy(5)
 #define probe_tp_clear      make_dummy(6)
 #define probe_tp_iternext   make_dummy(7)
 #define probe_tp_methods    probe_methoddef
+#define probe_tp_members    probe_members
 #define probe_tp_getset     probe_getseters
 #define probe_tp_descr_get  make_dummy(10)
+#define probe_tp_descr_set  make_dummy(18)
 #define probe_tp_init       make_dummy(11)
 #define probe_tp_alloc      make_dummy(12)
 #define probe_tp_new        make_dummy(13)
@@ -101,13 +109,17 @@ static PyType_Slot typeprobe_slots[] = {
     {Py_tp_dealloc,     probe_tp_dealloc},
     {Py_tp_repr,        probe_tp_repr},
     {Py_tp_call,        probe_tp_call},
+    {Py_tp_getattro,    probe_tp_getattro},
+    {Py_tp_setattro,    probe_tp_setattro},
     {Py_tp_str,         probe_tp_str},
     {Py_tp_traverse,    probe_tp_traverse},
     {Py_tp_clear,       probe_tp_clear},
     {Py_tp_iternext,    probe_tp_iternext},
     {Py_tp_methods,     probe_tp_methods},
+    {Py_tp_members,     probe_tp_members},
     {Py_tp_getset,      probe_tp_getset},
     {Py_tp_descr_get,   probe_tp_descr_get},
+    {Py_tp_descr_set,   probe_tp_descr_set},
     {Py_tp_init,        probe_tp_init},
     {Py_tp_alloc,       probe_tp_alloc},
     {Py_tp_new,         probe_tp_new},
@@ -144,6 +156,8 @@ check_PyTypeObject_valid()
         || probe_tp_dealloc         != check->tp_dealloc
         || probe_tp_repr            != check->tp_repr
         || probe_tp_call            != check->tp_call
+        || probe_tp_getattro        != check->tp_getattro
+        || probe_tp_setattro        != check->tp_setattro
         || probe_tp_str             != check->tp_str
         || probe_tp_traverse        != check->tp_traverse
         || probe_tp_clear           != check->tp_clear
@@ -155,6 +169,7 @@ check_PyTypeObject_valid()
         || !PyDict_Check(check->tp_dict)
         || !PyDict_GetItemString(check->tp_dict, "dummy")
         || probe_tp_descr_get       != check->tp_descr_get
+        || probe_tp_descr_set       != check->tp_descr_set
         || probe_tp_dictoffset      != typetype->tp_dictoffset
         || probe_tp_init            != check->tp_init
         || probe_tp_alloc           != check->tp_alloc
@@ -427,27 +442,6 @@ PyRun_String(const char *str, int start, PyObject *globals, PyObject *locals)
 
 #endif // Py_LIMITED_API
 
-// This is only a simple local helper that returns a computed variable.
-// Used also in Python 2.
-#if defined(Py_LIMITED_API) || defined(IS_PY2)
-static PyObject *
-PepRun_GetResult(const char *command)
-{
-    PyObject *d, *v, *res;
-
-    d = PyDict_New();
-    if (d == nullptr
-        || PyDict_SetItem(d, Shiboken::PyMagicName::builtins(), PyEval_GetBuiltins()) < 0) {
-        return nullptr;
-    }
-    v = PyRun_String(command, Py_file_input, d, d);
-    res = v ? PyDict_GetItem(d, Shiboken::PyName::result()) : nullptr;
-    Py_XDECREF(v);
-    Py_DECREF(d);
-    return res;
-}
-#endif // defined(Py_LIMITED_API) || defined(IS_PY2)
-
 /*****************************************************************************
  *
  * Support for classobject.h
@@ -668,6 +662,45 @@ PyImport_GetModule(PyObject *name)
 }
 
 #endif // PY_VERSION_HEX < 0x03070000 || defined(Py_LIMITED_API)
+
+// 2020-06-16: For simplicity of creating arbitrary things, this function
+// is now made public.
+
+PyObject *
+PepRun_GetResult(const char *command)
+{
+    /*
+     * Evaluate a string and return the variable `result`
+     */
+    PyObject *d, *v, *res;
+
+    d = PyDict_New();
+    if (d == nullptr
+        || PyDict_SetItem(d, Shiboken::PyMagicName::builtins(), PyEval_GetBuiltins()) < 0) {
+        return nullptr;
+    }
+    v = PyRun_String(command, Py_file_input, d, d);
+    res = v ? PyDict_GetItem(d, Shiboken::PyName::result()) : nullptr;
+    Py_XDECREF(v);
+    Py_DECREF(d);
+    return res;
+}
+
+/*****************************************************************************
+ *
+ * Python 2 incompatibilities
+ *
+ * This is incompatibly implemented as macro in Python 2.
+ */
+#if PY_VERSION_HEX < 0x03000000
+
+PyObject *PepMapping_Items(PyObject *o)
+{
+    return PyObject_CallMethod(o, const_cast<char *>("items"), NULL);
+}
+
+#endif
+
 /*****************************************************************************
  *
  * Extra support for name mangling

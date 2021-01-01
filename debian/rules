@@ -16,7 +16,7 @@ endif
 
 export PYBUILD_NAME=pyside2
 export PYBUILD_SYSTEM=distutils
-export PYBUILD_BUILD_ARGS=--relwithdebinfo --verbose-build --no-examples --build-tests --ignore-git $(OPTION_JOBS)
+export PYBUILD_BUILD_ARGS=--relwithdebinfo --verbose-build --no-examples --build-tests --doc-build-online --ignore-git $(OPTION_JOBS)
 
 export MAIN_VERSION_UPSTREAM := $(shell echo $(DEB_VERSION_UPSTREAM))
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
@@ -28,10 +28,6 @@ undefine XDG_RUNTIME_DIR
 
 %:
 	dh $@ --with python3,sphinxdoc --buildsystem=pybuild
-
-override_dh_auto_build:
-	dh_auto_build
-	#PYTHONPATH=. http_proxy='127.0.0.1:9' sphinx-build -N -bhtml doc/rst build/html # HTML generator
 
 override_dh_auto_install:
 	# Don't use pybuild install process, we take over this step to

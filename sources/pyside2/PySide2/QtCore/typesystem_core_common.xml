@@ -104,6 +104,16 @@
     <rejection class="QMetaObject" function-name="changeGuard"/>
     <rejection class="QMetaObject" function-name="removeGuard"/>
 
+    <rejection class="QAlgorithmsPrivate"/>
+    <rejection class="QJsonPrivate"/>
+    <rejection class="QTextStreamFunctions"/>
+    <rejection class="QtGlobalStatic"/>
+    <rejection class="QtMetaTypePrivate"/>
+    <rejection class="QtPrivate"/>
+    <rejection class="QtSharedPointer"/>
+    <rejection class="QtStringBuilder"/>
+    <rejection class="std"/>
+
   <rejection class="QByteArray" field-name="MaxSize"/>
   <rejection class="QChildEvent" field-name="c"/>
   <rejection class="QTimerEvent" field-name="id"/>
@@ -655,6 +665,17 @@
     <enum-type name="CursorMoveStyle" since="4.8" revision="4800"/>
 
   </namespace-type>
+
+  <add-function signature="QEnum(PyObject*)" return-type="PyObject*">
+      <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qt-qenum"/>
+  </add-function>
+  <add-function signature="QFlag(PyObject*)" return-type="PyObject*">
+      <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qt-qflag"/>
+  </add-function>
+
+  <add-function signature="__init_feature__()">
+      <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qt-init-feature"/>
+  </add-function>
 
   <add-function signature="qAbs(double)" return-type="double">
     <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qt-qabs"/>
@@ -1460,13 +1481,20 @@
     <enum-type name="IteratorFlag" flags="IteratorFlags"/>
   </object-type>
   <object-type name="QThread">
+    <inject-code file="../glue/qtcore.cpp" class="native" position="beginning" snippet="qthread_pthread_cleanup"/>
     <enum-type name="Priority"/>
     <modify-function signature="currentThreadId()" remove="all"/>
-    <modify-function signature="run()" allow-thread="yes"/>
+    <modify-function signature="run()" allow-thread="yes">
+        <inject-code file="../glue/qtcore.cpp" class="native" position="beginning"
+                     snippet="qthread_pthread_cleanup_install"/>
+        <inject-code file="../glue/qtcore.cpp" class="native" position="end"
+                     snippet="qthread_pthread_cleanup_uninstall"/>
+    </modify-function>
     <modify-function signature="exec()" rename="exec_" allow-thread="yes"/>
     <modify-function signature="msleep(unsigned long)" allow-thread="yes"/>
     <modify-function signature="sleep(unsigned long)" allow-thread="yes"/>
     <modify-function signature="usleep(unsigned long)" allow-thread="yes"/>
+    <modify-function signature="wait(QDeadlineTimer)" allow-thread="yes"/>
     <modify-function signature="wait(unsigned long)" allow-thread="yes"/>
     <modify-function signature="yieldCurrentThread()" allow-thread="yes"/>
     <modify-function signature="start(QThread::Priority)" allow-thread="yes">
@@ -1699,7 +1727,7 @@
         <inject-documentation format="target" mode="append">
         Like the method *findChild*, the first parameter should be the child's type.
         </inject-documentation>
-        <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qobject-findchildren-1"/>
+        <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qobject-findchildren"/>
         <modify-argument index="return">
             <parent index="this" action="add"/>
         </modify-argument>
@@ -1708,7 +1736,13 @@
         </modify-argument>
     </add-function>
     <add-function signature="findChildren(PyTypeObject*,const QRegExp&amp;)" return-type="PySequence*" >
-        <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qobject-findchildren-2"/>
+        <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qobject-findchildren"/>
+        <modify-argument index="return">
+            <parent index="this" action="add"/>
+        </modify-argument>
+    </add-function>
+    <add-function signature="findChildren(PyTypeObject*,const QRegularExpression&amp;)" return-type="PySequence*" >
+        <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qobject-findchildren"/>
         <modify-argument index="return">
             <parent index="this" action="add"/>
         </modify-argument>
@@ -1870,6 +1904,8 @@
   </value-type>
   <value-type name="QByteArray" hash-function="qHash">
     <enum-type name="Base64Option" flags="Base64Options" since="5.2"/>
+    <enum-type name="Base64DecodingStatus" since="5.15"/>
+    <value-type name="FromBase64Result" since="5.15"/>
     <conversion-rule>
         <target-to-native>
             <add-conversion type="Py_None" file="../glue/qtcore.cpp" snippet="conversion-pynone"/>
@@ -2022,12 +2058,15 @@
     <modify-function signature="operator>=(const char*,QByteArray)" remove="all"/>
     <modify-function signature="operator[](int)const" remove="all"/>
     <modify-function signature="operator[](uint)const" remove="all"/>
-    <!-- Those types have the same representation in Python, an overload would be useless. -->
+    <!-- Those types have the same representation in Python, an overload
+         would be useless and cause overflow errors. -->
     <modify-function signature="setNum(uint,int)" remove="all"/>
     <modify-function signature="setNum(ushort,int)" remove="all"/>
     <modify-function signature="setNum(float,char,int)" remove="all"/>
     <modify-function signature="setNum(short,int)" remove="all"/>
     <modify-function signature="setNum(qulonglong,int)" remove="all"/>
+    <modify-function signature="number(uint,int)" remove="all"/>
+    <modify-function signature="number(qulonglong,int)" remove="all"/>
 
     <!--### -->
 
@@ -2290,6 +2329,9 @@
   </value-type>
   <object-type name="QLibraryInfo">
     <enum-type name="LibraryLocation"/>
+    <modify-function signature="build()">
+        <inject-code class="target" position="end" file="../glue/qtcore.cpp" snippet="qlibraryinfo_build"/>
+    </modify-function>
   </object-type>
   <object-type name="QMutexLocker" copyable="no">
     <!-- PYSIDE-1271: Creating locking capable objects inside sections that
@@ -2342,6 +2384,9 @@
   </object-type>
   <object-type name="QSemaphoreReleaser" since="5.10"/>
 
+  <value-type name="QSocketDescriptor" since="5.15">
+    <inject-code class="native" position="beginning" file="../glue/qtcore.cpp" snippet="qsocketdescriptor"/>
+  </value-type>
   <object-type name="QSocketNotifier">
     <enum-type name="Type"/>
     <add-function signature="QSocketNotifier(PyObject*, QSocketNotifier::Type, QObject*)">
@@ -2417,7 +2462,9 @@
     </modify-function>
   </object-type>
   <object-type name="QWaitCondition">
+    <modify-function signature="wait(QMutex*,QDeadlineTimer)" allow-thread="yes"/>
     <modify-function signature="wait(QMutex*,unsigned long)" allow-thread="yes"/>
+    <modify-function signature="wait(QReadWriteLock*,QDeadlineTimer)" allow-thread="yes"/>
     <modify-function signature="wait(QReadWriteLock*,unsigned long)" allow-thread="yes"/>
   </object-type>
   <object-type name="QFileSystemWatcher">
@@ -2860,6 +2907,21 @@
       </modify-argument>
     </modify-function>
   </value-type>
+
+  <object-type name="QFutureInterfaceBase">
+      <enum-type name="State"/>
+  </object-type>
+  <value-type name="QFuture" generate="no">
+      <include file-name="QtCore/qfuture.h" location="global"/>
+      <modify-function signature="waitForFinished()" allow-thread="yes"/>
+  </value-type>
+  <object-type name="QFutureWatcherBase" generate="no">
+      <modify-function signature="futureInterface()" remove="all"/>
+      <modify-function signature="futureInterface() const" remove="all"/>
+  </object-type>
+  <object-type name="QFutureWatcher" generate="no">
+      <include file-name="QtCore/qfuturewatcher.h" location="global"/>
+  </object-type>
 
   <value-type name="QGenericArgument">
     <include file-name="qobjectdefs.h" location="global"/>

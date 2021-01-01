@@ -47,6 +47,8 @@ QT_FORWARD_DECLARE_CLASS(QDebug)
 #define DECLARE_MODEL_NODE(k) \
     enum { __node_kind = Kind_##k };
 
+class SourceLocation;
+
 class CodeModel
 {
 public:
@@ -296,6 +298,8 @@ public:
     void getEndPosition(int *line, int *column);
     void setEndPosition(int line, int column);
 
+    SourceLocation sourceLocation() const;
+
     inline CodeModel *model() const { return m_model; }
 
 #ifndef QT_NO_DEBUG_STREAM
@@ -355,6 +359,9 @@ public:
     QStringList enumsDeclarations() const { return m_enumsDeclarations; }
 
     FunctionModelItem declaredFunction(const FunctionModelItem &item);
+
+    bool isEmpty() const;
+    void purgeClassDeclarations();
 
 #ifndef QT_NO_DEBUG_STREAM
     void formatDebug(QDebug &d) const override;
@@ -418,6 +425,9 @@ public:
 
     bool isFinal() const { return m_final; }
     void setFinal(bool f) { m_final = f; }
+
+    bool isEmpty() const;
+    bool isTemplate() const;
 
 #ifndef QT_NO_DEBUG_STREAM
     void formatDebug(QDebug &d) const override;

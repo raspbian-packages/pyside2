@@ -20,6 +20,7 @@ modifications.cpp
 mapuser.cpp
 modified_constructor.cpp
 multiple_derived.cpp
+oddbool.cpp
 objectmodel.cpp
 objecttype.cpp
 objecttypeholder.cpp
@@ -47,6 +48,7 @@ str.cpp
 strlist.cpp
 templateptr.cpp
 transform.cpp
+typesystypedef.cpp
 virtualmethods.cpp
 expression.cpp
 filter.cpp

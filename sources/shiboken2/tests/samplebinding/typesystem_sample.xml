@@ -44,15 +44,15 @@
 
     <inject-code class="native" position="beginning">
     static bool Check2TupleOfNumbers(PyObject* pyIn) {
-	if (!PySequence_Check(pyIn) || !(PySequence_Size(pyIn) == 2))
-	    return false;
-	Shiboken::AutoDecRef pyReal(PySequence_GetItem(pyIn, 0));
-	if (!SbkNumber_Check(pyReal))
-	    return false;
-	Shiboken::AutoDecRef pyImag(PySequence_GetItem(pyIn, 1));
-	if (!SbkNumber_Check(pyImag))
-	    return false;
-	return true;
+        if (!PySequence_Check(pyIn) || !(PySequence_Size(pyIn) == 2))
+            return false;
+        Shiboken::AutoDecRef pyReal(PySequence_GetItem(pyIn, 0));
+        if (!SbkNumber_Check(pyReal))
+            return false;
+        Shiboken::AutoDecRef pyImag(PySequence_GetItem(pyIn, 1));
+        if (!SbkNumber_Check(pyImag))
+            return false;
+        return true;
     }
     </inject-code>
     <primitive-type name="Complex" target-lang-api-name="PyComplex">
@@ -70,8 +70,8 @@
                 %out = %OUTTYPE(real, imag);
                 </add-conversion>
                 <add-conversion type="PySequence" check="Check2TupleOfNumbers(%in)">
-		Shiboken::AutoDecRef pyReal(PySequence_GetItem(%in, 0));
-		Shiboken::AutoDecRef pyImag(PySequence_GetItem(%in, 1));
+                Shiboken::AutoDecRef pyReal(PySequence_GetItem(%in, 0));
+                Shiboken::AutoDecRef pyImag(PySequence_GetItem(%in, 1));
                 double real = %CONVERTTOCPP[double](pyReal);
                 double imag  = %CONVERTTOCPP[double](pyImag);
                 %out = %OUTTYPE(real, imag);
@@ -180,6 +180,21 @@
             </target-to-native>
         </conversion-rule>
     </primitive-type>
+
+    <!-- As of Qt 6, there is a trend of hiding bool returns of comparison
+         operators of container classes behind some template expression using
+         SFINAE depending on their value's traits, like:
+          template <typename U = T>
+          friend QTypeTraits::compare_eq_result<U> operator==(const QList &l, const QList &r)
+         which the clang parser cannot identify. Rich comparison of classes
+         inheriting QList (QPolygon, QItemSelection) will then not be generated.
+         To work around, the operators should be added manually without
+         injecting code. The code should just use the standard implementation. -->
+    <value-type name="ComparisonTester">
+        <include file-name="oddbool.h" location="global"/>
+        <add-function signature="operator==(const ComparisonTester&amp;)" return-type="bool"/>
+        <add-function signature="operator!=(const ComparisonTester&amp;)" return-type="bool"/>
+    </value-type>
 
     <primitive-type name="PStr">
         <include file-name="str.h" location="global"/>
@@ -543,11 +558,6 @@
 
     <enum-type identified-by-value="AnonymousGlobalEnum_Value0"/>
 
-    <namespace-type name="Invisible" visible="no">
-        <enum-type name="EnumOnNamespace" />
-        <value-type name="ObjectOnInvisibleNamespace" />
-    </namespace-type>
-
     <namespace-type name="SampleNamespace">
         <enum-type name="Option"/>
         <enum-type name="InValue"/>
@@ -608,16 +618,18 @@
         </add-function>
     </namespace-type>
 
-    <namespace-type name="RemovedNamespace1" generate='no'>
+    <namespace-type name="RemovedNamespace1" visible='false'>
         <enum-type name="RemovedNamespace1_Enum" />
-        <namespace-type name="RemovedNamespace2" generate='no'>
+        <function signature="mathSum(int,int)"/>
+        <value-type name="ObjectOnInvisibleNamespace" />
+        <namespace-type name="RemovedNamespace2" visible='false'>
             <enum-type name="RemovedNamespace2_Enum" />
         </namespace-type>
         <enum-type identified-by-value="RemovedNamespace1_AnonymousEnum_Value0" />
     </namespace-type>
 
     <namespace-type name="UnremovedNamespace">
-        <namespace-type name="RemovedNamespace3" generate='no'>
+        <namespace-type name="RemovedNamespace3" visible='false'>
             <enum-type name="RemovedNamespace3_Enum" />
             <enum-type identified-by-value="RemovedNamespace3_AnonymousEnum_Value0" />
         </namespace-type>
@@ -1791,6 +1803,11 @@
     </value-type>
     <value-type name="ImplicitTarget"/>
 
+    <object-type name="CustomOverloadSequence">
+        <modify-function signature="overload(int) const" overload-number="0"/>
+        <modify-function signature="overload(short) const" overload-number="1"/>
+    </object-type>
+
     <value-type name="Point">
         <add-function signature="__str__" return-type="PyObject*">
             <inject-code class="target" position="beginning">
@@ -2321,6 +2338,8 @@
     <value-type name="Color" />
     <value-type name="Pen">
         <enum-type identified-by-value="EnumCtor"/>
+        <enum-type name="RenderHints"/>
+        <property type="RenderHints" name="renderHints" get="getRenderHints" set="setRenderHints"/>
     </value-type>
 
     <value-type name="CtorConvRule">
@@ -2446,6 +2465,12 @@
     <value-type name="ToBeRenamedValue" target-lang-name="RenamedValue"/>
     <value-type name="RenamedUser"/>
 
+    <enum-type name="LengthUnit"/>
+    <value-type name="ValueWithUnit" generate="no"/>
+    <typedef-type name="ValueWithUnitDoubleInch" source="ValueWithUnit&lt;double,LengthUnit::Inch&gt;"/>
+    <typedef-type name="ValueWithUnitDoubleMillimeter" source="ValueWithUnit&lt;double,LengthUnit::Millimeter&gt;"/>
+    <value-type name="ValueWithUnitUser"/>
+
     <suppress-warning text="horribly broken type '__off64_t'" />
     <suppress-warning text="enum '__codecvt_result' does not have a type entry or is not an enum" />
     <suppress-warning text="Pure virtual method &quot;Abstract::hideFunction(HideType*)&quot; must be implement but was completely removed on typesystem." />
@@ -2458,6 +2483,8 @@
     <suppress-warning text="hiding of function 'takeChild' in class 'ObjectView'" />
     <suppress-warning text="visibility of function 'publicMethod' modified in class 'MDerived3'" />
     <suppress-warning text="skipping function 'InjectCode::toStr', unmatched parameter type 'T const&amp;'" />
+
+    <suppress-warning text="^skipping function 'std::enable_if.*ComparisonTester::operator[!=]=.*ComparisonTester.*$"/>
 
     <!-- Do not fix this warning, the generator should be able to handle this situation for Object Types. -->
     <suppress-warning text="Argument in position 1 of added function 'SampleNamespace::passReferenceToObjectType(ObjectType * arg__1)', has a type that is not a reference, while the argument in the corresponding position in C++ function 'SampleNamespace::passReferenceToObjectType(const ObjectType &amp; obj, int multiplier)' is a reference." />

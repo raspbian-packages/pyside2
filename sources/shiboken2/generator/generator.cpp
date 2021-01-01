@@ -27,6 +27,7 @@
 ****************************************************************************/
 
 #include "generator.h"
+#include "ctypenames.h"
 #include "abstractmetalang.h"
 #include "parser/codemodel.h"
 #include "messages.h"
@@ -167,7 +168,7 @@ struct Generator::GeneratorPrivate
     QStringList instantiatedContainersNames;
     QVector<const AbstractMetaType *> instantiatedContainers;
     QVector<const AbstractMetaType *> instantiatedSmartPointers;
-
+    AbstractMetaClassList m_invisibleTopNamespaces;
 };
 
 Generator::Generator() : m_d(new GeneratorPrivate)
@@ -189,6 +190,15 @@ bool Generator::setup(const ApiExtractor &extractor)
     }
 
     collectInstantiatedContainersAndSmartPointers();
+
+    for (auto c : classes()) {
+        if (c->enclosingClass() == nullptr && c->isInvisibleNamespace()) {
+            m_d->m_invisibleTopNamespaces.append(c);
+            c->invisibleNamespaceRecursion([&](AbstractMetaClass *ic) {
+                m_d->m_invisibleTopNamespaces.append(ic);
+            });
+        }
+    }
 
     return doSetup();
 }
@@ -219,7 +229,7 @@ QString Generator::getSimplifiedContainerTypeName(const AbstractMetaType *type)
 // Strip a "const QSharedPtr<const Foo> &" or similar to "QSharedPtr<Foo>" (PYSIDE-1016/454)
 const AbstractMetaType *canonicalSmartPtrInstantiation(const AbstractMetaType *type)
 {
-    AbstractMetaTypeList instantiations = type->instantiations();
+    const AbstractMetaTypeList &instantiations = type->instantiations();
     Q_ASSERT(instantiations.size() == 1);
     const bool needsFix = type->isConstant() || type->referenceType() != NoReference;
     const bool pointeeNeedsFix = instantiations.constFirst()->isConstant();
@@ -246,8 +256,7 @@ void Generator::addInstantiatedContainersAndSmartPointers(const AbstractMetaType
 {
     if (!type)
         return;
-    const AbstractMetaTypeList &instantiations = type->instantiations();
-    for (const AbstractMetaType *t : instantiations)
+    for (const auto *t : type->instantiations())
         addInstantiatedContainersAndSmartPointers(t, context);
     const auto typeEntry = type->typeEntry();
     const bool isContainer = typeEntry->isContainer();
@@ -312,11 +321,9 @@ void Generator::collectInstantiatedContainersAndSmartPointers(const AbstractMeta
 
 void Generator::collectInstantiatedContainersAndSmartPointers()
 {
-    const AbstractMetaFunctionList &funcs = globalFunctions();
-    for (const AbstractMetaFunction *func : funcs)
+    for (const AbstractMetaFunction *func : globalFunctions())
         collectInstantiatedContainersAndSmartPointers(func);
-    const AbstractMetaClassList &classList = classes();
-    for (const AbstractMetaClass *metaClass : classList)
+    for (const AbstractMetaClass *metaClass : classes())
         collectInstantiatedContainersAndSmartPointers(metaClass);
 }
 
@@ -340,9 +347,14 @@ bool Generator::handleOption(const QString & /* key */, const QString & /* value
     return false;
 }
 
-AbstractMetaClassList Generator::classes() const
+const AbstractMetaClassList &Generator::classes() const
 {
     return m_d->apiextractor->classes();
+}
+
+const AbstractMetaClassList &Generator::invisibleTopNamespaces() const
+{
+    return m_d->m_invisibleTopNamespaces;
 }
 
 AbstractMetaClassList Generator::classesTopologicalSorted(const Dependencies &additionalDependencies) const
@@ -350,12 +362,12 @@ AbstractMetaClassList Generator::classesTopologicalSorted(const Dependencies &ad
     return m_d->apiextractor->classesTopologicalSorted(additionalDependencies);
 }
 
-AbstractMetaFunctionList Generator::globalFunctions() const
+const AbstractMetaFunctionList &Generator::globalFunctions() const
 {
     return m_d->apiextractor->globalFunctions();
 }
 
-AbstractMetaEnumList Generator::globalEnums() const
+const AbstractMetaEnumList &Generator::globalEnums() const
 {
     return m_d->apiextractor->globalEnums();
 }
@@ -489,8 +501,7 @@ bool Generator::generate()
 
 bool Generator::shouldGenerateTypeEntry(const TypeEntry *type) const
 {
-    return (type->codeGeneration() & TypeEntry::GenerateTargetLang)
-        && NamespaceTypeEntry::isVisibleScope(type);
+    return type->generateCode() && NamespaceTypeEntry::isVisibleScope(type);
 }
 
 bool Generator::shouldGenerate(const AbstractMetaClass *metaClass) const
@@ -540,37 +551,12 @@ void Generator::replaceTemplateVariables(QString &code, const AbstractMetaFuncti
 
 QTextStream &formatCode(QTextStream &s, const QString &code, Indentor &indentor)
 {
-    // detect number of spaces before the first character
-    const QStringList lst(code.split(QLatin1Char('\n')));
-    static const QRegularExpression nonSpaceRegex(QStringLiteral("[^\\s]"));
-    Q_ASSERT(nonSpaceRegex.isValid());
-    int spacesToRemove = 0;
-    for (const QString &line : lst) {
-        if (!line.trimmed().isEmpty()) {
-            spacesToRemove = line.indexOf(nonSpaceRegex);
-            if (spacesToRemove == -1)
-                spacesToRemove = 0;
-            break;
-        }
-    }
-
-    static const QRegularExpression emptyLine(QStringLiteral("^\\s*[\\r]?[\\n]?\\s*$"));
-    Q_ASSERT(emptyLine.isValid());
-
-    for (QString line : lst) {
-        if (!line.isEmpty() && !emptyLine.match(line).hasMatch()) {
-            while (line.constEnd()->isSpace())
-                line.chop(1);
-            int limit = 0;
-            for(int i = 0; i < spacesToRemove; ++i) {
-                if (!line[i].isSpace())
-                    break;
-                limit++;
-            }
-
-            s << indentor << line.remove(0, limit);
-        }
-        s << Qt::endl;
+    const auto lines= code.splitRef(QLatin1Char('\n'));
+    for (const auto &line : lines) {
+        // Do not indent preprocessor lines
+        if (!line.isEmpty() && !line.startsWith(QLatin1Char('#')))
+            s << indentor;
+        s << line << '\n';
     }
     return s;
 }
@@ -885,7 +871,7 @@ QString Generator::translateType(const AbstractMetaType *cType,
     } else if (cType->isArray()) {
         s = translateType(cType->arrayElementType(), context, options) + QLatin1String("[]");
     } else if ((options & Generator::EnumAsInts) && useEnumAsIntForProtectedHack(cType)) {
-        s = QLatin1String("int");
+        s = intT();
     } else {
         if (options & Generator::OriginalName) {
             s = cType->originalTypeDescription().trimmed();

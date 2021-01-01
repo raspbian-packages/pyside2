@@ -42,7 +42,27 @@ def get_dir_env_var(var_name):
 
 
 def get_build_dir():
-    return get_dir_env_var('BUILD_DIR')
+    """
+    Return the env var `BUILD_DIR`.
+    If not set (interactive mode), take the last build history entry.
+    """
+    try:
+        return get_dir_env_var('BUILD_DIR')
+    except ValueError:
+        look_for = "testing"
+        here = os.path.dirname(__file__)
+        while look_for not in os.listdir(here):
+            here = os.path.dirname(here)
+            if len(here) <= 3:
+                raise SystemError(look_for + " not found!")
+        try:
+            sys.path.insert(0, here)
+            from testing.buildlog import builds
+            if not builds.history:
+                raise
+            return builds.history[-1].build_dir
+        finally:
+            del sys.path[0]
 
 
 def _prepend_path_var(var_name, paths):
@@ -56,10 +76,15 @@ def _prepend_path_var(var_name, paths):
 
 
 def add_python_dirs(python_dirs):
-    """Add directories to the Python path unless present."""
+    """Add directories to the Python path unless present.
+       Care is taken that the added directories come before
+       site-packages."""
+    new_paths = []
     for python_dir in python_dirs:
-        if python_dir not in sys.path:
-            sys.path.append(python_dir)
+        new_paths.append(python_dir)
+        if python_dir in sys.path:
+            sys.path.remove(python_dir)
+    sys.path[:0] = new_paths
 
 
 def add_lib_dirs(lib_dirs):

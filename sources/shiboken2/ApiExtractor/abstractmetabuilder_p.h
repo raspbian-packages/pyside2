@@ -44,6 +44,12 @@ class TypeDatabase;
 class AbstractMetaBuilderPrivate
 {
 public:
+    struct TypeClassEntry
+    {
+        AbstractMetaTypeCPtr type;
+        const AbstractMetaClass *klass;
+    };
+
     using TranslateTypeFlags = AbstractMetaBuilder::TranslateTypeFlags;
 
     Q_DISABLE_COPY(AbstractMetaBuilderPrivate)
@@ -125,7 +131,7 @@ public:
      */
     void fixReturnTypeOfConversionOperator(AbstractMetaFunction *metaFunction);
 
-    void parseQ_Property(AbstractMetaClass *metaClass, const QStringList &declarations);
+    void parseQ_Properties(AbstractMetaClass *metaClass, const QStringList &declarations);
     void setupEquals(AbstractMetaClass *metaClass);
     void setupComparable(AbstractMetaClass *metaClass);
     void setupClonable(AbstractMetaClass *cls);
@@ -162,6 +168,7 @@ public:
     bool inheritTemplate(AbstractMetaClass *subclass,
                          const AbstractMetaClass *templateClass,
                          const TypeInfo &info);
+    void inheritTemplateFunctions(AbstractMetaClass *subclass);
     AbstractMetaType *inheritTemplateType(const AbstractMetaTypeList &templateTypes,
                                           const AbstractMetaType *metaType);
 
@@ -170,10 +177,11 @@ public:
 
     void sortLists();
     AbstractMetaArgumentList reverseList(const AbstractMetaArgumentList &list);
-    void setInclude(TypeEntry *te, const QString &fileName) const;
+    void setInclude(TypeEntry *te, const QString &path) const;
     void fixArgumentNames(AbstractMetaFunction *func, const FunctionModificationList &mods);
 
     void fillAddedFunctions(AbstractMetaClass *metaClass);
+    const AbstractMetaClass *resolveTypeSystemTypeDef(const AbstractMetaType *t) const;
 
     AbstractMetaBuilder *q;
     AbstractMetaClassList m_metaClasses;
@@ -197,9 +205,10 @@ public:
     QSet<AbstractMetaClass *> m_setupInheritanceDone;
 
     QString m_logDirectory;
-    QFileInfo m_globalHeader;
+    QFileInfoList m_globalHeaders;
     QStringList m_headerPaths;
     mutable QHash<QString, Include> m_resolveIncludeHash;
+    QVector<TypeClassEntry> m_typeSystemTypeDefs; // look up metatype->class for type system typedefs
     bool m_skipDeprecated = false;
 };
 

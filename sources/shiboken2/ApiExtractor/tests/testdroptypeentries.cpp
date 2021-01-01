@@ -66,10 +66,12 @@ static const char* xmlCode = "\
 
 void TestDropTypeEntries::testDropEntries()
 {
-    QStringList droppedEntries(QLatin1String("Foo.ValueB"));
-    droppedEntries << QLatin1String("Foo.ObjectB") << QLatin1String("Foo.NamespaceA.InnerClassA");
-    droppedEntries << QLatin1String("Foo.NamespaceB") << QLatin1String("Foo.EnumB") << QLatin1String("Foo.funcB()");
-    droppedEntries << QLatin1String("Foo.NamespaceA.InnerNamespaceA");
+    const QStringList droppedEntries{QLatin1String("Foo.ValueB"),
+        QLatin1String("ObjectB"), // Check whether module can be omitted
+        QLatin1String("Foo.NamespaceA.InnerClassA"),
+        QLatin1String("Foo.NamespaceB"), QLatin1String("Foo.EnumB"),
+        QLatin1String("Foo.funcB()"),
+        QLatin1String("Foo.NamespaceA.InnerNamespaceA")};
     QScopedPointer<AbstractMetaBuilder> builder(TestUtil::parse(cppCode, xmlCode, false,
                                                                 QString(), droppedEntries));
     QVERIFY(!builder.isNull());
@@ -85,7 +87,7 @@ void TestDropTypeEntries::testDropEntries()
 
     AbstractMetaEnumList globalEnums = builder->globalEnums();
     QCOMPARE(globalEnums.count(), 1);
-    QCOMPARE(globalEnums.first()->name(), QLatin1String("EnumA"));
+    QCOMPARE(globalEnums.constFirst()->name(), QLatin1String("EnumA"));
 
     TypeDatabase* td = TypeDatabase::instance();
     QVERIFY(td->findType(QLatin1String("funcA")));

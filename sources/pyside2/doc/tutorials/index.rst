@@ -11,7 +11,7 @@ Basic tutorials
 ---------------
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
 
     basictutorial/widgets.rst
     basictutorial/qml.rst
@@ -19,12 +19,13 @@ Basic tutorials
     basictutorial/dialog.rst
     basictutorial/uifiles.rst
     basictutorial/qrcfiles.rst
+    basictutorial/widgetstyling.rst
 
 Real use-cases applications
 ---------------------------
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
 
     datavisualize/index.rst
     expenses/expenses.rst
@@ -36,6 +37,6 @@ C++ and Python
 --------------
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
 
     portingguide/index.rst

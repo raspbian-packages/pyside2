@@ -95,12 +95,43 @@ void Sbk_object_dealloc(PyObject *self)
 static void SbkObjectTypeDealloc(PyObject *pyObj);
 static PyObject *SbkObjectTypeTpNew(PyTypeObject *metatype, PyObject *args, PyObject *kwds);
 
+static SelectableFeatureHook SelectFeatureSet = nullptr;
+
+static PyObject *Sbk_TypeGet___dict__(PyTypeObject *type, void *context);   // forward
+
+static int
+check_set_special_type_attr(PyTypeObject *type, PyObject *value, const char *name)
+{
+    if (!(type->tp_flags & Py_TPFLAGS_HEAPTYPE)) {
+        PyErr_Format(PyExc_TypeError,
+                     "can't set %s.%s", type->tp_name, name);
+        return 0;
+    }
+    if (!value) {
+        PyErr_Format(PyExc_TypeError,
+                     "can't delete %s.%s", type->tp_name, name);
+        return 0;
+    }
+    return 1;
+}
+
+// PYSIDE-1177: Add a setter to allow setting type doc.
+static int
+type_set_doc(PyTypeObject *type, PyObject *value, void *context)
+{
+    if (!check_set_special_type_attr(type, value, "__doc__"))
+        return -1;
+    PyType_Modified(type);
+    return PyDict_SetItem(type->tp_dict, Shiboken::PyMagicName::doc(), value);
+}
+
 // PYSIDE-908: The function PyType_Modified does not work in PySide, so we need to
 // explicitly pass __doc__. For __signature__ it _did_ actually work, because
 // it was not existing before. We add them both for clarity.
 static PyGetSetDef SbkObjectType_Type_getsetlist[] = {
     {const_cast<char *>("__signature__"), (getter)Sbk_TypeGet___signature__},
-    {const_cast<char *>("__doc__"),       (getter)Sbk_TypeGet___doc__},
+    {const_cast<char *>("__doc__"),       (getter)Sbk_TypeGet___doc__, (setter)type_set_doc},
+    {const_cast<char *>("__dict__"),      (getter)Sbk_TypeGet___dict__},
     {nullptr}  // Sentinel
 };
 
@@ -121,9 +152,12 @@ static PyObject *SbkObjectType_repr(PyObject *type)
 
 #endif // PY_VERSION_HEX < 0x03000000
 
+static PyObject *(*type_getattro)(PyObject *type, PyObject *name);          // forward
+static PyObject *mangled_type_getattro(PyTypeObject *type, PyObject *name); // forward
+
 static PyType_Slot SbkObjectType_Type_slots[] = {
     {Py_tp_dealloc, reinterpret_cast<void *>(SbkObjectTypeDealloc)},
-    {Py_tp_setattro, reinterpret_cast<void *>(PyObject_GenericSetAttr)},
+    {Py_tp_getattro, reinterpret_cast<void *>(mangled_type_getattro)},
     {Py_tp_base, static_cast<void *>(&PyType_Type)},
     {Py_tp_alloc, reinterpret_cast<void *>(PyType_GenericAlloc)},
     {Py_tp_new, reinterpret_cast<void *>(SbkObjectTypeTpNew)},
@@ -235,6 +269,9 @@ PyTypeObject *SbkObjectType_TypeF(void)
 {
     static PyTypeObject *type = nullptr;
     if (!type) {
+        // PYSIDE-1019: Insert the default tp_getattro explicitly here
+        //              so we can overwrite it a bit.
+        type_getattro = PyType_Type.tp_getattro;
         SbkObjectType_Type_spec.basicsize =
             PepHeapType_SIZE + sizeof(SbkObjectTypePrivate);
         type = reinterpret_cast<PyTypeObject *>(SbkType_FromSpec(&SbkObjectType_Type_spec));
@@ -282,6 +319,11 @@ static int SbkObject_traverse(PyObject *self, visitproc visit, void *arg)
 
     if (sbkSelf->ob_dict)
         Py_VISIT(sbkSelf->ob_dict);
+
+#if PY_VERSION_HEX >= 0x03090000
+    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
+    Py_VISIT(Py_TYPE(self));
+#endif
     return 0;
 }
 
@@ -301,7 +343,12 @@ static int SbkObject_clear(PyObject *self)
     return 0;
 }
 
+static PyObject *SbkObject_GenericGetAttr(PyObject *obj, PyObject *name);
+static int SbkObject_GenericSetAttr(PyObject *obj, PyObject *name, PyObject *value);
+
 static PyType_Slot SbkObject_Type_slots[] = {
+    {Py_tp_getattro, reinterpret_cast<void *>(SbkObject_GenericGetAttr)},
+    {Py_tp_setattro, reinterpret_cast<void *>(SbkObject_GenericSetAttr)},
     {Py_tp_dealloc, reinterpret_cast<void *>(SbkDeallocWrapperWithPrivateDtor)},
     {Py_tp_traverse, reinterpret_cast<void *>(SbkObject_traverse)},
     {Py_tp_clear, reinterpret_cast<void *>(SbkObject_clear)},
@@ -410,6 +457,11 @@ static void SbkDeallocWrapperCommon(PyObject *pyObj, bool canDelete)
         }
     }
 
+    PyObject *error_type, *error_value, *error_traceback;
+
+    /* Save the current exception, if any. */
+    PyErr_Fetch(&error_type, &error_value, &error_traceback);
+
     if (canDelete) {
         if (sotp->is_multicpp) {
             Shiboken::DtorAccumulatorVisitor visitor(sbkObj);
@@ -428,6 +480,9 @@ static void SbkDeallocWrapperCommon(PyObject *pyObj, bool canDelete)
     } else {
         Shiboken::Object::deallocData(sbkObj, true);
     }
+
+    /* Restore the saved exception. */
+    PyErr_Restore(error_type, error_value, error_traceback);
 
     if (needTypeDecref)
         Py_DECREF(pyType);
@@ -486,7 +541,99 @@ void SbkObjectTypeDealloc(PyObject *pyObj)
     }
 }
 
-PyObject *SbkObjectTypeTpNew(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
+//////////////////////////////////////////////////////////////////////////////
+//
+// PYSIDE-1019: Support switchable extensions
+//
+// We simply exchange the complete class dicts.
+//
+//   This is done in                which replaces
+//   ---------------                --------------
+//   mangled_type_getattro          type_getattro
+//   Sbk_TypeGet___dict__           type_dict
+//   SbkObject_GenericGetAttr       PyObject_GenericGetAttr
+//   SbkObject_GenericSetAttr       PyObject_GenericSetAttr
+//
+
+void initSelectableFeature(SelectableFeatureHook func)
+{
+    SelectFeatureSet = func;
+}
+
+static PyObject *mangled_type_getattro(PyTypeObject *type, PyObject *name)
+{
+    /*
+     * Note: This `type_getattro` version is only the default that comes
+     * from `PyType_Type.tp_getattro`. This does *not* interfere in any way
+     * with the complex `tp_getattro` of `QObject` and other instances.
+     * What we change here is the meta class of `QObject`.
+     */
+    if (SelectFeatureSet != nullptr)
+        type->tp_dict = SelectFeatureSet(type);
+    return type_getattro(reinterpret_cast<PyObject *>(type), name);
+}
+
+static PyObject *Sbk_TypeGet___dict__(PyTypeObject *type, void *context)
+{
+    /*
+     * This is the override for getting a dict.
+     */
+    auto dict = type->tp_dict;
+    if (dict == NULL)
+        Py_RETURN_NONE;
+    if (SelectFeatureSet != nullptr)
+        dict = SelectFeatureSet(type);
+    return PyDictProxy_New(dict);
+}
+
+// These functions replace the standard PyObject_Generic(Get|Set)Attr functions.
+// They provide the default that "object" inherits.
+// Everything else is directly handled by cppgenerator that calls `Feature::Select`.
+static PyObject *SbkObject_GenericGetAttr(PyObject *obj, PyObject *name)
+{
+    auto type = Py_TYPE(obj);
+    if (SelectFeatureSet != nullptr)
+        type->tp_dict = SelectFeatureSet(type);
+    return PyObject_GenericGetAttr(obj, name);
+}
+
+static int SbkObject_GenericSetAttr(PyObject *obj, PyObject *name, PyObject *value)
+{
+    auto type = Py_TYPE(obj);
+    if (SelectFeatureSet != nullptr)
+        type->tp_dict = SelectFeatureSet(type);
+    return PyObject_GenericSetAttr(obj, name, value);
+}
+
+// Caching the select Id.
+int SbkObjectType_GetReserved(PyTypeObject *type)
+{
+    auto ptr = PepType_SOTP(reinterpret_cast<SbkObjectType *>(type));
+    // PYSIDE-1019: During import PepType_SOTP is still zero.
+    if (ptr == nullptr)
+        return -1;
+    return ptr->pyside_reserved_bits;
+}
+
+void SbkObjectType_SetReserved(PyTypeObject *type, int value)
+{
+    PepType_SOTP(reinterpret_cast<SbkObjectType *>(type))->pyside_reserved_bits = value;
+}
+
+const char **SbkObjectType_GetPropertyStrings(PyTypeObject *type)
+{
+    return PepType_SOTP(type)->propertyStrings;
+}
+
+void SbkObjectType_SetPropertyStrings(PyTypeObject *type, const char **strings)
+{
+    PepType_SOTP(reinterpret_cast<SbkObjectType *>(type))->propertyStrings = strings;
+}
+
+//
+//////////////////////////////////////////////////////////////////////////////
+
+static PyObject *SbkObjectTypeTpNew(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 {
     // Check if all bases are new style before calling type.tp_new
     // Was causing gc assert errors in test_bug704.py when
@@ -513,7 +660,8 @@ PyObject *SbkObjectTypeTpNew(PyTypeObject *metatype, PyObject *args, PyObject *k
 #ifndef IS_PY3K
         if (PyClass_Check(baseType)) {
             PyErr_Format(PyExc_TypeError, "Invalid base class used in type %s. "
-                "PySide only support multiple inheritance from python new style class.", metatype->tp_name);
+                "PySide only supports multiple inheritance from Python new style classes.",
+                metatype->tp_name);
             return 0;
         }
 #endif
@@ -579,7 +727,6 @@ PyObject *SbkObjectTypeTpNew(PyTypeObject *metatype, PyObject *args, PyObject *k
         if (PepType_SOTP(base)->subtype_init)
             PepType_SOTP(base)->subtype_init(newType, args, kwds);
     }
-
     return reinterpret_cast<PyObject *>(newType);
 }
 
@@ -627,12 +774,15 @@ PyObject *SbkQAppTpNew(PyTypeObject *subtype, PyObject *, PyObject *)
     // PYSIDE-560:
     // We avoid to use this in Python 3, because we have a hard time to get
     // write access to these flags
-#ifndef IS_PY3K
+
+    // PYSIDE-1447:
+    // Since Python 3.8, we have the same weird flags handling in Python 3.8
+    // as well. The singleton Python is no longer needed and we could remove
+    // the whole special handling, maybe in another checkin.
     if (PyType_HasFeature(subtype, Py_TPFLAGS_HAVE_GC)) {
         subtype->tp_flags &= ~Py_TPFLAGS_HAVE_GC;
         subtype->tp_free = PyObject_Del;
     }
-#endif
     auto self = reinterpret_cast<SbkObject *>(MakeQAppWrapper(subtype));
     return self == nullptr ? nullptr : _setupNew(self, subtype);
 }
@@ -689,6 +839,33 @@ PyObject *SbkType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)
     if (PyObject_SetAttr(type, Shiboken::PyMagicName::qualname(), qualname) < 0)
         return nullptr;
     return type;
+}
+
+// PYSIDE-74: Fallback used in all types now.
+PyObject *FallbackRichCompare(PyObject *self, PyObject *other, int op)
+{
+    // This is a very simple implementation that supplies a simple identity.
+    static const char * const opstrings[] = {"<", "<=", "==", "!=", ">", ">="};
+    PyObject *res;
+
+    switch (op) {
+
+    case Py_EQ:
+        res = (self == other) ? Py_True : Py_False;
+        break;
+    case Py_NE:
+        res = (self != other) ? Py_True : Py_False;
+        break;
+    default:
+        PyErr_Format(PyExc_TypeError,
+                     "'%s' not supported between instances of '%.100s' and '%.100s'",
+                     opstrings[op],
+                     self->ob_type->tp_name,
+                     other->ob_type->tp_name);
+        return NULL;
+    }
+    Py_INCREF(res);
+    return res;
 }
 
 } //extern "C"
@@ -933,7 +1110,6 @@ introduceWrapperType(PyObject *enclosingObject,
                      const char *typeName,
                      const char *originalName,
                      PyType_Spec *typeSpec,
-                     const char *signatureStrings[],
                      ObjectDestructor cppObjDtor,
                      SbkObjectType *baseType,
                      PyObject *baseTypes,
@@ -958,12 +1134,8 @@ introduceWrapperType(PyObject *enclosingObject,
             BindingManager::instance().addClassInheritance(baseType, type);
         }
     }
-    // PYSIDE-510: Here is the single change to support signatures.
-    if (SbkSpecial_Type_Ready(enclosingObject, reinterpret_cast<PyTypeObject *>(type), signatureStrings) < 0) {
-        std::cerr << "Warning: " << __FUNCTION__ << " returns nullptr for "
-            << typeName << '/' << originalName << " due to SbkSpecial_Type_Ready() failing\n";
+    if (PyType_Ready(reinterpret_cast<PyTypeObject *>(type)) < 0)
         return nullptr;
-    }
 
     initPrivateData(type);
     auto sotp = PepType_SOTP(type);

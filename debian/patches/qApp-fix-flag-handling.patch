@@ -1,0 +1,53 @@
+From: Christian Tismer <tismer@stackless.com>
+Date: Wed, 23 Dec 2020 13:28:16 +0200
+Subject: qApp: fix flag handling in Python 3.8+ and a Python 3.9 issue
+
+This is an old problem that was solved for Python 2.7.
+From Python 3.8 on, the behavior is the same with Python 3.
+
+The fix finally was to extend a Python 2.7 patch to Python 3
+as well. See the Jira issue for details.
+
+This patch includes also a small patch that was mentioned as
+necessary for Python 3.9: Python issue 40217. I have seen no
+effect of this change yet but applied the patch, anyway.
+
+Origin: https://codereview.qt-project.org/c/pyside/pyside-setup/+/328046
+---
+ sources/shiboken2/libshiboken/basewrapper.cpp | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/sources/shiboken2/libshiboken/basewrapper.cpp b/sources/shiboken2/libshiboken/basewrapper.cpp
+index d866d13..b38fb3a 100644
+--- a/sources/shiboken2/libshiboken/basewrapper.cpp
++++ b/sources/shiboken2/libshiboken/basewrapper.cpp
+@@ -319,6 +319,11 @@ static int SbkObject_traverse(PyObject *self, visitproc visit, void *arg)
+ 
+     if (sbkSelf->ob_dict)
+         Py_VISIT(sbkSelf->ob_dict);
++
++#if PY_VERSION_HEX >= 0x03090000
++    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
++    Py_VISIT(Py_TYPE(self));
++#endif
+     return 0;
+ }
+ 
+@@ -769,12 +774,15 @@ PyObject *SbkQAppTpNew(PyTypeObject *subtype, PyObject *, PyObject *)
+     // PYSIDE-560:
+     // We avoid to use this in Python 3, because we have a hard time to get
+     // write access to these flags
+-#ifndef IS_PY3K
++
++    // PYSIDE-1447:
++    // Since Python 3.8, we have the same weird flags handling in Python 3.8
++    // as well. The singleton Python is no longer needed and we could remove
++    // the whole special handling, maybe in another checkin.
+     if (PyType_HasFeature(subtype, Py_TPFLAGS_HAVE_GC)) {
+         subtype->tp_flags &= ~Py_TPFLAGS_HAVE_GC;
+         subtype->tp_free = PyObject_Del;
+     }
+-#endif
+     auto self = reinterpret_cast<SbkObject *>(MakeQAppWrapper(subtype));
+     return self == nullptr ? nullptr : _setupNew(self, subtype);
+ }

@@ -388,7 +388,7 @@ def run_process(args, initial_env=None):
     No output is captured.
     """
     command = " ".join([(" " in x and '"{}"'.format(x) or x) for x in args])
-    log.info("Running process in directory {}: command {}".format(os.getcwd(), command))
+    log.info("In directory {}:\n\tRunning command:  {}".format(os.getcwd(), command))
 
     if initial_env is None:
         initial_env = os.environ
@@ -1102,13 +1102,25 @@ def get_qtci_virtualEnv(python_ver, host, hostArch, targetArch):
         _pExe = "python.exe"
         # With windows we are creating building 32-bit target in 64-bit host
         if hostArch == "X86_64" and targetArch == "X86":
-            if python_ver == "3":
-                _pExe = os.path.join(os.getenv("PYTHON3_32_PATH"), "python.exe")
+            if python_ver.startswith("3"):
+                var = "PYTHON" + python_ver + "-32_PATH"
+                print("Try to find python from {} env variable".format(var))
+                _path = os.getenv(var, "")
+                _pExe = os.path.join(_path, "python.exe")
+                if not os.path.isfile(_pExe):
+                    print("Can't find python.exe from {}, using default python3".format(_pExe))
+                    _pExe = os.path.join(os.getenv("PYTHON3_32_PATH"), "python.exe")
             else:
                 _pExe = os.path.join(os.getenv("PYTHON2_32_PATH"), "python.exe")
         else:
-            if python_ver == "3":
-                _pExe = os.path.join(os.getenv("PYTHON3_PATH"), "python.exe")
+            if python_ver.startswith("3"):
+                var = "PYTHON" + python_ver + "-64_PATH"
+                print("Try to find python from {} env variable".format(var))
+                _path = os.getenv(var, "")
+                _pExe = os.path.join(_path, "python.exe")
+                if not os.path.isfile(_pExe):
+                    print("Can't find python.exe from {}, using default python3".format(_pExe))
+                    _pExe = os.path.join(os.getenv("PYTHON3_PATH"), "python.exe")
         env_python = _env + "\\Scripts\\python.exe"
         env_pip = _env + "\\Scripts\\pip.exe"
     else:
@@ -1149,6 +1161,6 @@ def get_ci_qmake_path(ci_install_dir, ci_host_os):
     if ci_host_os == "MacOS":
         return qmake_path + "/bin/qmake"
     elif ci_host_os == "Windows":
-        return qmake_path +  "\\bin\\qmake.exe"
+        return qmake_path + "\\bin\\qmake.exe"
     else:
         return qmake_path + "/bin/qmake"

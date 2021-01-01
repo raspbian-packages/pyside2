@@ -36,6 +36,7 @@
 #include "typedatabase_typedefs.h"
 #include "typesystem_typedefs.h"
 #include "clangparser/compilersupport.h"
+#include <QFileInfoList>
 #include <QStringList>
 
 class AbstractMetaBuilder;
@@ -64,8 +65,8 @@ public:
 
     void setTypeSystem(const QString& typeSystemFileName);
     QString typeSystem() const { return m_typeSystemFileName; }
-    void setCppFileName(const QString& cppFileName);
-    QString cppFileName() const { return m_cppFileName; }
+    void setCppFileNames(const QFileInfoList &cppFileNames);
+    QFileInfoList cppFileNames() const { return m_cppFileNames; }
     void setSkipDeprecated(bool value);
     void setSuppressWarnings(bool value);
     void setSilent(bool value);
@@ -80,10 +81,10 @@ public:
     LanguageLevel languageLevel() const;
     void setLanguageLevel(LanguageLevel languageLevel);
 
-    AbstractMetaEnumList globalEnums() const;
-    AbstractMetaFunctionList globalFunctions() const;
-    AbstractMetaClassList classes() const;
-    AbstractMetaClassList smartPointers() const;
+    const AbstractMetaEnumList &globalEnums() const;
+    const AbstractMetaFunctionList &globalFunctions() const;
+    const AbstractMetaClassList &classes() const;
+    const AbstractMetaClassList &smartPointers() const;
     AbstractMetaClassList classesTopologicalSorted(const Dependencies &additionalDependencies = Dependencies()) const;
     PrimitiveTypeEntryList primitiveTypes() const;
     ContainerTypeEntryList containerTypes() const;
@@ -92,10 +93,10 @@ public:
 
     int classCount() const;
 
-    bool run();
+    bool run(bool usePySideExtensions);
 private:
     QString m_typeSystemFileName;
-    QString m_cppFileName;
+    QFileInfoList m_cppFileNames;
     HeaderPaths m_includePaths;
     AbstractMetaBuilder* m_builder = nullptr;
     QString m_logDirectory;

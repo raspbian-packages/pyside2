@@ -44,6 +44,8 @@ from build_scripts.utils import run_instruction
 from build_scripts.utils import rmtree
 from build_scripts.utils import get_ci_qmake_path
 import os
+import site
+import sys
 
 # Values must match COIN thrift
 CI_HOST_OS = option_value("os")
@@ -65,11 +67,27 @@ def call_testrunner(python_ver, buildnro):
     _pExe, _env, env_pip, env_python = get_qtci_virtualEnv(python_ver, CI_HOST_OS, CI_HOST_ARCH, CI_TARGET_ARCH)
     rmtree(_env, True)
     # Pinning the virtualenv before creating one
-    run_instruction(["pip", "install", "--user", "virtualenv==20.0.20"], "Failed to pin virtualenv")
-    run_instruction(["virtualenv", "-p", _pExe,  _env], "Failed to create virtualenv")
+    run_instruction(["pip", "install", "--user", "virtualenv==20.0.25"], "Failed to pin virtualenv")
+    # installing to user base might not be in PATH by default.
+    env_path = os.path.join(site.USER_BASE, "bin")
+    v_env = os.path.join(env_path, "virtualenv")
+    if sys.platform == "win32":
+        env_path = os.path.join(site.USER_BASE, "Scripts")
+        v_env = os.path.join(env_path, "virtualenv.exe")
+    try:
+        run_instruction([v_env, "--version"], "Using default virtualenv")
+    except Exception as e:
+        v_env = "virtualenv"
+
+    run_instruction([v_env, "-p", _pExe,  _env], "Failed to create virtualenv")
     # When the 'python_ver' variable is empty, we are using Python 2
     # Pip is always upgraded when CI template is provisioned, upgrading it in later phase may cause perm issue
     run_instruction([env_pip, "install", "-r", "requirements.txt"], "Failed to install dependencies")
+    if sys.platform == "win32":
+        run_instruction([env_pip, "install", "numpy==1.19.3"], "Failed to install numpy 1.19.3")
+    else:
+        run_instruction([env_pip, "install", "numpy"], "Failed to install numpy")
+
     cmd = [env_python, "testrunner.py", "test",
                   "--blacklist", "build_history/blacklist.txt",
                   "--buildno=" + buildnro]
@@ -97,7 +115,12 @@ def run_test_instructions():
         testRun =+ 1
     # We know that second build was with python3
     if CI_RELEASE_CONF:
-        call_testrunner("3", str(testRun))
+        # In win machines, there are additional python versions to test with
+        if CI_HOST_OS == "Windows":
+            call_testrunner("3.6.1", str(testRun))
+            call_testrunner("3.8.1", str(testRun))
+        else:
+            call_testrunner("3", str(testRun))
 
 if __name__ == "__main__":
     run_test_instructions()

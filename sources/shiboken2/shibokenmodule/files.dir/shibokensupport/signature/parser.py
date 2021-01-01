@@ -110,8 +110,15 @@ def _parse_line(line):
     argstr = ret.arglist.replace("->", ".deref.")
     arglist = _parse_arglist(argstr)
     args = []
-    for arg in arglist:
-        name, ann = arg.split(":")
+    for idx, arg in enumerate(arglist):
+        tokens = arg.split(":")
+        if len(tokens) < 2:
+            if idx == 0 and tokens[0] == "self":
+                tokens = 2 * tokens     # "self: self"
+            else:
+                warnings.warn('Invalid argument "{}" in "{}".'.format(arg, line))
+                continue
+        name, ann = tokens
         if name in keyword.kwlist:
             if LIST_KEYWORDS:
                 print("KEYWORD", ret)
@@ -333,15 +340,15 @@ def calculate_props(line):
             _defaults.append(default)
     defaults = tuple(_defaults)
     returntype = parsed.returntype
-    if returntype is not None:
-        annotations["return"] = _resolve_type(returntype, line, 0, handle_retvar)
+    # PYSIDE-1383: We need to handle `None` explicitly.
+    annotations["return"] = (_resolve_type(returntype, line, 0, handle_retvar)
+                             if returntype is not None else None)
     props = SimpleNamespace()
     props.defaults = defaults
     props.kwdefaults = {}
     props.annotations = annotations
     props.varnames = varnames = tuple(tup[0] for tup in arglist)
     funcname = parsed.funcname
-    props.fullname = funcname
     shortname = funcname[funcname.rindex(".")+1:]
     props.name = shortname
     props.multi = parsed.multi
@@ -358,7 +365,6 @@ def fix_variables(props, line):
     if retvar and isinstance(retvar, (ResultVariable, ArrayLikeVariable)):
         # Special case: a ResultVariable which is the result will always be an array!
         annos["return"] = retvar = typing.List[retvar.type]
-    fullname = props.fullname
     varnames = list(props.varnames)
     defaults = list(props.defaults)
     diff = len(varnames) - len(defaults)
@@ -448,8 +454,7 @@ def pyside_type_init(type_key, sig_strings):
             multi_props.append(props)
             if multi > 0:
                 continue
-            fullname = props.pop("fullname")
-            multi_props = {"multi": multi_props, "fullname": fullname}
+            multi_props = {"multi": multi_props}
             ret[shortname] = multi_props
             dprint(multi_props)
             multi_props = []

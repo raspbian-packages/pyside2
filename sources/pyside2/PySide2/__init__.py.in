@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os
 import sys
+from textwrap import dedent
 
 __all__ = list("Qt" + body for body in
     "@all_module_shortnames@"
@@ -12,6 +13,9 @@ __version_info__ = (@BINDING_API_MAJOR_VERSION@, @BINDING_API_MINOR_VERSION@, @B
 def _additional_dll_directories(package_dir):
     # Find shiboken2 relative to the package directory.
     root = os.path.dirname(package_dir)
+    # Check for a flat .zip as deployed by cx_free(PYSIDE-1257)
+    if root.endswith('.zip'):
+        return []
     shiboken2 = os.path.join(root, 'shiboken2')
     if os.path.isdir(shiboken2): # Standard case, only shiboken2 is needed
         return [shiboken2]
@@ -59,7 +63,22 @@ def _setupQtDirectories():
         raise
 
     #   Trigger signature initialization.
-    type.__signature__
+    try:
+        # PYSIDE-829: Avoid non-existent attributes in compiled code (Nuitka).
+        # We now use an explicit function instead of touching a signature.
+        _init_pyside_extension()
+    except AttributeError:
+        print(dedent('''\
+            {stars}
+            PySide2/__init__.py: The `signature` module was not initialized.
+            This libshiboken module was loaded from
+
+            "{shiboken2.__file__}".
+
+            Please make sure that this is the real shiboken2 binary and not just a folder.
+            {stars}
+            ''').format(stars=79*"*", **locals()), file=sys.stderr)
+        raise
 
     if sys.platform == 'win32':
         # PATH has to contain the package directory, otherwise plugins

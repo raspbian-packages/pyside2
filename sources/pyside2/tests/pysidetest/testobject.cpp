@@ -28,6 +28,8 @@
 
 #include "testobject.h"
 
+#include <QtCore/QDebug>
+
 void TestObject::emitIdValueSignal()
 {
     emit idValue(m_idValue);

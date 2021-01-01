@@ -240,6 +240,7 @@ def prepare_packages_win32(self, vars):
 
     if config.is_internal_pyside_build() or config.is_internal_shiboken_generator_build():
         copy_qt_artifacts(self, copy_pdbs, vars)
+        copy_msvc_redist_files(vars, "{build_dir}/msvc_redist".format(**vars))
 
 
 def copy_msvc_redist_files(vars, redist_target_path):
@@ -251,7 +252,11 @@ def copy_msvc_redist_files(vars, redist_target_path):
         "vcamp140.dll",
         "vccorlib140.dll",
         "vcomp140.dll",
-        "vcruntime140.dll"
+        "vcruntime140.dll",
+        "vcruntime140_1.dll",
+        "msvcp140_1.dll",
+        "msvcp140_2.dll",
+        "msvcp140_codecvt_ids.dll"
     ]
 
     # Make a directory where the files should be extracted.
@@ -262,9 +267,9 @@ def copy_msvc_redist_files(vars, redist_target_path):
     in_coin = os.environ.get('COIN_LAUNCH_PARAMETERS', None)
     if in_coin is not None:
         redist_url = "http://download.qt.io/development_releases/prebuilt/vcredist/"
-        zip_file = "pyside_qt_deps_64.7z"
+        zip_file = "pyside_qt_deps_64_2019.7z"
         if "{target_arch}".format(**vars) == "32":
-            zip_file = "pyside_qt_deps_32.7z"
+            zip_file = "pyside_qt_deps_32_2019.7z"
         download_and_extract_7z(redist_url + zip_file, redist_target_path)
     else:
         print("Qt dependency DLLs (MSVC redist) will not be downloaded and extracted.")

@@ -53,6 +53,7 @@ extern const char *END_ALLOW_THREADS;
 
 class DocParser;
 class CodeSnip;
+class QPropertySpec;
 class OverloadData;
 struct GeneratorClassInfoCacheEntry;
 
@@ -88,6 +89,9 @@ public:
 
     /// Returns a list of all ancestor classes for the given class.
     AbstractMetaClassList getAllAncestors(const AbstractMetaClass *metaClass) const;
+
+    /// Returns true if the user enabled PySide extensions.
+    bool usePySideExtensions() const;
 
 protected:
     bool doSetup() override;
@@ -227,9 +231,6 @@ protected:
     /// Condition to call WriteVirtualMethodNative. Was extracted because also used to count these calls.
     bool shouldWriteVirtualMethodNative(const AbstractMetaFunction *func);
 
-    /// Adds enums eligible for generation from classes/namespaces marked not to be generated.
-    static void lookForEnumsInClassesNotToBeGenerated(AbstractMetaEnumList &enumList, const AbstractMetaClass *metaClass);
-
     QString wrapperName(const AbstractMetaClass *metaClass) const;
 
     QString fullPythonClassName(const AbstractMetaClass *metaClass);
@@ -301,14 +302,16 @@ protected:
 
     static bool visibilityModifiedToPrivate(const AbstractMetaFunction *func);
 
+    static bool isNullPtr(const QString &value);
+
     QString converterObject(const AbstractMetaType *type);
     QString converterObject(const TypeEntry *type);
 
     static QString cpythonBaseName(const AbstractMetaClass *metaClass);
     static QString cpythonBaseName(const TypeEntry *type);
-    QString cpythonBaseName(const AbstractMetaType *type);
-    QString cpythonTypeName(const AbstractMetaClass *metaClass);
-    QString cpythonTypeName(const TypeEntry *type);
+    static QString cpythonBaseName(const AbstractMetaType *type);
+    static QString cpythonTypeName(const AbstractMetaClass *metaClass);
+    static QString cpythonTypeName(const TypeEntry *type);
     QString cpythonTypeNameExt(const TypeEntry *type) const;
     QString cpythonTypeNameExt(const AbstractMetaType *type) const;
     QString cpythonCheckFunction(const TypeEntry *type, bool genericNumberType = false);
@@ -339,8 +342,12 @@ protected:
     QString cpythonGettersSettersDefinitionName(const AbstractMetaClass *metaClass);
     static QString cpythonGetattroFunctionName(const AbstractMetaClass *metaClass);
     static QString cpythonSetattroFunctionName(const AbstractMetaClass *metaClass);
-    QString cpythonGetterFunctionName(const AbstractMetaField *metaField);
-    QString cpythonSetterFunctionName(const AbstractMetaField *metaField);
+    static QString cpythonGetterFunctionName(const AbstractMetaField *metaField);
+    static QString cpythonSetterFunctionName(const AbstractMetaField *metaField);
+    static QString cpythonGetterFunctionName(const QPropertySpec *property,
+                                             const AbstractMetaClass *metaClass);
+    static QString cpythonSetterFunctionName(const QPropertySpec *property,
+                                             const AbstractMetaClass *metaClass);
     QString cpythonWrapperCPtr(const AbstractMetaClass *metaClass,
                                const QString &argName = QLatin1String("self")) const;
     QString cpythonWrapperCPtr(const AbstractMetaType *metaType, const QString &argName) const;
@@ -373,8 +380,6 @@ protected:
     bool useCtorHeuristic() const;
     /// Returns true if the user enabled the so called "return value heuristic".
     bool useReturnValueHeuristic() const;
-    /// Returns true if the user enabled PySide extensions.
-    bool usePySideExtensions() const;
     /// Returns true if the generator should use the result of isNull()const to compute boolean casts.
     bool useIsNullAsNbNonZero() const;
     /// Returns true if the generated code should use the "#define protected public" hack.
@@ -459,6 +464,11 @@ protected:
     static QStringList m_knownPythonTypes;
 
 private:
+    static QString cpythonGetterFunctionName(const QString &name,
+                                             const AbstractMetaClass *enclosingClass);
+    static QString cpythonSetterFunctionName(const QString &name,
+                                             const AbstractMetaClass *enclosingClass);
+
     static const GeneratorClassInfoCacheEntry &getGeneratorClassInfo(const AbstractMetaClass *scope);
     static FunctionGroups getFunctionGroupsImpl(const AbstractMetaClass *scope);
     static bool classNeedsGetattroFunctionImpl(const AbstractMetaClass *metaClass);

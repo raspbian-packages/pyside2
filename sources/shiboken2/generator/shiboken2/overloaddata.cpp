@@ -30,12 +30,15 @@
 #include <reporthandler.h>
 #include <graph.h>
 #include "overloaddata.h"
+#include "ctypenames.h"
 #include "indentor.h"
 #include "shibokengenerator.h"
 
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QTemporaryFile>
+
+#include <algorithm>
 
 static const TypeEntry *getReferencedTypeEntry(const TypeEntry *typeEntry)
 {
@@ -54,8 +57,7 @@ static QString getTypeName(const AbstractMetaType *type)
     QString typeName = typeEntry->name();
     if (typeEntry->isContainer()) {
         QStringList types;
-        const AbstractMetaTypeList &instantiations = type->instantiations();
-        for (const AbstractMetaType *cType : instantiations) {
+        for (const auto *cType : type->instantiations()) {
             const TypeEntry *typeEntry = getReferencedTypeEntry(cType->typeEntry());
             types << typeEntry->name();
         }
@@ -144,8 +146,7 @@ static QString getImplicitConversionTypeName(const AbstractMetaType *containerTy
         impConv = getTypeName(function->arguments().constFirst()->type());
 
     QStringList types;
-    const AbstractMetaTypeList &instantiations = containerType->instantiations();
-    for (const AbstractMetaType *otherType : instantiations)
+    for (const auto *otherType : containerType->instantiations())
         types << (otherType == instantiation ? impConv : getTypeName(otherType));
 
     return containerType->typeEntry()->qualifiedCppName() + QLatin1Char('<')
@@ -174,6 +175,24 @@ static QString msgCyclicDependency(const QString &funcName, const QString &graph
     return result;
 }
 
+static inline int overloadNumber(const OverloadData *o)
+{
+    return o->referenceFunction()->overloadNumber();
+}
+
+bool OverloadData::sortByOverloadNumberModification()
+{
+    if (std::all_of(m_nextOverloadData.cbegin(), m_nextOverloadData.cend(),
+                    [](const OverloadData *o) { return overloadNumber(o) == TypeSystem::OverloadNumberDefault; })) {
+        return false;
+    }
+    std::stable_sort(m_nextOverloadData.begin(), m_nextOverloadData.end(),
+                     [] (const OverloadData *o1, const OverloadData *o2) {
+                         return overloadNumber(o1) < overloadNumber(o2);
+                     });
+    return true;
+}
+
 /**
  * Topologically sort the overloads by implicit convertion order
  *
@@ -200,20 +219,16 @@ void OverloadData::sortNextOverloads()
 
     // Primitive types that are not int, long, short,
     // char and their respective unsigned counterparts.
-    QStringList nonIntegerPrimitives;
-    nonIntegerPrimitives << QLatin1String("float") << QLatin1String("double")
-        << QLatin1String("bool");
+    static const QStringList nonIntegerPrimitives{floatT(), doubleT(), boolT()};
 
     // Signed integer primitive types.
-    QStringList signedIntegerPrimitives;
-    signedIntegerPrimitives << QLatin1String("int") << QLatin1String("short")
-       << QLatin1String("long");
+    static const QStringList signedIntegerPrimitives{intT(), shortT(), longT(), longLongT()};
 
     // sort the children overloads
     for (OverloadData *ov : qAsConst(m_nextOverloadData))
         ov->sortNextOverloads();
 
-    if (m_nextOverloadData.size() <= 1)
+    if (m_nextOverloadData.size() <= 1 || sortByOverloadNumberModification())
         return;
 
     // Populates the OverloadSortData object containing map and reverseMap, to map type names to ids,
@@ -233,16 +248,15 @@ void OverloadData::sortNextOverloads()
         } else if (!checkPyBuffer && typeName == QLatin1String("PyBuffer")) {
             checkPyBuffer = true;
             pyBufferIndex = sortData.lastProcessedItemId();
-        } else if (!checkQVariant && typeName == QLatin1String("QVariant")) {
+        } else if (!checkQVariant && typeName == qVariantT()) {
             checkQVariant = true;
             qvariantIndex = sortData.lastProcessedItemId();
-        } else if (!checkQString && typeName == QLatin1String("QString")) {
+        } else if (!checkQString && typeName == qStringT()) {
             checkQString = true;
             qstringIndex = sortData.lastProcessedItemId();
         }
 
-        const AbstractMetaTypeList &instantiations = ov->argType()->instantiations();
-        for (const AbstractMetaType *instantiation : instantiations) {
+        for (const auto *instantiation : ov->argType()->instantiations()) {
             // Add dependencies for type instantiation of container.
             QString typeName = getTypeName(instantiation);
             sortData.mapType(typeName);
@@ -267,23 +281,16 @@ void OverloadData::sortNextOverloads()
     // Create the graph of type dependencies based on implicit conversions.
     Graph graph(sortData.reverseMap.count());
     // All C++ primitive types, add any forgotten type AT THE END OF THIS LIST!
-    const char *primitiveTypes[] = {"int",
-                                    "unsigned int",
-                                    "long",
-                                    "unsigned long",
-                                    "short",
-                                    "unsigned short",
-                                    "bool",
-                                    "unsigned char",
-                                    "char",
-                                    "float",
-                                    "double",
-                                    "const char*"
-                                    };
-    const int numPrimitives = sizeof(primitiveTypes)/sizeof(const char *);
-    bool hasPrimitive[numPrimitives];
-    for (int i = 0; i < numPrimitives; ++i)
-        hasPrimitive[i] = sortData.map.contains(QLatin1String(primitiveTypes[i]));
+    static const QStringList primitiveTypes{intT(), unsignedIntT(), longT(), unsignedLongT(),
+        shortT(), unsignedShortT(), boolT(), unsignedCharT(), charT(), floatT(),
+        doubleT(), constCharPtrT()};
+
+    QList<int> foundPrimitiveTypeIds;
+    for (const auto &p : primitiveTypes) {
+        const auto it = sortData.map.constFind(p);
+        if (it != sortData.map.cend())
+            foundPrimitiveTypeIds.append(it.value());
+    }
 
     if (checkPySequence && checkPyObject)
         graph.addEdge(pySeqIndex, pyobjectIndex);
@@ -306,7 +313,7 @@ void OverloadData::sortNextOverloads()
             else
                 convertibleType = getTypeName(function->arguments().constFirst()->type());
 
-            if (convertibleType == QLatin1String("int") || convertibleType == QLatin1String("unsigned int"))
+            if (convertibleType == intT() || convertibleType == unsignedIntT())
                 classesWithIntegerImplicitConversion << targetTypeEntryName;
 
             if (!sortData.map.contains(convertibleType))
@@ -336,8 +343,7 @@ void OverloadData::sortNextOverloads()
         }
 
         // Process template instantiations
-        const AbstractMetaTypeList &instantiations = targetType->instantiations();
-        for (const AbstractMetaType *instantiation : instantiations) {
+        for (const auto *instantiation : targetType->instantiations()) {
             if (sortData.map.contains(getTypeName(instantiation))) {
                 int convertible = sortData.map[getTypeName(instantiation)];
 
@@ -379,12 +385,12 @@ void OverloadData::sortNextOverloads()
                 // Add dependency on PyObject, so its check is the last one (too generic).
                 graph.addEdge(targetTypeId, pyobjectIndex);
             }
-        } else if (checkQVariant && targetTypeEntryName != QLatin1String("QVariant")) {
+        } else if (checkQVariant && targetTypeEntryName != qVariantT()) {
             if (!graph.containsEdge(qvariantIndex, targetTypeId)) // Avoid cyclic dependency.
                 graph.addEdge(targetTypeId, qvariantIndex);
         } else if (checkQString && ShibokenGenerator::isPointer(ov->argType())
-            && targetTypeEntryName != QLatin1String("QString")
-            && targetTypeEntryName != QLatin1String("QByteArray")
+            && targetTypeEntryName != qStringT()
+            && targetTypeEntryName != qByteArrayT()
             && (!checkPyObject || targetTypeId != pyobjectIndex)) {
             if (!graph.containsEdge(qstringIndex, targetTypeId)) // Avoid cyclic dependency.
                 graph.addEdge(targetTypeId, qstringIndex);
@@ -392,16 +398,14 @@ void OverloadData::sortNextOverloads()
 
         if (targetType->isEnum()) {
             // Enum values must precede primitive types.
-            for (int i = 0; i < numPrimitives; ++i) {
-                if (hasPrimitive[i])
-                    graph.addEdge(targetTypeId, sortData.map[QLatin1String(primitiveTypes[i])]);
-            }
+            for (auto id : foundPrimitiveTypeIds)
+                    graph.addEdge(targetTypeId, id);
         }
     }
 
     // QByteArray args need to be checked after QString args
-    if (sortData.map.contains(QLatin1String("QString")) && sortData.map.contains(QLatin1String("QByteArray")))
-        graph.addEdge(sortData.map[QLatin1String("QString")], sortData.map[QLatin1String("QByteArray")]);
+    if (sortData.map.contains(qStringT()) && sortData.map.contains(qByteArrayT()))
+        graph.addEdge(sortData.map.value(qStringT()), sortData.map.value(qByteArrayT()));
 
     for (OverloadData *ov : qAsConst(m_nextOverloadData)) {
         const AbstractMetaType *targetType = ov->argType();
@@ -571,10 +575,8 @@ QStringList OverloadData::returnTypes() const
     for (const AbstractMetaFunction *func : m_overloads) {
         if (!func->typeReplaced(0).isEmpty())
             retTypes << func->typeReplaced(0);
-        else if (func->type() && !func->argumentRemoved(0))
+        else if (!func->argumentRemoved(0))
             retTypes << func->type()->cppSignature();
-        else
-            retTypes << QLatin1String("void");
     }
     return retTypes.values();
 }
@@ -870,12 +872,9 @@ QString OverloadData::dumpGraph() const
         // Shows all function signatures
         s << "legend [fontsize=9 fontname=freemono shape=rect label=\"";
         for (const AbstractMetaFunction *func : m_overloads) {
-            s << "f" << functionNumber(func) << " : ";
-            if (func->type())
-                s << toHtml(func->type()->cppSignature());
-            else
-                s << "void";
-            s << ' ' << toHtml(func->minimalSignature()) << "\\l";
+            s << "f" << functionNumber(func) << " : "
+                << toHtml(func->type()->cppSignature())
+                << ' ' << toHtml(func->minimalSignature()) << "\\l";
         }
         s << "\"];\n";
 
@@ -895,12 +894,9 @@ QString OverloadData::dumpGraph() const
         s << "</td></tr>";
 
         // Function return type
-        s << "<tr><td bgcolor=\"gray\" align=\"right\">original type</td><td bgcolor=\"gray\" align=\"left\">";
-        if (rfunc->type())
-            s << toHtml(rfunc->type()->cppSignature());
-        else
-            s << "void";
-        s << "</td></tr>";
+        s << "<tr><td bgcolor=\"gray\" align=\"right\">original type</td><td bgcolor=\"gray\" align=\"left\">"
+            << toHtml(rfunc->type()->cppSignature())
+            << "</td></tr>";
 
         // Shows type changes for all function signatures
         for (const AbstractMetaFunction *func : m_overloads) {

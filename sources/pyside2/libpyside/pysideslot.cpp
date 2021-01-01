@@ -47,6 +47,8 @@
 #include <QtCore/QString>
 #include <signature.h>
 
+using namespace Shiboken;
+
 struct SlotData
 {
     QByteArray name;
@@ -136,23 +138,25 @@ PyObject *slotCall(PyObject *self, PyObject *args, PyObject * /* kw */)
     callback = PyTuple_GetItem(args, 0);
     Py_INCREF(callback);
 
-    if (PyFunction_Check(callback)) {
+    if (Py_TYPE(callback)->tp_call != nullptr) {
         PySideSlot *data = reinterpret_cast<PySideSlot *>(self);
 
         if (!data->slotData)
             data->slotData = new SlotData;
 
-        if (data->slotData->name.isEmpty())
-            data->slotData->name = Shiboken::String::toCString(PepFunction_GetName(callback));
-
+        if (data->slotData->name.isEmpty()) {
+            // PYSIDE-198: Use PyObject_GetAttr instead of PepFunction_GetName to support Nuitka.
+            AutoDecRef funcName(PyObject_GetAttr(callback, PyMagicName::name()));
+            data->slotData->name = String::toCString(funcName);
+        }
         const QByteArray returnType = QMetaObject::normalizedType(data->slotData->resultType);
         const QByteArray signature =
             returnType + ' ' + data->slotData->name + '(' + data->slotData->args + ')';
 
         if (!pySlotName)
-            pySlotName = Shiboken::String::fromCString(PYSIDE_SLOT_LIST_ATTR);
+            pySlotName = String::fromCString(PYSIDE_SLOT_LIST_ATTR);
 
-        PyObject *pySignature = Shiboken::String::fromCString(signature);
+        PyObject *pySignature = String::fromCString(signature);
         PyObject *signatureList = 0;
         if (PyObject_HasAttr(callback, pySlotName)) {
             signatureList = PyObject_GetAttr(callback, pySlotName);
@@ -184,7 +188,7 @@ static const char *Slot_SignatureStrings[] = {
 
 void init(PyObject *module)
 {
-    if (SbkSpecial_Type_Ready(module, PySideSlotTypeF(), Slot_SignatureStrings) < 0)
+    if (InitSignatureStrings(PySideSlotTypeF(), Slot_SignatureStrings) < 0)
         return;
 
     Py_INCREF(PySideSlotTypeF());

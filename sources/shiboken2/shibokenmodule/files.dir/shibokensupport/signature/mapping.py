@@ -264,6 +264,7 @@ type_map.update({
     "qulonglong": int,
     "QVariant": Variant,
     "QVector": typing.List,
+    "QSharedPointer": typing.Tuple,
     "real": float,
     "short": int,
     "signed char": int,
@@ -343,6 +344,11 @@ type_map.update({
     "uint*"         : ResultVariable(int),
     "unsigned int*" : ResultVariable(int),
     "QStringList*"  : ResultVariable(StringList),
+    })
+
+# PYSIDE-1328: We need to handle "self" explicitly.
+type_map.update({
+    "self"  : "self",
     })
 
 
@@ -438,6 +444,7 @@ def init_PySide2_QtCore():
         "4294967295UL": 4294967295, # 5.6, RHEL 6.6
         "CheckIndexOption.NoOption": Instance(
             "PySide2.QtCore.QAbstractItemModel.CheckIndexOptions.NoOption"), # 5.11
+        "DescriptorType(-1)": int,  # Native handle of QSocketDescriptor
         "false": False,
         "list of QAbstractAnimation": typing.List[PySide2.QtCore.QAbstractAnimation],
         "list of QAbstractState": typing.List[PySide2.QtCore.QAbstractState],
@@ -446,14 +453,7 @@ def init_PySide2_QtCore():
         "nullptr": None, # 5.9
         "PyByteArray": bytearray,
         "PyBytes": bytes,
-        "PySide2.QtCore.QCborStreamReader.StringResult[PySide2.QtCore.QByteArray]":
-            PySide2.QtCore.QCborStringResultByteArray,
-        "PySide2.QtCore.QCborStreamReader.StringResult[QString]":
-            PySide2.QtCore.QCborStringResultString,
-        "PySide2.QtCore.QCborStreamReader.QCborStringResultByteArray":
-            PySide2.QtCore.QCborStringResultByteArray,  # 5.14, why?
-        "PySide2.QtCore.QCborStreamReader.QCborStringResultString":
-            PySide2.QtCore.QCborStringResultString,  # 5.14, why?
+        "QDeadlineTimer(QDeadlineTimer.Forever)": Instance("PySide2.QtCore.QDeadlineTimer"),
         "PySide2.QtCore.QUrl.ComponentFormattingOptions":
             PySide2.QtCore.QUrl.ComponentFormattingOption, # mismatch option/enum, why???
         "PyUnicode": typing.Text,
@@ -491,6 +491,16 @@ def init_PySide2_QtCore():
     except AttributeError:
         # this does not exist on 5.9 ATM.
         pass
+    return locals()
+
+
+def init_PySide2_QtConcurrent():
+    type_map.update({
+        "PySide2.QtCore.QFuture[QString]":
+        PySide2.QtConcurrent.QFutureQString,
+        "PySide2.QtCore.QFuture[void]":
+        PySide2.QtConcurrent.QFutureVoid,
+    })
     return locals()
 
 
@@ -540,10 +550,15 @@ def init_PySide2_QtSql():
 
 
 def init_PySide2_QtNetwork():
+    from PySide2.QtNetwork import QNetworkRequest
     best_structure = typing.OrderedDict if getattr(typing, "OrderedDict", None) else typing.Dict
     type_map.update({
         "QMultiMap[PySide2.QtNetwork.QSsl.AlternativeNameEntryType, QString]":
             best_structure[PySide2.QtNetwork.QSsl.AlternativeNameEntryType, typing.List[str]],
+        "DefaultTransferTimeoutConstant":
+            QNetworkRequest.TransferTimeoutConstant,
+        "QNetworkRequest.DefaultTransferTimeoutConstant":
+            QNetworkRequest.TransferTimeoutConstant,
     })
     del best_structure
     return locals()

@@ -41,13 +41,14 @@ import sys
 import os
 import textwrap
 
+from setuptools import setup  # Import setuptools before distutils
+import distutils.log as log
+
 from build_scripts.config import config
 from build_scripts.main import get_package_version, get_setuptools_extension_modules
 from build_scripts.main import cmd_class_dict
-from build_scripts.options import OPTION
+from build_scripts.options import ADDITIONAL_OPTIONS, OPTION
 from build_scripts.utils import run_process
-
-from setuptools import setup
 
 
 class SetupRunner(object):
@@ -87,8 +88,13 @@ class SetupRunner(object):
         internal_build_type_arg = self.construct_internal_build_type_cmd_line_argument(build_type)
         setup_cmd = [sys.executable] + self.sub_argv + [internal_build_type_arg]
 
+        command = self.sub_argv[0]
+        if command == 'setup.py' and len(self.sub_argv) > 1:
+            command = self.sub_argv[1]
+
         # Add --reuse-build option if requested and not already present.
-        if reuse_build and not self.cmd_line_argument_is_in_args("reuse-build", self.sub_argv):
+        if (reuse_build and command in ('bdist_wheel', 'build', 'build_rst_docs', 'install')
+            and not self.cmd_line_argument_is_in_args("reuse-build", self.sub_argv)):
             setup_cmd.append(self.construct_cmd_line_argument("reuse-build"))
         self.invocations_list.append(setup_cmd)
 
@@ -127,7 +133,11 @@ class SetupRunner(object):
                                .format(config.build_type))
 
         # Build everything: shiboken2, shiboken2-generator and PySide2.
-        if config.is_top_level_build_all():
+        help_requested = '--help' in self.sub_argv or '-h' in self.sub_argv
+        if help_requested:
+            self.add_setup_internal_invocation(config.pyside_option_name)
+
+        elif config.is_top_level_build_all():
             self.add_setup_internal_invocation(config.shiboken_module_option_name)
 
             # Reuse the shiboken build for the generator package instead
@@ -148,7 +158,7 @@ class SetupRunner(object):
 
         for cmd in self.invocations_list:
             cmd_as_string = " ".join(cmd)
-            print("\nRunning process: {}\n".format(cmd_as_string))
+            log.info("\nRunning setup:  {}\n".format(cmd_as_string))
             exit_code = run_process(cmd)
             if exit_code != 0:
                 msg = textwrap.dedent("""
@@ -156,6 +166,10 @@ class SetupRunner(object):
                     setup.py invocation was: {}
                     """).format(exit_code, cmd_as_string)
                 raise RuntimeError(msg)
+
+        if help_requested:
+            print(ADDITIONAL_OPTIONS)
+
 
     @staticmethod
     def run_setuptools_setup():
