@@ -94,6 +94,11 @@ class BuildLog(object):
                     """.format(fpath)))
                     sys.exit(1)
 
+                # We need to find the build directory for the current interpreter
+                py_version = "{}.{}".format(sys.version_info[0], sys.version_info[1])
+                if py_version not in build_classifiers:
+                    continue
+
                 if not os.path.exists(build_dir):
                     rel_dir, low_part = os.path.split(build_dir)
                     rel_dir, two_part = os.path.split(rel_dir)
