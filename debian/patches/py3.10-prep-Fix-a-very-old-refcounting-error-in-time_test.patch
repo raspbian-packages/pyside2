@@ -1,0 +1,51 @@
+From: Christian Tismer <tismer@stackless.com>
+Date: Fri, 20 Aug 2021 18:18:57 +0200
+Subject: py3.10-prep: Fix a very old refcounting error in time_test.py
+
+Since 2012-03-08, there was a refcounting error in
+the typesystem_sample.xml file at <value-type name="Time">.
+The boolean function results were not refcounted.
+
+(Commit 7b731d702c64d172e192aa1876e4a6fade6c38d7)
+
+This bug was hard to find because nobody expects a failure in the
+testing code, and the error shows up at the very end in the
+finalization code, totally unrelated to the error location.
+
+In order to find it, the setting `PYTHONMALLOC=malloc` was needed,
+because otherwise we got a Python memory dump but no traceback.
+Then, Python was modified and code was inserted in the various
+involved `code_dealloc`, `tupledealloc` and `object_dealloc`
+functions that printed the involved refcounts and types before
+performing the actual deallocation.
+
+This bug actually was of no harm since only the wrong test was
+involved. It was very misleading because there were quite some
+changes to the `datetime` module in Python 3.10. But the bug
+was nothing but a dormant refcounting error.
+
+(cherry picked from commit 2af6ac20de365116b52b65c6c34cfd6c536c23df)
+---
+ sources/shiboken2/tests/samplebinding/typesystem_sample.xml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/sources/shiboken2/tests/samplebinding/typesystem_sample.xml b/sources/shiboken2/tests/samplebinding/typesystem_sample.xml
+index 595afb9..70fabcf 100644
+--- a/sources/shiboken2/tests/samplebinding/typesystem_sample.xml
++++ b/sources/shiboken2/tests/samplebinding/typesystem_sample.xml
+@@ -1953,6 +1953,7 @@
+                     %PYARG_0 = Py_False;
+                 else
+                     %PYARG_0 = Py_True;
++                Py_INCREF(%PYARG_0);
+             }
+           </inject-code>
+         </add-function>
+@@ -1970,6 +1971,7 @@
+                     %PYARG_0 = Py_True;
+                 else
+                     %PYARG_0 = Py_False;
++                Py_INCREF(%PYARG_0);
+             }
+           </inject-code>
+         </add-function>
