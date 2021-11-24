@@ -1,4 +1,4 @@
-pyside2 (5.15.2-1+rpi1) bullseye-staging; urgency=medium
+pyside2 (5.15.2-2+rpi1) bookworm-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -7,7 +7,16 @@ pyside2 (5.15.2-1+rpi1) bullseye-staging; urgency=medium
   [changes introduced in 5.13.2-3+rpi1 by Peter Michael Green]
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 01 Jan 2021 14:16:24 +0000
+ -- Peter Michael Green <plugwash@raspbian.org>  Wed, 24 Nov 2021 04:42:48 +0000
+
+pyside2 (5.15.2-2) unstable; urgency=medium
+
+  * Backport upstream patches for Python 3.10 support (closes: #999369).
+  * Backport upstream patch to adapt for LLVM 12.01.
+  * Run build-time tests with all supported Python versions.
+    - Add a patch to make the tests find the matching build directory.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 16 Nov 2021 12:16:14 +0300
 
 pyside2 (5.15.2-1) unstable; urgency=medium
 

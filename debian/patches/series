@@ -3,3 +3,9 @@ fix-spelling-errors.patch
 blacklist-failing-tests.patch
 fix-reuse-build.patch
 qApp-fix-flag-handling.patch
+py3.10-prep-reset-the-type-cache-after-feature-switching.patch
+py3.10-prep-Fix-parser.py-for-changed-typing-module.patch
+py3.10-prep-Finally-support-Python-3.10.patch
+py3.10-prep-Fix-a-very-old-refcounting-error-in-time_test.patch
+shiboken6-Adapt-to-LLVM-12.01.patch
+test-with-current-interpreter.patch

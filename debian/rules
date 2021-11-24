@@ -61,7 +61,9 @@ override_dh_auto_clean:
 override_dh_auto_test:
 ifeq (mips64el,$(DEB_HOST_ARCH))
 	# See https://bugs.debian.org/868745
-	#QSG_NO_DEPTH_BUFFER=1 xvfb-run python3 testrunner.py test
+	#QSG_NO_DEPTH_BUFFER=1 xvfb-run -a dh_auto_test -- --system=custom \
+	#	--test-args '{interpreter} testrunner.py test'
 else
-	#xvfb-run python3 testrunner.py test
+	#xvfb-run -a dh_auto_test -- --system=custom \
+	#	--test-args '{interpreter} testrunner.py test'
 endif
