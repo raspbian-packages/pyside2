@@ -1,0 +1,51 @@
+From: Christian Tismer <tismer@stackless.com>
+Date: Sat, 8 May 2021 16:06:23 +0200
+Subject: py3.10-prep: Fix parser.py for changed typing module
+
+The typing module has subtle changes that are not even
+documented: Typing types now have a __name__ attribute.
+That confused the parser of the pyi generator because
+suddenly stingizing
+
+    Callable[..., Optional[str]]
+
+resulted in
+
+    Callable[..., Optional]
+
+because of special rules that return the generic name
+of a typing type, which was very unexpected. Finding this bug
+took a lot of debugging of the recursive `_resolve_type`
+function.
+
+(cherry picked from commit 2530cb3f165ac02b8f7132e3f5ab4f7f6896dbd9)
+---
+ .../shibokenmodule/files.dir/shibokensupport/signature/parser.py     | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/sources/shiboken2/shibokenmodule/files.dir/shibokensupport/signature/parser.py b/sources/shiboken2/shibokenmodule/files.dir/shibokensupport/signature/parser.py
+index 20c791c..1a29df5 100644
+--- a/sources/shiboken2/shibokenmodule/files.dir/shibokensupport/signature/parser.py
++++ b/sources/shiboken2/shibokenmodule/files.dir/shibokensupport/signature/parser.py
+@@ -43,10 +43,11 @@ import sys
+ import re
+ import warnings
+ import types
++import typing
+ import keyword
+ import functools
+ from shibokensupport.signature.mapping import (type_map, update_mapping,
+-    namespace, typing, _NotCalled, ResultVariable, ArrayLikeVariable)
++    namespace, _NotCalled, ResultVariable, ArrayLikeVariable)
+ from shibokensupport.signature.lib.tool import (SimpleNamespace,
+     build_brace_pattern)
+ 
+@@ -222,7 +223,7 @@ def _resolve_arraytype(thing, line):
+ def to_string(thing):
+     if isinstance(thing, str):
+         return thing
+-    if hasattr(thing, "__name__"):
++    if hasattr(thing, "__name__") and thing.__module__ != "typing":
+         dot = "." in str(thing)
+         name = get_name(thing)
+         return thing.__module__ + "." + name if dot else name
