@@ -1,12 +1,4 @@
-pyside2 (5.15.2-2+rpi2) bookworm-staging; urgency=medium
-
-  * Add build-conflicts on libshiboken2-dev
-  * Improve replacement rules for paths
-    (still not ideal)
-
- -- Peter Michael Green <plugwash@raspbian.org>  Sat, 05 Feb 2022 15:09:17 +0000
-
-pyside2 (5.15.2-2+rpi1) bookworm-staging; urgency=medium
+pyside2 (5.15.2-2.3+rpi1) bookworm-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -15,7 +7,35 @@ pyside2 (5.15.2-2+rpi1) bookworm-staging; urgency=medium
   [changes introduced in 5.13.2-3+rpi1 by Peter Michael Green]
   * Disable testsuite.
 
- -- Peter Michael Green <plugwash@raspbian.org>  Wed, 24 Nov 2021 04:42:48 +0000
+  [changes brought forward from 5.15.2-2+rpi2 by Peter Michael Green <plugwash@raspbian.org> at Sat, 05 Feb 2022 15:09:17 +0000]
+  * Add build-conflicts on libshiboken2-dev
+  * Improve replacement rules for paths
+    (still not ideal)
+
+ -- Raspbian forward porter <root@raspbian.org>  Wed, 22 Jun 2022 10:04:26 +0000
+
+pyside2 (5.15.2-2.3) unstable; urgency=medium
+
+  * Call "py3versions -d" instead of "py3versions -r" in tests.
+  * 
+
+ -- Christian Marillat <marillat@debian.org>  Fri, 17 Jun 2022 17:49:37 +0200
+
+pyside2 (5.15.2-2.2) unstable; urgency=medium
+
+  * Don't test with python3-all but python3 as only the current python3 is
+    supported.  (Closes:# 1012878)
+
+ -- Christian Marillat <marillat@debian.org>  Thu, 16 Jun 2022 10:57:23 +0200
+
+pyside2 (5.15.2-2.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Should always Build-Depends on python3-dev but not on python3-all-dev. 
+    This package is unable to manage two python versions at the same time.
+    (Closes: #1008849)
+
+ -- Christian Marillat <marillat@debian.org>  Sun, 12 Jun 2022 18:30:03 +0200
 
 pyside2 (5.15.2-2) unstable; urgency=medium
 
