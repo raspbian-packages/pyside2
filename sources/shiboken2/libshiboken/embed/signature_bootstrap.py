@@ -211,7 +211,7 @@ class EmbeddableZipImporter(object):
         return self if self._mod2path.get(fullname) else None
 
     def load_module(self, fullname):
-        import importlib
+        import importlib.machinery
         import sys
 
         filename = self._mod2path.get(fullname)
