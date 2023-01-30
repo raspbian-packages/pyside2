@@ -71,12 +71,10 @@ inline Py_ssize_t hash(const T& value)
  * Fill QObject properties and do signal connections using the values found in \p kwds dictonary.
  * \param qObj PyObject fot the QObject.
  * \param metaObj QMetaObject of \p qObj.
- * \param blackList keys to be ignored in kwds dictionary, this string list MUST be sorted.
- * \param blackListSize numbe rof elements in blackList.
  * \param kwds key->value dictonary.
  * \return True if everything goes well, false with a Python error setted otherwise.
  */
-PYSIDE_API bool fillQtProperties(PyObject *qObj, const QMetaObject *metaObj, PyObject *kwds, const char **blackList, unsigned int blackListSize);
+PYSIDE_API bool fillQtProperties(PyObject *qObj, const QMetaObject *metaObj, PyObject *kwds);
 
 /**
 *   If the type \p T was registered on Qt meta type system with Q_DECLARE_METATYPE macro, this class will initialize
@@ -141,6 +139,11 @@ PYSIDE_API void *nextQObjectMemoryAddr();
 PYSIDE_API void setNextQObjectMemoryAddr(void *addr);
 
 PYSIDE_API PyObject *getWrapperForQObject(QObject *cppSelf, SbkObjectType *sbk_type);
+
+/// Return the best-matching type for a QObject (Helper for QObject.findType())
+/// \param cppSelf QObject instance
+/// \return type object
+PYSIDE_API PyTypeObject *getTypeForQObject(const QObject *cppSelf);
 
 #ifdef PYSIDE_QML_SUPPORT
 // Used by QtQuick module to notify QtQml that custom QtQuick items can be registered.

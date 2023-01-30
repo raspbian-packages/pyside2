@@ -18,7 +18,7 @@ accept_configuration:
             not_contains_value: -no-gui
           - condition: property   # Following configs are not supported
             property: target.osVersion
-            not_in_values: [OPENSUSE_13_01, QEMU, WebAssembly, Ubuntu_18_04, SLES_12, SLES_15]
+            not_in_values: [OPENSUSE_13_01, QEMU, WebAssembly, Ubuntu_18_04, SLES_12, SLES_15, MacOS_10_15]
           - condition: property  # MibnGW and msvc2015 are not supported
             property: target.compiler
             not_in_values: [Mingw, MSVC2015]
@@ -55,14 +55,14 @@ upload_pyside: &upload_pyside
 
 instructions:
      LicenseCheck:
-      - !include "{{pyside/pyside-setup}}/execute_license_check.yaml"
+      - !include "{{pyside/tqtc-pyside-setup}}/execute_license_check.yaml"
      Build:
-      - !include "{{pyside/pyside-setup}}/common_environment.yaml"
-      - !include "{{pyside/pyside-setup}}/find_path_to_msvc_compiler.yaml"
-      - !include "{{pyside/pyside-setup}}/execute_build_instructions.yaml"
+      - !include "{{pyside/tqtc-pyside-setup}}/common_environment.yaml"
+      - !include "{{pyside/tqtc-pyside-setup}}/find_path_to_msvc_compiler.yaml"
+      - !include "{{pyside/tqtc-pyside-setup}}/execute_build_instructions.yaml"
       - *upload_pyside
      Test:
-      - !include "{{pyside/pyside-setup}}/common_environment.yaml"
-      - !include "{{pyside/pyside-setup}}/find_path_to_msvc_compiler.yaml"
-      - !include "{{pyside/pyside-setup}}/relocate_pyside.yaml"
-      - !include "{{pyside/pyside-setup}}/execute_test_instructions.yaml"
+      - !include "{{pyside/tqtc-pyside-setup}}/common_environment.yaml"
+      - !include "{{pyside/tqtc-pyside-setup}}/find_path_to_msvc_compiler.yaml"
+      - !include "{{pyside/tqtc-pyside-setup}}/relocate_pyside.yaml"
+      - !include "{{pyside/tqtc-pyside-setup}}/execute_test_instructions.yaml"

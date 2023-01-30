@@ -9,10 +9,10 @@ https://bugreports.qt.io/projects/PYSIDE/issues/PYSIDE-1146?filter=allopenissues
  1 file changed, 6 insertions(+)
 
 diff --git a/build_history/blacklist.txt b/build_history/blacklist.txt
-index 9b63f97..8b65253 100644
+index 827191a..8a60237 100644
 --- a/build_history/blacklist.txt
 +++ b/build_history/blacklist.txt
-@@ -25,6 +25,9 @@
+@@ -22,6 +22,9 @@
      linux
      darwin
      win32
@@ -22,7 +22,7 @@ index 9b63f97..8b65253 100644
  [QtGui::qmatrix_test]
      win32
  [QtWidgets::bug_576]
-@@ -86,6 +89,9 @@
+@@ -83,6 +86,9 @@
      win32
      linux
      darwin

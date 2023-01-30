@@ -11,7 +11,8 @@ set(QtOpenGLFunctions_SRC ${QtOpenGLFunctions_GEN_DIR}/qtopenglfunctions_module_
 list(FIND QtOpenGLFunctions_enabled_features "opengles2" _opengles2Index)
 # ### fixme: For cmake >= 3.3: if(opengles2 IN_LIST QtOpenGLFunctions_enabled_features)
 if(_opengles2Index GREATER -1)
-    list(APPEND QtOpenGLFunctions_DROPPED_ENTRIES QOpenGLTimeMonitor QOpenGLTimerQuery)
+    list(APPEND QtOpenGLFunctions_DROPPED_ENTRIES QOpenGLTimeMonitor QOpenGLTimerQuery
+                QOpenGLVersionFunctionsFactory)
     list(APPEND QtOpenGLFunctions_SRC
          ${QtOpenGLFunctions_GEN_DIR}/qopenglfunctions_es2_wrapper.cpp)
     message(STATUS "Qt${QT_MAJOR_VERSION}OpenGLFunctions: Dropping Desktop OpenGL classes (GLES2)")
@@ -42,7 +43,8 @@ else()
          ${QtOpenGLFunctions_GEN_DIR}/qopenglfunctions_4_4_compatibility_wrapper.cpp
          ${QtOpenGLFunctions_GEN_DIR}/qopenglfunctions_4_4_core_wrapper.cpp
          ${QtOpenGLFunctions_GEN_DIR}/qopenglfunctions_4_5_compatibility_wrapper.cpp
-         ${QtOpenGLFunctions_GEN_DIR}/qopenglfunctions_4_5_core_wrapper.cpp)
+         ${QtOpenGLFunctions_GEN_DIR}/qopenglfunctions_4_5_core_wrapper.cpp
+         ${QtOpenGLFunctions_GEN_DIR}/qopenglversionfunctionsfactory_wrapper.cpp)
    message(STATUS "Qt${QT_MAJOR_VERSION}OpenGLFunctions: Adding Desktop OpenGL classes")
 endif()
 
@@ -71,3 +73,6 @@ create_pyside_module(NAME QtOpenGLFunctions
                      SOURCES QtOpenGLFunctions_SRC
                      TYPESYSTEM_NAME ${QtOpenGLFunctions_BINARY_DIR}/typesystem_openglfunctions.xml
                      DROPPED_ENTRIES QtOpenGLFunctions_DROPPED_ENTRIES)
+
+install(FILES ${pyside2_SOURCE_DIR}/qopenglversionfunctionsfactory.h
+        DESTINATION include/PySide2/QtOpenGLFunctions)

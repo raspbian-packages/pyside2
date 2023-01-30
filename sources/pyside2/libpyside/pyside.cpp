@@ -58,7 +58,6 @@
 #include <sbkconverter.h>
 #include <sbkstring.h>
 #include <sbkstaticstrings.h>
-#include <qapp_macro.h>
 
 #include <QtCore/QByteArray>
 #include <QtCore/QCoreApplication>
@@ -121,38 +120,36 @@ static bool _setProperty(PyObject *qObj, PyObject *name, PyObject *value, bool *
     return true;
 }
 
-bool fillQtProperties(PyObject *qObj, const QMetaObject *metaObj, PyObject *kwds, const char **blackList, unsigned int blackListSize)
+bool fillQtProperties(PyObject *qObj, const QMetaObject *metaObj, PyObject *kwds)
 {
 
     PyObject *key, *value;
     Py_ssize_t pos = 0;
 
     while (PyDict_Next(kwds, &pos, &key, &value)) {
-        if (!blackListSize || !std::binary_search(blackList, blackList + blackListSize, std::string(Shiboken::String::toCString(key)))) {
-            QByteArray propName(Shiboken::String::toCString(key));
-            bool accept = false;
-            if (metaObj->indexOfProperty(propName) != -1) {
-                if (!_setProperty(qObj, key, value, &accept))
-                    return false;
-            } else {
-                propName.append("()");
-                if (metaObj->indexOfSignal(propName) != -1) {
-                    accept = true;
-                    propName.prepend('2');
-                    if (!PySide::Signal::connect(qObj, propName, value))
-                        return false;
-                }
-            }
-            if (!accept) {
-                // PYSIDE-1019: Allow any existing attribute in the constructor.
-                if (!_setProperty(qObj, key, value, &accept))
-                    return false;
-            }
-            if (!accept) {
-                PyErr_Format(PyExc_AttributeError, "'%s' is not a Qt property or a signal",
-                             propName.constData());
+        QByteArray propName(Shiboken::String::toCString(key));
+        bool accept = false;
+        if (metaObj->indexOfProperty(propName) != -1) {
+            if (!_setProperty(qObj, key, value, &accept))
                 return false;
+        } else {
+            propName.append("()");
+            if (metaObj->indexOfSignal(propName) != -1) {
+                accept = true;
+                propName.prepend('2');
+                if (!PySide::Signal::connect(qObj, propName, value))
+                    return false;
             }
+        }
+        if (!accept) {
+            // PYSIDE-1019: Allow any existing attribute in the constructor.
+            if (!_setProperty(qObj, key, value, &accept))
+                return false;
+        }
+        if (!accept) {
+            PyErr_Format(PyExc_AttributeError, "'%s' is not a Qt property or a signal",
+                         propName.constData());
+            return false;
         }
     }
     return true;
@@ -306,6 +303,9 @@ void initQApp()
      */
     if (!qApp)
         Py_DECREF(MakeQAppWrapper(nullptr));
+
+    // PYSIDE-1470: Register a function to destroy an application from shiboken.
+    setDestroyQApplication(destroyQCoreApplication);
 }
 
 PyObject *getMetaDataFromQObject(QObject *cppSelf, PyObject *self, PyObject *name)
@@ -412,7 +412,7 @@ static const char invalidatePropertyName[] = "_PySideInvalidatePtr";
 // PYSIDE-1214, when creating new wrappers for classes inheriting QObject but
 // not exposed to Python, try to find the best-matching (most-derived) Qt
 // class by walking up the meta objects.
-static const char *typeName(QObject *cppSelf)
+static const char *typeName(const QObject *cppSelf)
 {
     const char *typeName = typeid(*cppSelf).name();
     if (!Shiboken::Conversions::getConverter(typeName)) {
@@ -425,6 +425,20 @@ static const char *typeName(QObject *cppSelf)
         }
     }
     return typeName;
+}
+
+PyTypeObject *getTypeForQObject(const QObject *cppSelf)
+{
+    // First check if there are any instances of Python implementations
+    // inheriting a PySide class.
+    auto *existing = Shiboken::BindingManager::instance().retrieveWrapper(cppSelf);
+    if (existing != nullptr)
+        return reinterpret_cast<PyObject *>(existing)->ob_type;
+    // Find the best match (will return a PySide type)
+    auto *sbkObjectType = Shiboken::ObjectType::typeForTypeName(typeName(cppSelf));
+    if (sbkObjectType != nullptr)
+        return reinterpret_cast<PyTypeObject *>(sbkObjectType);
+    return nullptr;
 }
 
 PyObject *getWrapperForQObject(QObject *cppSelf, SbkObjectType *sbk_type)

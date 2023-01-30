@@ -245,8 +245,16 @@ bool BuilderPrivate::addClass(const CXCursor &cursor, CodeModel::ClassType t)
     if (isClassCursor(semPar)) {
         const CursorClassHash::const_iterator it = m_cursorClassHash.constFind(semPar);
         if (it == m_cursorClassHash.constEnd()) {
-            const QString message = QStringLiteral("Unable to find parent of inner class ") + className;
-            const Diagnostic d(message, cursor, CXDiagnostic_Error);
+            QString message;
+            QTextStream(&message) << "Unable to find containing class \""
+                << getCursorSpelling(semPar) << "\" of inner class \""
+                << className << "\".";
+            // PYSIDE-1501: Has been observed to fail for inner class of
+            // template with separated implementation where a forward
+            // declaration of the outer template is reported (Boost).
+            const auto severity = semPar.kind == CXCursor_ClassTemplate
+                ? CXDiagnostic_Warning : CXDiagnostic_Error;
+            const Diagnostic d(message, cursor, severity);
             qWarning() << d;
             m_baseVisitor->appendDiagnostic(d);
             return false;
@@ -887,8 +895,8 @@ static QString enumType(const CXCursor &cursor)
         // PYSIDE-1228: For "typedef enum { v1, v2 } Foo;", type will return
         // "Foo" as expected. Care must be taken to exclude real anonymous enums.
         name = getTypeName(clang_getCursorType(cursor));
-        if (name.contains(u"(unnamed") // Clang 12.0.1
-            || name.contains(u"(anonymous")) { // earlier
+        if (name.contains(QLatin1String("(unnamed")) // Clang 12.0.1
+            || name.contains(QLatin1String("(anonymous"))) { // earlier
             name.clear();
         }
     }
@@ -923,16 +931,17 @@ BaseVisitor::StartTokenResult Builder::startToken(const CXCursor &cursor)
     case CXCursor_ClassDecl:
     case CXCursor_UnionDecl:
     case CXCursor_StructDecl:
-        if (clang_isCursorDefinition(cursor) == 0)
+        if (clang_isCursorDefinition(cursor) == 0
+            || !d->addClass(cursor, codeModelClassTypeFromCursor(cursor.kind))) {
             return Skip;
-        if (!d->addClass(cursor, codeModelClassTypeFromCursor(cursor.kind)))
-            return Error;
+        }
         break;
     case CXCursor_ClassTemplate:
     case CXCursor_ClassTemplatePartialSpecialization:
-        if (clang_isCursorDefinition(cursor) == 0)
+        if (clang_isCursorDefinition(cursor) == 0
+            || !d->addClass(cursor, CodeModel::Class)) {
             return Skip;
-        d->addClass(cursor, CodeModel::Class);
+        }
         d->m_currentClass->setName(d->m_currentClass->name() + templateBrackets());
         d->m_scope.back() += templateBrackets();
         break;

@@ -99,12 +99,17 @@ extern "C" {
             return NULL;
         }
 
-        long valA = PYSIDE_QFLAGS(self)->ob_value;
-        long valB = getNumberValue(other);
-
         if (self == other) {
-            result = 1;
+            switch (op) {
+            case Py_EQ:
+            case Py_LE:
+            case Py_GE:
+                result = 1;
+                break;
+            }
         } else  {
+            const long valA = PYSIDE_QFLAGS(self)->ob_value;
+            const long valB = getNumberValue(other);
             switch (op) {
             case Py_EQ:
                 result = (valA == valB);
@@ -187,7 +192,7 @@ namespace QFlags
         }
         newspec.slots = SbkNewQFlagsType_spec.slots;
         PyTypeObject *type = (PyTypeObject *)SbkType_FromSpec(&newspec);
-        Py_TYPE(type) = &PyType_Type;
+        Py_SET_TYPE(type, &PyType_Type);
 
         PySideQFlagsType *flagsType = reinterpret_cast<PySideQFlagsType *>(type);
         PepType_PFTP(flagsType)->converterPtr = &PepType_PFTP(flagsType)->converter;

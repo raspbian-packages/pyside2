@@ -41,6 +41,53 @@
  * INJECT CODE
  ********************************************************************/
 
+// @snippet qopenglcontext-versionfunctions
+
+// %CPPSELF.%FUNCTION_NAME(%1, %2); Pretend to shiboken we call the function
+
+// Import QtOpenGLFunctions and call the factory function
+// QOpenGLVersionFunctionsFactory.get()
+PyObject *module = PyImport_ImportModule("PySide2.QtOpenGLFunctions");
+if (module == nullptr)
+    return nullptr;
+PyObject *loc = PyModule_GetDict(module);
+static PyObject *const factoryName =
+    Shiboken::String::createStaticString("QOpenGLVersionFunctionsFactory");
+auto factory = PyDict_GetItem(loc, factoryName);
+if (factory == nullptr)
+    return nullptr;
+
+static PyObject *const getMethod = Shiboken::String::createStaticString("get");
+%PYARG_0 = PyObject_CallMethodObjArgs(factory, getMethod, pyArgs[0], %PYSELF,
+                                       nullptr);
+// @snippet qopenglcontext-versionfunctions
+
+// @snippet glgetshadersource
+GLsizei bufSize = 4096;
+GLsizei length = bufSize - 1;
+QByteArray buffer;
+for (; length == bufSize - 1; bufSize += 4096) {
+    buffer.resize(qsizetype(bufSize));
+    %CPPSELF->%FUNCTION_NAME(%1, bufSize, &length, buffer.data());
+    if (%CPPSELF->glGetError() != GL_NO_ERROR) {
+        buffer.clear();
+        break;
+    }
+}
+auto *data = buffer.constData();
+%PYARG_0 = %CONVERTTOPYTHON[char *](data);
+// @snippet glgetshadersource
+
+// @snippet glshadersource
+const QByteArray buffer = %2.toUtf8();
+const char *sources[] = {buffer.constData()};
+%CPPSELF->%FUNCTION_NAME(%1, 1, sources, nullptr);
+// @snippet glshadersource
+
+// @snippet glgetstring-return
+%PYARG_0 = %CONVERTTOPYTHON[const char *](%0);
+// @snippet glgetstring-return
+
 // @snippet qtransform-quadtoquad
 QTransform _result;
 if (QTransform::quadToQuad(%1, %2, _result)) {
@@ -142,6 +189,16 @@ for (int i = 0, i_max = %CPPSELF.count(); i < i_max; ++i){
 // @snippet qpixmap
 %0 = new %TYPE(QPixmap::fromImage(%1));
 // @snippet qpixmap
+
+// @snippet qimage-decref-image-data
+static void imageDecrefDataHandler(void *data)
+{
+    // Avoid "Python memory allocator called without holding the GIL"
+    auto state = PyGILState_Ensure();
+    Py_DECREF(reinterpret_cast<PyObject *>(data));
+    PyGILState_Release(state);
+}
+// @snippet qimage-decref-image-data
 
 // @snippet qimage-constbits
 %PYARG_0 = Shiboken::Buffer::newObject(%CPPSELF.%FUNCTION_NAME(), %CPPSELF.byteCount());

@@ -70,7 +70,6 @@ Files: sources/pyside2/tests/run_test.sh
  sources/shiboken2/generatorrunnermacros.h
  sources/shiboken2/generators/*
  sources/shiboken2/tests/*
- sources/pyside2/tests/QtQml/qquickitem_grabToImage.*
 Copyright: 2009 Matthias Klose <doko@debian.org>
            2002-2005 Roberto Raggi <roberto@kdevelop.org>
            2011 Thomas Perl <m@thp.io>

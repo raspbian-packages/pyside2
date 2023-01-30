@@ -90,9 +90,6 @@ public:
     /// Returns a list of all ancestor classes for the given class.
     AbstractMetaClassList getAllAncestors(const AbstractMetaClass *metaClass) const;
 
-    /// Returns true if the user enabled PySide extensions.
-    bool usePySideExtensions() const;
-
 protected:
     bool doSetup() override;
 
@@ -234,7 +231,7 @@ protected:
     QString wrapperName(const AbstractMetaClass *metaClass) const;
 
     QString fullPythonClassName(const AbstractMetaClass *metaClass);
-    QString fullPythonFunctionName(const AbstractMetaFunction *func);
+    QString fullPythonFunctionName(const AbstractMetaFunction *func, bool forceFunc);
 
     bool wrapperDiagnostics() const { return m_wrapperDiagnostics; }
 
@@ -564,7 +561,6 @@ private:
 
     bool m_useCtorHeuristic = false;
     bool m_userReturnValueHeuristic = false;
-    bool m_usePySideExtensions = false;
     bool m_verboseErrorMessagesDisabled = false;
     bool m_useIsNullAsNbNonZero = false;
     bool m_avoidProtectedHack = false;

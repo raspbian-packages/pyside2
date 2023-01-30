@@ -109,7 +109,7 @@ static bool processProjectFile(QFile &projectFile, CommandLineArguments &args)
         QByteArray key;
         QString value;
         if (split > 0) {
-            key = line.left(split - 1).trimmed();
+            key = line.left(split).trimmed();
             value = QString::fromUtf8(line.mid(split + 1).trimmed());
         } else {
             key = line;
@@ -612,8 +612,7 @@ int main(int argc, char *argv[])
     extractor.setCppFileNames(cppFileNames);
     extractor.setTypeSystem(typeSystemFileName);
 
-    auto shibokenGenerator = dynamic_cast<const ShibokenGenerator *>(generators.constFirst().data());
-    const bool usePySideExtensions = shibokenGenerator && shibokenGenerator->usePySideExtensions();
+    const bool usePySideExtensions = generators.constFirst().data()->usePySideExtensions();
 
     if (!extractor.run(usePySideExtensions)) {
         errorPrint(QLatin1String("Error running ApiExtractor."));

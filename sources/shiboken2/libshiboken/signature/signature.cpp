@@ -209,8 +209,12 @@ PyObject *GetSignature_Wrapper(PyObject *ob, PyObject *modifier)
     if (dict == nullptr)
         return nullptr;
     PyObject *props = PyDict_GetItem(dict, func_name);
-    if (props == nullptr)
+    if (props == nullptr) {
+        // handle `__init__` like the class itself
+        if (strcmp(String::toCString(func_name), "__init__") == 0)
+            return GetSignature_TypeMod(objclass, modifier);
         Py_RETURN_NONE;
+    }
     return _GetSignature_Cached(props, PyName::method(), modifier);
 }
 
@@ -431,7 +435,89 @@ void FinishSignatureInitialization(PyObject *module, const char *signatures[])
     }
 }
 
-void SetError_Argument(PyObject *args, const char *func_name)
+static PyObject *adjustFuncName(const char *func_name)
+{
+    /*
+     * PYSIDE-1019: Modify the function name expression according to feature.
+     *
+     * - snake_case
+     *      The function name must be converted.
+     * - full_property
+     *      The property name must be used and "fset" appended.
+     *
+     *          modname.subname.classsname.propname.fset
+     *
+     *      Class properties must use the expression
+     *
+     *          modname.subname.classsname.__dict__['propname'].fset
+     *
+     * Note that fget is impossible because there are no parameters.
+     */
+    static const char mapping_name[] = "shibokensupport.signature.mapping";
+    static PyObject *sys_modules = PySys_GetObject(const_cast<char *>("modules"));
+    static PyObject *mapping = PyDict_GetItemString(sys_modules, mapping_name);
+    static PyObject *ns = PyModule_GetDict(mapping);
+
+    char _path[200 + 1] = {};
+    const char *_name = strrchr(func_name, '.');
+    strncat(_path, func_name, _name - func_name);
+    ++_name;
+
+    // This is a very cheap call into `mapping.py`.
+    PyObject *update_mapping = PyDict_GetItemString(ns, "update_mapping");
+    AutoDecRef res(PyObject_CallFunctionObjArgs(update_mapping, nullptr));
+    if (res.isNull())
+        return nullptr;
+
+    // Run `eval` on the type string to get the object.
+    AutoDecRef obtype(PyRun_String(_path, Py_eval_input, ns, ns));
+    if (obtype.isNull())
+        return String::fromCString(func_name);
+
+    if (PyModule_Check(obtype.object())) {
+        // This is a plain function. Return the unmangled name.
+        return String::fromCString(func_name);
+    }
+    assert(PyType_Check(obtype));   // This was not true for __init__!
+
+    // Find the feature flags
+    auto type = reinterpret_cast<PyTypeObject *>(obtype.object());
+    auto dict = type->tp_dict;
+    int id = SbkObjectType_GetReserved(type);
+    id = id < 0 ? 0 : id;   // if undefined, set to zero
+    auto lower = id & 0x01;
+    auto is_prop = id & 0x02;
+    bool is_class_prop = false;
+
+    // Compute all needed info.
+    PyObject *name = String::getSnakeCaseName(_name, lower);
+    PyObject *prop_name;
+    if (is_prop) {
+        PyObject *prop_methods = PyDict_GetItem(dict, PyMagicName::property_methods());
+        prop_name = PyDict_GetItem(prop_methods, name);
+        if (prop_name != nullptr) {
+            PyObject *prop = PyDict_GetItem(dict, prop_name);
+            is_class_prop = Py_TYPE(prop) != &PyProperty_Type;
+        }
+    }
+
+    // Finally, generate the correct path expression.
+    char _buf[250 + 1] = {};
+    if (is_prop) {
+        auto _prop_name = String::toCString(prop_name);
+        if (is_class_prop)
+            sprintf(_buf, "%s.__dict__['%s'].fset", _path, _prop_name);
+        else
+            sprintf(_buf, "%s.%s.fset", _path, _prop_name);
+    }
+    else {
+        auto _name = String::toCString(name);
+        sprintf(_buf, "%s.%s", _path, _name);
+    }
+    return String::fromCString(_buf);
+}
+
+void SetError_Argument(PyObject *args, const char *func_name, PyObject *info)
 {
     /*
      * This function replaces the type error construction with extra
@@ -440,8 +526,24 @@ void SetError_Argument(PyObject *args, const char *func_name)
      */
     init_module_1();
     init_module_2();
-    AutoDecRef res(PyObject_CallFunction(pyside_globals->seterror_argument_func,
-                                         const_cast<char *>("(Os)"), args, func_name));
+
+    // PYSIDE-1305: Handle errors set by fillQtProperties.
+    if (PyErr_Occurred()) {
+        PyObject *e, *v, *t;
+        // Note: These references are all borrowed.
+        PyErr_Fetch(&e, &v, &t);
+        info = v;
+    }
+    // PYSIDE-1019: Modify the function name expression according to feature.
+    AutoDecRef new_func_name(adjustFuncName(func_name));
+    if (new_func_name.isNull()) {
+        PyErr_Print();
+        Py_FatalError("seterror_argument failed to call update_mapping");
+    }
+    if (info == nullptr)
+        info = Py_None;
+    AutoDecRef res(PyObject_CallFunctionObjArgs(pyside_globals->seterror_argument_func,
+                                                args, new_func_name.object(), info, nullptr));
     if (res.isNull()) {
         PyErr_Print();
         Py_FatalError("seterror_argument did not receive a result");

@@ -46,7 +46,6 @@
 static const char AVOID_PROTECTED_HACK[] = "avoid-protected-hack";
 static const char PARENT_CTOR_HEURISTIC[] = "enable-parent-ctor-heuristic";
 static const char RETURN_VALUE_HEURISTIC[] = "enable-return-value-heuristic";
-static const char ENABLE_PYSIDE_EXTENSIONS[] = "enable-pyside-extensions";
 static const char DISABLE_VERBOSE_ERROR_MESSAGES[] = "disable-verbose-error-messages";
 static const char USE_ISNULL_AS_NB_NONZERO[] = "use-isnull-as-nb_nonzero";
 static const char WRAPPER_DIAGNOSTICS[] = "wrapper-diagnostics";
@@ -356,7 +355,7 @@ QString ShibokenGenerator::fullPythonClassName(const AbstractMetaClass *metaClas
     return fullClassName;
 }
 
-QString ShibokenGenerator::fullPythonFunctionName(const AbstractMetaFunction *func)
+QString ShibokenGenerator::fullPythonFunctionName(const AbstractMetaFunction *func, bool forceFunc)
 {
     QString funcName;
     if (func->isOperatorOverload())
@@ -365,10 +364,14 @@ QString ShibokenGenerator::fullPythonFunctionName(const AbstractMetaFunction *fu
        funcName = func->name();
     if (func->ownerClass()) {
         QString fullClassName = fullPythonClassName(func->ownerClass());
-        if (func->isConstructor())
+        if (func->isConstructor()) {
             funcName = fullClassName;
-        else
+            if (forceFunc)
+                funcName.append(QLatin1String(".__init__"));
+        }
+        else {
             funcName.prepend(fullClassName + QLatin1Char('.'));
+        }
     }
     else {
         funcName = packageName() + QLatin1Char('.') + func->name();
@@ -2563,7 +2566,8 @@ AbstractMetaFunctionList ShibokenGenerator::getFunctionOverloads(const AbstractM
 
 Generator::OptionDescriptions ShibokenGenerator::options() const
 {
-    return OptionDescriptions()
+    OptionDescriptions result = Generator::options();
+    result
         << qMakePair(QLatin1String(AVOID_PROTECTED_HACK),
                      QLatin1String("Avoid the use of the '#define protected public' hack."))
         << qMakePair(QLatin1String(DISABLE_VERBOSE_ERROR_MESSAGES),
@@ -2571,9 +2575,6 @@ Generator::OptionDescriptions ShibokenGenerator::options() const
                                    "but safe few kB on the generated bindings."))
         << qMakePair(QLatin1String(PARENT_CTOR_HEURISTIC),
                      QLatin1String("Enable heuristics to detect parent relationship on constructors."))
-        << qMakePair(QLatin1String(ENABLE_PYSIDE_EXTENSIONS),
-                     QLatin1String("Enable PySide extensions, such as support for signal/slots,\n"
-                                   "use this if you are creating a binding for a Qt-based library."))
         << qMakePair(QLatin1String(RETURN_VALUE_HEURISTIC),
                      QLatin1String("Enable heuristics to detect parent relationship on return values\n"
                                    "(USE WITH CAUTION!)"))
@@ -2582,14 +2583,15 @@ Generator::OptionDescriptions ShibokenGenerator::options() const
                                    "the value of boolean casts"))
         << qMakePair(QLatin1String(WRAPPER_DIAGNOSTICS),
                      QLatin1String("Generate diagnostic code around wrappers"));
+    return result;
 }
 
-bool ShibokenGenerator::handleOption(const QString &key, const QString & /* value */)
+bool ShibokenGenerator::handleOption(const QString &key, const QString &value)
 {
+    if (Generator::handleOption(key, value))
+        return true;
     if (key == QLatin1String(PARENT_CTOR_HEURISTIC))
         return (m_useCtorHeuristic = true);
-    if (key == QLatin1String(ENABLE_PYSIDE_EXTENSIONS))
-        return (m_usePySideExtensions = true);
     if (key == QLatin1String(RETURN_VALUE_HEURISTIC))
         return (m_userReturnValueHeuristic = true);
     if (key == QLatin1String(DISABLE_VERBOSE_ERROR_MESSAGES))
@@ -2689,11 +2691,6 @@ bool ShibokenGenerator::useCtorHeuristic() const
 bool ShibokenGenerator::useReturnValueHeuristic() const
 {
     return m_userReturnValueHeuristic;
-}
-
-bool ShibokenGenerator::usePySideExtensions() const
-{
-    return m_usePySideExtensions;
 }
 
 bool ShibokenGenerator::useIsNullAsNbNonZero() const

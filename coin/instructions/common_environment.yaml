@@ -115,3 +115,10 @@ instructions:
          condition: property
          property: target.compiler
          equals_value: ICC_18
+    - type: EnvironmentVariable
+      variableName: LLVM_INSTALL_DIR
+      variableValue: "{{.Env.LLVM_DYNAMIC_LIBS_100}}"
+      disable_if:
+         condition: property
+         property: host.osVersion
+         equals_value: openSUSE_15_1

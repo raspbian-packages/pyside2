@@ -292,6 +292,9 @@ PyObject *BindingManager::getOverride(const void *cptr,
     if (!wrapper || reinterpret_cast<const PyObject *>(wrapper)->ob_refcnt == 0)
         return nullptr;
 
+    // PYSIDE-1626: Touch the type to initiate switching early.
+    SbkObjectType_UpdateFeature(Py_TYPE(wrapper));
+
     int flag = currentSelectId(Py_TYPE(wrapper));
     int propFlag = isdigit(methodName[0]) ? methodName[0] - '0' : 0;
     if ((flag & 0x02) != 0 && (propFlag & 3) != 0) {
@@ -299,12 +302,13 @@ PyObject *BindingManager::getOverride(const void *cptr,
         // They cannot be overridden (make that sure by the metaclass).
         return nullptr;
     }
-    PyObject *pyMethodName = nameCache[(flag & 1) != 0];  // borrowed
+    bool is_snake = flag & 0x01;
+    PyObject *pyMethodName = nameCache[is_snake];  // borrowed
     if (pyMethodName == nullptr) {
         if (propFlag)
             methodName += 2;    // skip the propFlag and ':'
-        pyMethodName = Shiboken::String::getSnakeCaseName(methodName, flag);
-        nameCache[(flag & 1) != 0] = pyMethodName;
+        pyMethodName = Shiboken::String::getSnakeCaseName(methodName, is_snake);
+        nameCache[is_snake] = pyMethodName;
     }
 
     if (wrapper->ob_dict) {

@@ -38,7 +38,7 @@
 #############################################################################
 from build_scripts.options import has_option
 from build_scripts.options import option_value
-from build_scripts.utils import install_pip_dependencies
+from build_scripts.utils import install_pip_dependencies, expand_clang_variables
 from build_scripts.utils import get_qtci_virtualEnv
 from build_scripts.utils import run_instruction
 from build_scripts.utils import rmtree
@@ -67,7 +67,7 @@ def call_testrunner(python_ver, buildnro):
     _pExe, _env, env_pip, env_python = get_qtci_virtualEnv(python_ver, CI_HOST_OS, CI_HOST_ARCH, CI_TARGET_ARCH)
     rmtree(_env, True)
     # Pinning the virtualenv before creating one
-    run_instruction(["pip", "install", "--user", "virtualenv==20.0.25"], "Failed to pin virtualenv")
+    run_instruction(["pip", "install", "--user", "virtualenv==20.7.2"], "Failed to pin virtualenv")
     # installing to user base might not be in PATH by default.
     env_path = os.path.join(site.USER_BASE, "bin")
     v_env = os.path.join(env_path, "virtualenv")
@@ -103,6 +103,8 @@ def call_testrunner(python_ver, buildnro):
 
 def run_test_instructions():
     # Remove some environment variables that impact cmake
+    arch = '32' if CI_TARGET_ARCH and CI_TARGET_ARCH == 'X86' else '64'
+    expand_clang_variables(arch)
     for env_var in ['CC', 'CXX']:
         if os.environ.get(env_var):
             del os.environ[env_var]

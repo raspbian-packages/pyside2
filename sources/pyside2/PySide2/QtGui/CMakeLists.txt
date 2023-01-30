@@ -100,7 +100,7 @@ ${QtGui_GEN_DIR}/qopengldebugmessage_wrapper.cpp
 ${QtGui_GEN_DIR}/qopenglextrafunctions_wrapper.cpp
 ${QtGui_GEN_DIR}/qopenglframebufferobjectformat_wrapper.cpp
 ${QtGui_GEN_DIR}/qopenglfunctions_wrapper.cpp
-# Compile error on Windows: ${QtGui_GEN_DIR}/qopenglpaintdevice_wrapper.cpp
+${QtGui_GEN_DIR}/qopenglpaintdevice_wrapper.cpp
 ${QtGui_GEN_DIR}/qopenglpixeltransferoptions_wrapper.cpp
 ${QtGui_GEN_DIR}/qopenglshaderprogram_wrapper.cpp
 ${QtGui_GEN_DIR}/qopengltexture_wrapper.cpp
@@ -227,7 +227,8 @@ endif()
 list(FIND QtGui_enabled_features "opengles2" _opengles2Index)
 # ### fixme: For cmake >= 3.3: if(opengles2 IN_LIST QtGui_enabled_features)
 if(_opengles2Index GREATER -1)
-    list(APPEND QtGui_DROPPED_ENTRIES QOpenGLTimeMonitor QOpenGLTimerQuery)
+    list(APPEND QtGui_DROPPED_ENTRIES QOpenGLTimeMonitor QOpenGLTimerQuery
+                QOpenGLVersionFunctionsFactory)
     message(STATUS "Qt${QT_MAJOR_VERSION}Gui: Dropping Desktop OpenGL classes (GLES2)")
 else()
     list(APPEND QtGui_SRC

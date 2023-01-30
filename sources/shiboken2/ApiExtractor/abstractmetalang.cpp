@@ -1862,10 +1862,7 @@ QDebug operator<<(QDebug d, const AbstractMetaField *af)
 
 static void formatMetaEnumValue(QDebug &d, const AbstractMetaEnumValue *v)
 {
-    const QString &name = v->stringValue();
-    if (!name.isEmpty())
-        d << name << '=';
-    d << v->value();
+    d << v->name() << '=' << v->value();
 }
 
 QDebug operator<<(QDebug d, const AbstractMetaEnumValue *v)
@@ -2123,6 +2120,12 @@ AbstractMetaField *AbstractMetaClass::findField(const QString &name) const
     return AbstractMetaField::find(m_fields, name);
 }
 
+bool AbstractMetaClass::hasStaticFields() const
+{
+    return std::any_of(m_fields.cbegin(), m_fields.cend(),
+                       [](const AbstractMetaField *f) { return f->isStatic(); });
+}
+
 AbstractMetaEnum *AbstractMetaClass::findEnum(const QString &enumName)
 {
     if (AbstractMetaEnum *e = findByName(m_enums, enumName))
@@ -2169,6 +2172,11 @@ void AbstractMetaClass::getFunctionsFromInvisibleNamespacesToBeGenerated(Abstrac
             funcList->append(c->functions());
         });
     }
+}
+
+QString AbstractMetaClass::fullName() const
+{
+    return package() + QLatin1Char('.') + m_typeEntry->targetLangName();
 }
 
 static void addExtraIncludeForType(AbstractMetaClass *metaClass, const AbstractMetaType *type)
@@ -2520,28 +2528,18 @@ AbstractMetaEnum *AbstractMetaClass::findEnum(const AbstractMetaClassList &class
 {
     Q_ASSERT(entry->isEnum());
 
-    QString qualifiedName = entry->qualifiedCppName();
-    int pos = qualifiedName.lastIndexOf(QLatin1String("::"));
-
-    QString enumName;
-    QString className;
-
-    if (pos > 0) {
-        enumName = qualifiedName.mid(pos + 2);
-        className = qualifiedName.mid(0, pos);
-    } else {
-        enumName = qualifiedName;
-        className = TypeDatabase::globalNamespaceClassName(entry);
-    }
-
-    AbstractMetaClass *metaClass = AbstractMetaClass::findClass(classes, className);
+    auto scopeEntry = entry->parent();
+    AbstractMetaClass *metaClass = AbstractMetaClass::findClass(classes, scopeEntry);
     if (!metaClass) {
         qCWarning(lcShiboken).noquote().nospace()
             << QStringLiteral("AbstractMeta::findEnum(), unknown class '%1' in '%2'")
-                              .arg(className, entry->qualifiedCppName());
+                              .arg(scopeEntry->qualifiedCppName(), entry->qualifiedCppName());
         return nullptr;
     }
 
+    QString qualifiedName = entry->qualifiedCppName();
+    const int pos = qualifiedName.lastIndexOf(QLatin1String("::"));
+    const QString enumName = pos > 0 ? qualifiedName.mid(pos + 2) : qualifiedName;
     return metaClass->findEnum(enumName);
 }
 
@@ -2752,4 +2750,3 @@ QString AbstractMetaEnum::package() const
 {
     return m_typeEntry->targetLangPackage();
 }
-

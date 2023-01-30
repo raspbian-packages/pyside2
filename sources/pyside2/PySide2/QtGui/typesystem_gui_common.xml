@@ -643,6 +643,16 @@
         <define-ownership class="target" owner="default"/>
       </modify-argument>
     </modify-function>
+    <modify-function signature="currentTable()const">
+      <modify-argument index="return">
+        <define-ownership class="target" owner="default"/>
+      </modify-argument>
+    </modify-function>
+    <modify-function signature="currentList()const">
+      <modify-argument index="return">
+        <define-ownership class="target" owner="default"/>
+      </modify-argument>
+    </modify-function>
     <modify-function signature="insertTable(int,int,const QTextTableFormat &amp;)">
       <modify-argument index="return">
         <define-ownership class="target" owner="default"/>
@@ -758,6 +768,8 @@
       <include file-name="QStringList" location="global"/>
       <include file-name="QMatrix" location="global"/>
     </extra-includes>
+    <inject-code class="native" position="beginning"
+                 file="../glue/qtgui.cpp" snippet="qimage-decref-image-data"/>
 
     <modify-function signature="load(const QString&amp;, const char*)" allow-thread="yes"/>
     <modify-function signature="load(QIODevice*,const char*)" allow-thread="yes"/>
@@ -1760,6 +1772,11 @@
       </modify-argument>
       <inject-code class="target" position="end" file="../glue/qtgui.cpp" snippet="qclipboard-text"/>
     </modify-function>
+    <modify-function signature="mimeData(QClipboard::Mode)const">
+      <modify-argument index="return">
+        <define-ownership class="target" owner="default"/>
+      </modify-argument>
+    </modify-function>
   </object-type>
   <object-type name="QPaintEngineState">
     <extra-includes>
@@ -1807,7 +1824,7 @@
         <define-ownership class="target" owner="target"/>
       </modify-argument>
     </modify-function>
-    <modify-function signature="print(QPagedPaintDevice*)const" rename="print_"/>
+    <modify-function signature="print(QPagedPaintDevice*)const" allow-thread="yes" rename="print_"/>
   </object-type>
   <object-type name="QTextDocumentWriter" since="4.5"/>
   <object-type name="QTextTable">
@@ -1871,18 +1888,23 @@
     <modify-function signature="drawRects(const QRect*,int)" remove="all"/>
     <modify-function signature="drawRects(const QRectF*,int)" remove="all"/>
     <!-- ### -->
+    <!-- PYSIDE-1540: Preferably use the QPolygon overloads first to avoid
+         a costly sequence type check on QPolygon. -->
     <modify-function signature="drawPoints(const QPoint*,int)" remove="all"/>
-    <add-function signature="drawPoints(QVector&lt;QPoint>)">
+    <add-function signature="drawPoints(QVector&lt;QPoint>)" overload-number="2">
         <inject-code>
             <insert-template name="qpainter_drawlist"/>
         </inject-code>
     </add-function>
     <modify-function signature="drawPoints(const QPointF*,int)" remove="all"/>
-    <add-function signature="drawPoints(QVector&lt;QPointF>)">
+    <add-function signature="drawPoints(QVector&lt;QPointF>)" overload-number="3">
         <inject-code>
             <insert-template name="qpainter_drawlist"/>
         </inject-code>
     </add-function>
+    <modify-function signature="drawPoints(const QPolygon&amp;)" overload-number="0"/>
+    <modify-function signature="drawPoints(const QPolygonF&amp;)" overload-number="1"/>
+
     <modify-function signature="drawPolygon(const QPoint*,int,Qt::FillRule)" remove="all"/>
     <add-function signature="drawPolygon(QVector&lt;QPoint>,Qt::FillRule)">
         <inject-code file="../glue/qtgui.cpp" snippet="qpainter-drawpolygon"/>
@@ -2601,6 +2623,10 @@
   </object-type>
   <object-type name="QOpenGLContext">
     <enum-type name="OpenGLModuleType"/>
+    <modify-function signature="versionFunctions(const QOpenGLVersionProfile&amp;) const">
+    <inject-code class="target" position="beginning" file="../glue/qtgui.cpp"
+                 snippet="qopenglcontext-versionfunctions"/>
+    </modify-function>
   </object-type>
   <object-type name="QOpenGLContextGroup" since="5.0"/>
   <object-type name="QOpenGLDebugLogger" since="5.1">
@@ -2616,9 +2642,7 @@
     <enum-type name="FramebufferRestorePolicy" since="5.7"/>
   </object-type>
   <value-type name="QOpenGLFramebufferObjectFormat"/>
-  <!-- Compile error on Windows: QOpenGLPaintDevice::QOpenGLPaintDevice(const QOpenGLPaintDevice &)': attempting to reference a deleted function
   <object-type name="QOpenGLPaintDevice" since="5.0"/>
-  -->
   <object-type name="QOpenGLExtraFunctions" since="5.6">
       <!-- Exlusions due to compile errors -->
       <modify-function signature="glEndTransformFeedback()" remove="all"/>
@@ -2835,11 +2859,20 @@
           <modify-argument index="return">
               <replace-type modified-type="QString"/>
           </modify-argument>
-          <inject-code class="target" position="beginning" file="../glue/qtcore.cpp" snippet="qstring-return"/>
+          <inject-code class="target" position="end" file="../glue/qtgui.cpp"
+                       snippet="glgetstring-return"/>
       </modify-function>
   </object-type>
   <object-type name="QOpenGLFunctions" since="5.0">
       <enum-type name="OpenGLFeature" flags="OpenGLFeatures"/>
+      <add-function signature="glGetShaderSource(unsigned int @shader@)" return-type="const char *">
+          <inject-code class="target" position="beginning" file="../glue/qtgui.cpp"
+                       snippet="glgetshadersource"/>
+      </add-function>
+      <add-function signature="glShaderSource(unsigned int @shader@,const QString &amp; @source@)">
+          <inject-code class="target" position="beginning" file="../glue/qtgui.cpp"
+                       snippet="glshadersource"/>
+      </add-function>
       <modify-function signature="glGetAttachedShaders(unsigned int,int,int*,unsigned int*)">
           <modify-argument index="3"><array/></modify-argument>
           <modify-argument index="4"><array/></modify-argument>

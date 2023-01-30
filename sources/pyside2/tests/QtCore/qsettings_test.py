@@ -38,7 +38,7 @@ init_test_paths(False)
 
 from helper.helper import adjust_filename
 import py3kcompat as py3k
-from PySide2.QtCore import QSettings
+from PySide2.QtCore import QDir, QSettings, QTemporaryDir, QByteArray
 
 class TestQSettings(unittest.TestCase):
     def testConversions(self):
@@ -57,9 +57,27 @@ class TestQSettings(unittest.TestCase):
         r = settings.value('var2', type=list)
         self.assertEqual(type(r), list)
 
+        # Test mixed conversions
+        if py3k.IS_PY3K:
+            ba = QByteArray("hello".encode("utf-8"))
+
+            r = settings.value("test", ba, type=QByteArray)
+            self.assertEqual(type(r), QByteArray)
+
+            r = settings.value("test", ba, type=str)
+            self.assertEqual(type(r), str)
+
+            # Test invalid conversions
+            with self.assertRaises(TypeError):
+                r = settings.value("test", ba, type=dict)
+
 
     def testDefaultValueConversion(self):
-        settings = QSettings('foo.ini', QSettings.IniFormat)
+        temp_dir = QDir.tempPath()
+        dir = QTemporaryDir('{}/qsettings_XXXXXX'.format(temp_dir))
+        self.assertTrue(dir.isValid())
+        file_name = dir.filePath('foo.ini')
+        settings = QSettings(file_name, QSettings.IniFormat)
         settings.setValue('zero_value', 0)
         settings.setValue('empty_list', [])
         settings.setValue('bool1', False)
@@ -67,7 +85,7 @@ class TestQSettings(unittest.TestCase):
         del settings
 
         # Loading values already set
-        settings = QSettings('foo.ini', QSettings.IniFormat)
+        settings = QSettings(file_name, QSettings.IniFormat)
 
         # Getting value that doesn't exist
         r = settings.value("variable")

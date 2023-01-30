@@ -805,6 +805,8 @@ class PysideBuild(_build, DistUtilsCommandMixin):
         # Add source location for generating documentation
         cmake_src_dir = OPTION["QT_SRC"] if OPTION["QT_SRC"] else qt_src_dir
         cmake_cmd.append("-DQT_SRC_DIR={}".format(cmake_src_dir))
+        if OPTION['SKIP_DOCS']:
+            cmake_cmd.append("-DSKIP_DOCS=yes")
         log.info("Qt Source dir: {}".format(cmake_src_dir))
 
         if self.build_type.lower() == 'debug':
@@ -900,16 +902,23 @@ class PysideBuild(_build, DistUtilsCommandMixin):
             deployment_target = macos_pyside_min_deployment_target()
             cmake_cmd.append("-DCMAKE_OSX_DEPLOYMENT_TARGET={}".format(deployment_target))
             os.environ['MACOSX_DEPLOYMENT_TARGET'] = deployment_target
+        elif sys.platform == 'win32':
+            # Prevent cmake from auto-detecting clang if it is in path.
+            cmake_cmd.append("-DCMAKE_C_COMPILER=cl.exe")
+            cmake_cmd.append("-DCMAKE_CXX_COMPILER=cl.exe")
 
-        if OPTION["DOC_BUILD_ONLINE"]:
-            log.info("Output format will be HTML")
-            cmake_cmd.append("-DDOC_OUTPUT_FORMAT=html")
+        if not OPTION["SKIP_DOCS"]:
+            # Build the whole documentation (rst + API) by default
+            cmake_cmd.append("-DFULLDOCSBUILD=1")
+
+            if OPTION["DOC_BUILD_ONLINE"]:
+                log.info("Output format will be HTML")
+                cmake_cmd.append("-DDOC_OUTPUT_FORMAT=html")
+            else:
+                log.info("Output format will be qthelp")
+                cmake_cmd.append("-DDOC_OUTPUT_FORMAT=qthelp")
         else:
-            log.info("Output format will be qthelp")
-            cmake_cmd.append("-DDOC_OUTPUT_FORMAT=qthelp")
-
-        # Build the whole documentation (rst + API) by default
-        cmake_cmd.append("-DFULLDOCSBUILD=1")
+            cmake_cmd.append("-DSKIP_DOCS=1")
 
         if not OPTION["SKIP_CMAKE"]:
             log.info("Configuring module {} ({})...".format(extension, module_src_dir))
@@ -926,6 +935,13 @@ class PysideBuild(_build, DistUtilsCommandMixin):
         if run_process(cmd_make) != 0:
             raise DistutilsSetupError("Error compiling {}".format(extension))
 
+        if sys.version_info == (3, 6) and sys.platform == "darwin":
+            # Python 3.6 has a Sphinx problem because of docutils 0.17 .
+            # Instead of pinning v0.16, setting the default encoding fixes that.
+            # Since other platforms are not affected, we restrict this to macOS.
+            if "UTF-8" not in os.environ.get("LC_ALL", ""):
+                os.environ["LC_ALL"] = "en_US.UTF-8"
+
         if not OPTION["SKIP_DOCS"]:
             if extension.lower() == "shiboken2":
                 try:
@@ -940,6 +956,7 @@ class PysideBuild(_build, DistUtilsCommandMixin):
                     log.info("Sphinx not found, skipping documentation build")
         else:
             log.info("Skipped documentation generation")
+            cmake_cmd.append("-DSKIP_DOCS=1")
 
         if not OPTION["SKIP_MAKE_INSTALL"]:
             log.info("Installing module {}...".format(extension))
@@ -1039,7 +1056,7 @@ class PysideBuild(_build, DistUtilsCommandMixin):
             OPTION["CMAKE"],
             "-L",         # Lists variables
             "-N",         # Just inspects the cache (faster)
-            "--build",    # Specifies the build dir
+            "-B",         # Specifies the build dir
             self.shiboken_build_dir
         ]
         out = run_process_output(cmake_cmd)

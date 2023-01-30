@@ -197,7 +197,7 @@ def _resolve_value(thing, valtype, line):
     if res is not None:
         type_map[thing] = res
         return res
-    warnings.warn("""pyside_type_init:
+    warnings.warn("""pyside_type_init:_resolve_value
 
         UNRECOGNIZED:   {!r}
         OFFENDING LINE: {!r}
@@ -240,16 +240,6 @@ def handle_matrix(arg):
     return eval(result, namespace)
 
 
-debugging_aid = """
-from inspect import currentframe
-
-def lno(level):
-    lineno = currentframe().f_back.f_lineno
-    spaces = level * "  "
-    return "{lineno}{spaces}".format(**locals())
-"""
-
-
 def _resolve_type(thing, line, level, var_handler):
     # Capture total replacements, first. Happens in
     # "PySide2.QtCore.QCborStreamReader.StringResult[PySide2.QtCore.QByteArray]"
@@ -278,7 +268,15 @@ def _resolve_type(thing, line, level, var_handler):
             pieces.append(to_string(part))
         thing = ", ".join(pieces)
         result = "{contr}[{thing}]".format(**locals())
-        return eval(result, namespace)
+        # PYSIDE-1538: Make sure that the eval does not crash.
+        try:
+            return eval(result, namespace)
+        except Exception as e:
+            warnings.warn("""pyside_type_init:_resolve_type
+
+                UNRECOGNIZED:   {!r}
+                OFFENDING LINE: {!r}
+                """.format(result, line), RuntimeWarning)
     return _resolve_value(thing, None, line)
 
 
@@ -381,7 +379,9 @@ def fix_variables(props, line):
         if not isinstance(ann, ResultVariable):
             continue
         # We move the variable to the end and remove it.
-        retvars.append(ann.type)
+        # PYSIDE-1409: If the variable was the first arg, we move it to the front.
+        # XXX This algorithm should probably be replaced by more introspection.
+        retvars.insert(0 if idx == 0 else len(retvars), ann.type)
         deletions.append(idx)
         del annos[name]
     for idx in reversed(deletions):

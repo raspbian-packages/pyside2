@@ -1,4 +1,4 @@
-pyside2 (5.15.2-2.3+rpi1) bookworm-staging; urgency=medium
+pyside2 (5.15.8-2+rpi1) bookworm-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -12,12 +12,40 @@ pyside2 (5.15.2-2.3+rpi1) bookworm-staging; urgency=medium
   * Improve replacement rules for paths
     (still not ideal)
 
- -- Raspbian forward porter <root@raspbian.org>  Wed, 22 Jun 2022 10:04:26 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Mon, 30 Jan 2023 01:08:27 +0000
+
+pyside2 (5.15.8-2) unstable; urgency=medium
+
+  * Team upload.
+  * Backport upstream patch to fix GLES builds.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 09 Jan 2023 00:06:53 +0400
+
+pyside2 (5.15.8-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Drop patches, included in the new release:
+    - fix-reuse-build.patch
+    - qApp-fix-flag-handling.patch
+    - py3.10-prep-reset-the-type-cache-after-feature-switching.patch
+    - py3.10-prep-Fix-parser.py-for-changed-typing-module.patch
+    - py3.10-prep-Finally-support-Python-3.10.patch
+    - py3.10-prep-Fix-a-very-old-refcounting-error-in-time_test.patch
+    - shiboken6-Adapt-to-LLVM-12.01.patch
+  * Refresh debian/patches/blacklist-failing-tests.patch.
+  * Backport 7 upstream patches to support Python 3.11 (closes: #1027950).
+  * Remove dh-exec (debhelper now supports substitutions natively).
+  * Revert a change from 5.15.8 which broke build without limited API.
+  * Add a patch to fix AttributeError in signature_bootstrap.py.
+  * Fix redundant-globbing-patterns Lintian warning.
+  * Bump Standards-Version to 4.6.2, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 07 Jan 2023 17:38:12 +0400
 
 pyside2 (5.15.2-2.3) unstable; urgency=medium
 
   * Call "py3versions -d" instead of "py3versions -r" in tests.
-  * 
 
  -- Christian Marillat <marillat@debian.org>  Fri, 17 Jun 2022 17:49:37 +0200
 
@@ -31,7 +59,7 @@ pyside2 (5.15.2-2.2) unstable; urgency=medium
 pyside2 (5.15.2-2.1) unstable; urgency=medium
 
   * Non-maintainer upload.
-  * Should always Build-Depends on python3-dev but not on python3-all-dev. 
+  * Should always Build-Depends on python3-dev but not on python3-all-dev.
     This package is unable to manage two python versions at the same time.
     (Closes: #1008849)
 

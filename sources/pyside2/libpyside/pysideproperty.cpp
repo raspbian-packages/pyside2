@@ -104,6 +104,7 @@ static PyType_Slot PySidePropertyType_slots[] = {
     {Py_tp_init, (void *)qpropertyTpInit},
     {Py_tp_new, (void *)qpropertyTpNew},
     {Py_tp_getset, PySidePropertyType_getset},
+    {Py_tp_del, reinterpret_cast<void *>(PyObject_GC_Del)},
     {0, 0}
 };
 // Dotted modulename is crucial for SbkType_FromSpec to work. Is this name right?
@@ -249,6 +250,7 @@ static void qpropertyDeAlloc(PyObject *self)
         // This was not needed before Python 3.8 (Python issue 35810)
         Py_DECREF(Py_TYPE(self));
     }
+    PyObject_GC_UnTrack(self);
     Py_TYPE(self)->tp_free(self);
 }
 
@@ -279,13 +281,13 @@ _property_copy(PyObject *old, PyObject *get, PyObject *set, PyObject *reset, PyO
         Py_XDECREF(del);
         del = pData->fdel ? pData->fdel : Py_None;
     }
-    if (pData->getter_doc && get != Py_None) {
-        /* make _init use __doc__ from getter */
-        doc = "";
-    }
-    else {
-        doc = !pData->doc.isEmpty() ? pData->doc : "";
-    }
+
+    // make _init use __doc__ from getter
+      if ((pData->getter_doc && get != Py_None) || pData->doc.isEmpty())
+          doc.clear();
+      else
+          doc = pData->doc;
+
     auto notify = pData->notify ? pData->notify : Py_None;
 
     PyObject *typeName = String::fromCString(pData->typeName);

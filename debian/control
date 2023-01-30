@@ -6,7 +6,6 @@ Uploaders: Kurt Kremitzki <kkremitzki@debian.org>
 Build-Depends: chrpath,
                cmake (>= 3.1),
                debhelper-compat (= 13),
-               dh-exec,
                dh-python,
                graphviz,
                libclang-dev,
@@ -62,7 +61,7 @@ Build-Depends: chrpath,
 Build-Conflicts:
                libshiboken2-dev
 Rules-Requires-Root: no
-Standards-Version: 4.5.0
+Standards-Version: 4.6.2
 Homepage: https://wiki.qt.io/Qt_for_Python
 Vcs-Git: https://salsa.debian.org/qt-kde-team/qt/pyside2.git
 Vcs-Browser: https://salsa.debian.org/qt-kde-team/qt/pyside2
