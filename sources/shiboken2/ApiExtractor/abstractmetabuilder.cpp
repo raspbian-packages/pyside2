@@ -2144,6 +2144,13 @@ static bool isNumber(const QString &s)
                        [](QChar c) { return c.isDigit(); });
 }
 
+// A type entry relevant only for non type template "X<5>"
+static bool isNonTypeTemplateArgument(const TypeEntryCPtr &te)
+{
+    const auto type = te->type();
+    return type == TypeEntry::EnumValue || type == TypeEntry::ConstantValueType;
+}
+
 AbstractMetaType *AbstractMetaBuilderPrivate::translateTypeStatic(const TypeInfo &_typei,
                                                                   AbstractMetaClass *currentClass,
                                                                   AbstractMetaBuilderPrivate *d,
@@ -2271,7 +2278,15 @@ AbstractMetaType *AbstractMetaBuilderPrivate::translateTypeStatic(const TypeInfo
         typeInfo.clearInstantiations();
     }
 
-    const TypeEntries types = findTypeEntries(qualifiedName, name, currentClass, d);
+    TypeEntries types = findTypeEntries(qualifiedName, name, currentClass, d);
+    if (!flags.testFlag(AbstractMetaBuilder::TemplateArgument)) {
+        // Avoid clashes between QByteArray and enum value QMetaType::QByteArray
+        // unless we are looking for template arguments.
+        auto end = std::remove_if(types.begin(), types.end(),
+                                  isNonTypeTemplateArgument);
+        types.erase(end, types.end());
+    }
+
     if (types.isEmpty()) {
         if (errorMessageIn) {
             *errorMessageIn =
@@ -2293,7 +2308,9 @@ AbstractMetaType *AbstractMetaBuilderPrivate::translateTypeStatic(const TypeInfo
     const auto &templateArguments = typeInfo.instantiations();
     for (int t = 0, size = templateArguments.size(); t < size; ++t) {
         const  TypeInfo &ti = templateArguments.at(t);
-        AbstractMetaType *targType = translateTypeStatic(ti, currentClass, d, flags, &errorMessage);
+        AbstractMetaType *targType = translateTypeStatic(ti, currentClass, d,
+                                                         flags | AbstractMetaBuilder::TemplateArgument,
+                                                         &errorMessage);
         // For non-type template parameters, create a dummy type entry on the fly
         // as is done for classes.
         if (!targType) {
