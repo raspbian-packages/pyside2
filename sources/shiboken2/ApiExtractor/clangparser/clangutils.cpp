@@ -155,6 +155,17 @@ QString getTypeName(const CXType &type)
     return result;
 }
 
+// Quick check for "::Type"
+bool hasScopeResolution(const CXType &type)
+{
+    CXString typeSpelling = clang_getTypeSpelling(type);
+    const QString spelling = QString::fromUtf8(clang_getCString(typeSpelling));
+    const bool result = spelling.startsWith(QLatin1String("::"))
+        || spelling.contains(QLatin1String(" ::"));
+    clang_disposeString(typeSpelling);
+    return result;
+}
+
 // Resolve elaborated types occurring with clang 16
 QString getResolvedTypeName(const CXType &type)
 {

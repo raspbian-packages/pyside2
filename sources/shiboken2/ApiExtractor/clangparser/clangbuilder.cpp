@@ -294,7 +294,9 @@ FunctionModelItem BuilderPrivate::createFunction(const CXCursor &cursor,
         name = fixTypeName(name);
     FunctionModelItem result(new _FunctionModelItem(m_model, name));
     setFileName(cursor, result.data());
-    result->setType(createTypeInfoHelper(clang_getCursorResultType(cursor)));
+    const auto type = clang_getCursorResultType(cursor);
+    result->setType(createTypeInfoHelper(type));
+    result->setScopeResolution(hasScopeResolution(type));
     result->setFunctionType(t);
     result->setScope(m_scope);
     result->setStatic(clang_Cursor_getStorageClass(cursor) == CX_SC_Static);
@@ -1031,7 +1033,9 @@ BaseVisitor::StartTokenResult Builder::startToken(const CXCursor &cursor)
         if (d->m_currentArgument.isNull() && !d->m_currentFunction.isNull()) {
             const QString name = getCursorSpelling(cursor);
             d->m_currentArgument.reset(new _ArgumentModelItem(d->m_model, name));
-            d->m_currentArgument->setType(d->createTypeInfo(cursor));
+            const auto type = clang_getCursorType(cursor);
+            d->m_currentArgument->setScopeResolution(hasScopeResolution(type));
+            d->m_currentArgument->setType(d->createTypeInfo(type));
             d->m_currentFunction->addArgument(d->m_currentArgument);
             QString defaultValueExpression = d->cursorValueExpression(this, cursor);
             if (!defaultValueExpression.isEmpty()) {
