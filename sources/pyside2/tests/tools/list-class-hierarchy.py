@@ -96,14 +96,10 @@ if __name__=='__main__':
     for l in libraries:
         dictionary = []
         if l =="PyQt5":
-            import sip
-            sip.setapi('QDate',2)
-            sip.setapi('QDateTime',2)
-            sip.setapi('QString',2)
-            sip.setapi('QTextStream',2)
-            sip.setapi('QTime',2)
-            sip.setapi('QUrl',2)
-            sip.setapi('QVariant',2)
+            try:
+                from PyQt5 import sip
+            except ModuleNotFoundError:
+                import sip
 
         for m in modules:
             exec("from %s import %s" % (l,m), globals(), locals())
