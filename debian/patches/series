@@ -1,0 +1,12 @@
+update-sip-import.patch
+fix-spelling-errors.patch
+blacklist-failing-tests.patch
+test-with-current-interpreter.patch
+libshiboken-Fix-a-crash-in-Shiboken-Object-isValid.patch
+Fix-usage-of-Py_TYPE-for-Python-3.11.patch
+libshiboken-Fix-crashes-with-static-strings-in-Python-3.11.patch
+Shiboken-Fix-the-oldest-shiboken-bug-ever.patch
+PyEnum-make-forgiving-duplicates-work-with-Python-3.11.patch
+Fix-Property-GC-tracking-for-Python-3.11.patch
+make-wheels-compatible-with-Python-3.11.patch
+Fix-GLES-builds.patch
