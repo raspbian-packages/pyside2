@@ -9,6 +9,5 @@ Shiboken-Fix-the-oldest-shiboken-bug-ever.patch
 PyEnum-make-forgiving-duplicates-work-with-Python-3.11.patch
 Fix-Property-GC-tracking-for-Python-3.11.patch
 make-wheels-compatible-with-Python-3.11.patch
-Revert-removal-of-version-check.patch
-importlib-machinery.patch
 Fix-GLES-builds.patch
+Fix-tests-sample_privatector-sample_privatedtor-failing-w.patch

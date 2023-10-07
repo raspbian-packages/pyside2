@@ -1,4 +1,4 @@
-pyside2 (5.15.8-2+rpi1) bookworm-staging; urgency=medium
+pyside2 (5.15.10-4+rpi1) trixie-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -12,7 +12,44 @@ pyside2 (5.15.8-2+rpi1) bookworm-staging; urgency=medium
   * Improve replacement rules for paths
     (still not ideal)
 
- -- Raspbian forward porter <root@raspbian.org>  Mon, 30 Jan 2023 01:08:27 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Sat, 07 Oct 2023 13:12:14 +0000
+
+pyside2 (5.15.10-4) unstable; urgency=medium
+
+  * Team upload.
+  * Build with LLVM 15 for now (closes: #1051886).
+  * Backport upstream patch to fix test failures with Python 3.11.5.
+  * Add a debian/clean file (closes: #1047480).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 01 Oct 2023 23:43:44 +0300
+
+pyside2 (5.15.10-3) unstable; urgency=medium
+
+  * Team upload.
+  * Stop building the Qt WebEngine package on mipsel (closes: #1041253).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 16 Jul 2023 17:49:14 +0300
+
+pyside2 (5.15.10-2) unstable; urgency=medium
+
+  * Team upload.
+  * Regenerate debian/tests/control using debian/tests/control.gen.
+  * Enable the Qt WebEngine packages on mips64el.
+  * Enable the Qt Data Visualization package on all architectures.
+  * Test WebEngine only on architectures where it is available.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 28 Jun 2023 00:02:49 +0300
+
+pyside2 (5.15.10-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Drop patches, no longer needed after upstream changes:
+    - Revert-removal-of-version-check.patch
+    - importlib-machinery.patch
+  * Refresh other patches.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 18 Jun 2023 19:12:26 +0300
 
 pyside2 (5.15.8-2) unstable; urgency=medium
 

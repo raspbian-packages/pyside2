@@ -8,9 +8,9 @@ Build-Depends: chrpath,
                debhelper-compat (= 13),
                dh-python,
                graphviz,
-               libclang-dev,
+               libclang-15-dev,
                libqt5charts5-dev (>= 5.15),
-               libqt5datavisualization5-dev (>= 5.15) [!mips64el !mipsel !mips],
+               libqt5datavisualization5-dev (>= 5.15),
                libqt5opengl5-dev (>= 5.15),
                libqt5remoteobjects5-dev (>= 5.15),
                libqt5scxml5-bin (>= 5.15),
@@ -26,7 +26,7 @@ Build-Depends: chrpath,
                libqt5xmlpatterns5-dev (>= 5.15),
                libxml2-dev,
                libxslt1-dev,
-               llvm-dev,
+               llvm-15-dev,
                patchelf,
                python3-dev,
                python3-distro,
@@ -55,7 +55,7 @@ Build-Depends: chrpath,
                qtquickcontrols2-5-dev (>= 5.15),
                qtscript5-dev (>= 5.15),
                qttools5-dev (>= 5.15),
-               qtwebengine5-dev (>= 5.15) [amd64 arm64 i386 mipsel],
+               qtwebengine5-dev (>= 5.15) [amd64 arm64 i386 mips64el],
                xvfb,
                xauth
 Build-Conflicts:
@@ -286,7 +286,7 @@ Description: Python bindings for Qt5 Qml module (Python 3)
  This package contains Python 3 bindings for the QtQml module.
 
 Package: python3-pyside2.qtwebenginecore
-Architecture: amd64 arm64 i386 mipsel
+Architecture: amd64 arm64 i386 mips64el
 Depends: ${misc:Depends}, ${python3:Depends}, ${shlibs:Depends},
  python3-pyside2.qtcore, python3-pyside2.qtnetwork
 Description: Python bindings for Qt5 WebEngineCore module (Python 3)
@@ -505,7 +505,7 @@ Description: Python bindings for Qt5 Test module (Python 3)
  This package contains Python 3 bindings for the QtTest module.
 
 Package: python3-pyside2.qtwebenginewidgets
-Architecture: amd64 arm64 i386 mipsel
+Architecture: amd64 arm64 i386 mips64el
 Depends: ${misc:Depends}, ${python3:Depends}, ${shlibs:Depends},
  python3-pyside2.qtcore, python3-pyside2.qtgui, python3-pyside2.qtwidgets,
  python3-pyside2.qtnetwork, python3-pyside2.qtwebchannel,
@@ -666,7 +666,7 @@ Description: Python bindings for Qt5 WebSockets module (Python 3)
  This package contains Python 3 bindings for the QtWebSockets module.
 
 Package: python3-pyside2.qtdatavisualization
-Architecture: amd64 arm64 armel armhf i386 ppc64el s390x
+Architecture: any
 Depends: ${misc:Depends}, ${python3:Depends}, ${shlibs:Depends},
  python3-pyside2.qtgui, python3-pyside2.qtcore
 Description: Python bindings for Qt5 Data Visualization (Python 3)
@@ -702,7 +702,7 @@ Description: Python bindings for Qt5 Scxml (Python 3)
  This package contains Python 3 bindings for the Scxml module.
 
 Package: python3-pyside2.qtwebengine
-Architecture: amd64 arm64 i386 mipsel
+Architecture: amd64 arm64 i386 mips64el
 Depends: ${misc:Depends}, ${python3:Depends}, ${shlibs:Depends},
  python3-pyside2.qtcore
 Description: Python bindings for Qt5 Web Engine (Python 3)

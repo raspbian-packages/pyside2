@@ -58,7 +58,7 @@ index cd90634..730990f 100644
      }
  
 diff --git a/sources/shiboken2/libshiboken/basewrapper.cpp b/sources/shiboken2/libshiboken/basewrapper.cpp
-index 917b743..e2eccd0 100644
+index 96d4038..0832037 100644
 --- a/sources/shiboken2/libshiboken/basewrapper.cpp
 +++ b/sources/shiboken2/libshiboken/basewrapper.cpp
 @@ -377,7 +377,7 @@ SbkObjectType *SbkObject_TypeF(void)
@@ -70,7 +70,7 @@ index 917b743..e2eccd0 100644
          Py_INCREF(Py_TYPE(type));
          type->tp_weaklistoffset = offsetof(SbkObject, weakreflist);
          type->tp_dictoffset = offsetof(SbkObject, ob_dict);
-@@ -1160,7 +1160,7 @@ introduceWrapperType(PyObject *enclosingObject,
+@@ -1161,7 +1161,7 @@ introduceWrapperType(PyObject *enclosingObject,
      typeSpec->slots[0].pfunc = reinterpret_cast<void *>(baseType ? baseType : SbkObject_TypeF());
  
      PyObject *heaptype = SbkType_FromSpecWithBases(typeSpec, baseTypes);

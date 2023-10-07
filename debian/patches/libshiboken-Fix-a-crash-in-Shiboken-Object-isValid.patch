@@ -22,10 +22,10 @@ Reviewed-by: Qt CI Bot <qt_ci_bot@qt-project.org>
  1 file changed, 1 insertion(+)
 
 diff --git a/sources/shiboken2/libshiboken/basewrapper.cpp b/sources/shiboken2/libshiboken/basewrapper.cpp
-index 7ac7fad..917b743 100644
+index afca7fa..96d4038 100644
 --- a/sources/shiboken2/libshiboken/basewrapper.cpp
 +++ b/sources/shiboken2/libshiboken/basewrapper.cpp
-@@ -1525,6 +1525,7 @@ bool setCppPointer(SbkObject *sbkObj, PyTypeObject *desiredType, void *cptr)
+@@ -1526,6 +1526,7 @@ bool setCppPointer(SbkObject *sbkObj, PyTypeObject *desiredType, void *cptr)
  bool isValid(PyObject *pyObj)
  {
      if (!pyObj || pyObj == Py_None
