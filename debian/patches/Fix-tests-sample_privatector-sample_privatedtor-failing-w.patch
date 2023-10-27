@@ -16,10 +16,10 @@ Reviewed-by: Shyamnath Premnadh <Shyamnath.Premnadh@qt.io>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/sources/shiboken2/libshiboken/basewrapper.cpp b/sources/shiboken2/libshiboken/basewrapper.cpp
-index 0832037..cb810f1 100644
+index 1919f28..f908f22 100644
 --- a/sources/shiboken2/libshiboken/basewrapper.cpp
 +++ b/sources/shiboken2/libshiboken/basewrapper.cpp
-@@ -832,9 +832,9 @@ PyObject *SbkQAppTpNew(PyTypeObject *subtype, PyObject *, PyObject *)
+@@ -841,9 +841,9 @@ PyObject *SbkQAppTpNew(PyTypeObject *subtype, PyObject *, PyObject *)
  PyObject *SbkDummyNew(PyTypeObject *type, PyObject *, PyObject *)
  {
      // PYSIDE-595: Give the same error as type_call does when tp_new is NULL.

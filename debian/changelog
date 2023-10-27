@@ -1,4 +1,4 @@
-pyside2 (5.15.10-4+rpi1) trixie-staging; urgency=medium
+pyside2 (5.15.11-1+rpi1) trixie-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -12,7 +12,21 @@ pyside2 (5.15.10-4+rpi1) trixie-staging; urgency=medium
   * Improve replacement rules for paths
     (still not ideal)
 
- -- Raspbian forward porter <root@raspbian.org>  Sat, 07 Oct 2023 13:12:14 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Fri, 27 Oct 2023 00:05:40 +0000
+
+pyside2 (5.15.11-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Drop patches, included in the new release:
+    - libshiboken-Fix-a-crash-in-Shiboken-Object-isValid.patch
+    - Fix-usage-of-Py_TYPE-for-Python-3.11.patch
+    - libshiboken-Fix-crashes-with-static-strings-in-Python-3.11.patch
+    - Fix-Property-GC-tracking-for-Python-3.11.patch
+    - Fix-GLES-builds.patch
+  * Refresh other patches.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 15 Oct 2023 23:04:58 +0300
 
 pyside2 (5.15.10-4) unstable; urgency=medium
 

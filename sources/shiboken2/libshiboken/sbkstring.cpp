@@ -41,7 +41,7 @@
 #include "sbkstaticstrings_p.h"
 #include "autodecref.h"
 
-#if PY_VERSION_HEX >= 0x030B0000 || defined(Py_LIMITED_API)
+#if PY_VERSION_HEX >= 0x03000000
 #  define USE_INTERN_STRINGS
 #endif
 
