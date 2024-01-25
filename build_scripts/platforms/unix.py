@@ -220,8 +220,3 @@ def prepare_packages_posix(self, vars):
         if config.is_internal_shiboken_generator_build():
             # Copy over clang before rpath patching.
             self.prepare_standalone_clang(is_win=False)
-
-    # Update rpath to $ORIGIN
-    if sys.platform.startswith('linux') or sys.platform.startswith('darwin'):
-        rpath_path = "{st_build_dir}/{st_package_name}".format(**vars)
-        self.update_rpath(rpath_path, executables)

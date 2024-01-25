@@ -631,9 +631,6 @@ class PysideBuild(_build, DistUtilsCommandMixin):
                 log.info("Created {}".format(build_history))
 
         if not OPTION["SKIP_PACKAGING"]:
-            # Build patchelf if needed
-            self.build_patchelf()
-
             # Prepare packages
             self.prepare_packages()
 
