@@ -1,0 +1,26 @@
+From: Friedemann Kleint <Friedemann.Kleint@qt.io>
+Date: Tue, 11 Apr 2023 14:57:49 +0200
+Subject: shiboken2: Fail template test instead of crashing
+
+The class is not found by Clang 16.
+
+Pick-to: 6.5 6.2 5.15
+Task-number: PYSIDE-2288
+Change-Id: If7c7a29417d083645ddf2e9fd206a09e47401833
+Reviewed-by: Cristian Maureira-Fredes <cristian.maureira-fredes@qt.io>
+---
+ sources/shiboken2/ApiExtractor/tests/testtemplates.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sources/shiboken2/ApiExtractor/tests/testtemplates.cpp b/sources/shiboken2/ApiExtractor/tests/testtemplates.cpp
+index f6c70a6..9f929c4 100644
+--- a/sources/shiboken2/ApiExtractor/tests/testtemplates.cpp
++++ b/sources/shiboken2/ApiExtractor/tests/testtemplates.cpp
+@@ -641,6 +641,7 @@ public:
+     auto derived = AbstractMetaClass::findClass(classes, QLatin1String("Derived"));
+     QVERIFY(derived);
+     auto base = derived->templateBaseClass();
++    QVERIFY(base);
+     QCOMPARE(base->name(), QLatin1String("Container1"));
+ }
+ 
