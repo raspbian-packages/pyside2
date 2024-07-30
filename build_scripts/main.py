@@ -631,9 +631,6 @@ class PysideBuild(_build, DistUtilsCommandMixin):
                 log.info("Created {}".format(build_history))
 
         if not OPTION["SKIP_PACKAGING"]:
-            # Build patchelf if needed
-            self.build_patchelf()
-
             # Prepare packages
             self.prepare_packages()
 
@@ -1244,7 +1241,7 @@ class PysideRstDocs(Command, DistUtilsCommandMixin):
             elif self.name == "shiboken2":
                 self.sphinx_src = self.out_dir
 
-            sphinx_cmd = ["sphinx-build", "-b", "html", "-c", self.sphinx_src,
+            sphinx_cmd = ["sphinx-build", "-b", "html", "-j", "auto", "-c", self.sphinx_src,
                           self.doc_dir, self.out_dir]
             if run_process(sphinx_cmd) != 0:
                 raise DistutilsSetupError("Error running CMake for {}".format(self.doc_dir))

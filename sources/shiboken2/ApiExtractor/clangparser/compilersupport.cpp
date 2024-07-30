@@ -28,6 +28,7 @@
 
 #include "compilersupport.h"
 #include "header_paths.h"
+#include "clangutils.h"
 
 #include <reporthandler.h>
 
@@ -313,7 +314,8 @@ static void appendClangBuiltinIncludes(HeaderPaths *p)
                   "(neither by checking the environment variables LLVM_INSTALL_DIR, CLANG_INSTALL_DIR "
                   " nor running llvm-config). This may lead to parse errors.");
     } else {
-        qCInfo(lcShiboken, "CLANG builtins includes directory: %s",
+        qCInfo(lcShiboken, "CLANG v%d.%d, builtins includes directory: %s",
+               CINDEX_VERSION_MAJOR, CINDEX_VERSION_MINOR,
                qPrintable(clangBuiltinIncludesDir));
         p->append(HeaderPath{QFile::encodeName(clangBuiltinIncludesDir),
                              HeaderType::System});
@@ -345,17 +347,13 @@ QByteArrayList emulatedCompilerOptions()
     appendClangBuiltinIncludes(&headerPaths);
 #  endif // NEED_CLANG_BUILTIN_INCLUDES
 
-    // Append the c++ include paths since Clang is unable to find <list> etc
-    // on RHEL 7 with g++ 6.3 or CentOS 7.2.
-    // A fix for this has been added to Clang 5.0, so, the code can be removed
-    // once Clang 5.0 is the minimum version.
-    if (needsGppInternalHeaders()) {
-        const HeaderPaths gppPaths = gppInternalIncludePaths(compilerFromCMake(QStringLiteral("g++")));
-        for (const HeaderPath &h : gppPaths) {
-            if (h.path.contains("c++")
-                || h.path.contains("sysroot")) { // centOS
-                headerPaths.append(h);
-            }
+    // Append the c++ include paths since Clang is unable to find
+    // <type_traits> etc (g++ 11.3).
+    const HeaderPaths gppPaths = gppInternalIncludePaths(compilerFromCMake(QStringLiteral("g++")));
+    for (const HeaderPath &h : gppPaths) {
+        if (h.path.contains("c++")
+            || h.path.contains("sysroot")) { // centOS
+            headerPaths.append(h);
         }
     }
 #else

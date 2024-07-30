@@ -4,7 +4,7 @@ include /usr/share/dpkg/default.mk
 
 # Safety measure to ensure package names match SONAMEs
 PYSIDE_MAJOR := $(shell echo $(DEB_VERSION_UPSTREAM) | cut -d. -f1-2)
-ifeq ($(shell awk '/Package:/ {print $$2}' debian/control | grep -- -$(PYSIDE_MAJOR)$$),)
+ifeq ($(shell awk '/Package:/ {print $$2}' debian/control | grep -- '-$(PYSIDE_MAJOR)\(t64\)\?$$'),)
     $(error Please update package names for major version $(PYSIDE_MAJOR))
 endif
 ifeq ($(shell ls debian/lib* | grep -- -$(PYSIDE_MAJOR)),)
@@ -61,8 +61,8 @@ override_dh_auto_clean:
 
 override_dh_auto_test:
 ifeq (mips64el,$(DEB_HOST_ARCH))
-	# See https://bugs.debian.org/868745
-	#QSG_NO_DEPTH_BUFFER=1 xvfb-run -a dh_auto_test -- --system=custom \
+	# See https://bugs.debian.org/868745, https://bugs.debian.org/1061679
+	#-QSG_NO_DEPTH_BUFFER=1 xvfb-run -a dh_auto_test -- --system=custom \
 	#	--test-args '{interpreter} testrunner.py test'
 else
 	#xvfb-run -a dh_auto_test -- --system=custom \

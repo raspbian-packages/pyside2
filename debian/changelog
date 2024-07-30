@@ -1,4 +1,4 @@
-pyside2 (5.15.11-1+rpi1) trixie-staging; urgency=medium
+pyside2 (5.15.14-1+rpi1) trixie-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -12,7 +12,89 @@ pyside2 (5.15.11-1+rpi1) trixie-staging; urgency=medium
   * Improve replacement rules for paths
     (still not ideal)
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 27 Oct 2023 00:05:40 +0000
+ -- Peter Michael Green <plugwash@raspbian.org>  Tue, 30 Jul 2024 00:03:58 +0000
+
+pyside2 (5.15.14-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Drop patches, included in the new release:
+    - shiboken2-Fix-build-with-clang-16.patch
+    - shiboken2-Fail-template-test-instead-of-crashing.patch
+  * Refresh and rebase other patches.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 25 Jun 2024 23:47:03 +0300
+
+pyside2 (5.15.13-1) unstable; urgency=medium
+
+  * Team upload.
+  * Acknowledge NMU, thanks Steve Langasek!
+  * New upstream release.
+  * Rebase patches for the new release.
+  * Blacklist smart_pointer test (closes: #1068078).
+  * Bump Standards-Version to 4.7.0, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 14 Apr 2024 23:48:11 +0300
+
+pyside2 (5.15.12-6.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Rename libraries for 64-bit time_t transition.  Closes: #1064292
+
+ -- Steve Langasek <vorlon@debian.org>  Sat, 02 Mar 2024 00:27:01 +0000
+
+pyside2 (5.15.12-6) unstable; urgency=medium
+
+  * Team upload.
+  * Build with the default LLVM version (16), to fix dep-wait on mips64el.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 08 Feb 2024 11:13:11 +0300
+
+pyside2 (5.15.12-5) unstable; urgency=medium
+
+  * Team upload.
+  * Backport 9 upstream patches for LLVM ≥ 16 support.
+  * Modify sendCommand signatures to use 0 as default value.
+  * Build with llvm-toolchain-17 (closes: #1061206).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 04 Feb 2024 17:20:57 +0300
+
+pyside2 (5.15.12-4) unstable; urgency=medium
+
+  * Team upload.
+  * Make the tests non-fatal on mips64el (see #1061679).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 28 Jan 2024 19:34:21 +0300
+
+pyside2 (5.15.12-3) unstable; urgency=medium
+
+  * Team upload.
+  * Backport upstream change to stop using imp module.
+  * Do not use patchelf to change RPATH, not needed in Debian.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 25 Jan 2024 15:19:52 +0300
+
+pyside2 (5.15.12-2) unstable; urgency=medium
+
+  * Team upload.
+  * Backport upstream patches to support Python 3.12.
+  * Blacklist registry::existence_test. It was never actually run, but
+    Python 3.12 started considering it a failure when all tests are skipped.
+  * Build with bundled patchelf on mips64el again.
+    - Restore update-patchelf.patch which was removed in 5.15.2-1~exp1.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 24 Jan 2024 23:46:56 +0300
+
+pyside2 (5.15.12-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Drop make-wheels-compatible-with-Python-3.11.patch, included in the
+    new release.
+  * Fix a bug in test_install_python3.sh because of which the test did
+    not do anything. Thanks Stuart Prescott!
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 20 Jan 2024 21:52:44 +0300
 
 pyside2 (5.15.11-1) unstable; urgency=medium
 
