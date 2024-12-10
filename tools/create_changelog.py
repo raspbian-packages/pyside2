@@ -38,9 +38,11 @@
 #############################################################################
 
 import re
+import os
 import sys
 from argparse import ArgumentParser, Namespace, RawTextHelpFormatter
 from subprocess import check_output, Popen, PIPE
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 content_header = """Qt for Python @VERSION is a @TYPE release.
@@ -69,6 +71,41 @@ shiboken_header = """***********************************************************
 """
 
 
+def change_log(version: list) -> Path:
+    """Return path of the changelog of the version."""
+    name = f"changes-{version[0]}.{version[1]}.{version[2]}"
+    return Path(__file__).parents[1] / "dist" / name
+
+
+def is_lts_version(version: list) -> bool:
+    return version[0] == 5 or version[1] == 2
+
+
+def version_tag(version: list) -> str:
+    """Return the version tag."""
+    tag = f"v{version[0]}.{version[1]}.{version[2]}"
+    return tag + "-lts" if is_lts_version(version) else tag
+
+
+def revision_range(version: list) -> str:
+    """Determine a git revision_range from the version. Either log from
+       the previous version tag or since the last update to the changelog."""
+    changelog = change_log(version)
+    if changelog.is_file():
+        output = check_output(["git", "log", "-n", "1", "--format=%H",
+                               os.fspath(changelog)])
+        if output:
+            return output.strip().decode("utf-8") + "..HEAD"
+
+    last_version = version.copy()
+    if version[2] == 0:
+        adjust_idx = 0 if version[1] == 0 else 1
+    else:
+        adjust_idx = 2
+    last_version[adjust_idx] -= 1
+    return version_tag(last_version) + "..HEAD"
+
+
 def parse_options() -> Namespace:
     tag_msg = ("Tags, branches, or SHA to compare\n"
                "e.g.: v5.12.1..5.12\n"
@@ -84,8 +121,7 @@ def parse_options() -> Namespace:
     options.add_argument("-v",
                          "--versions",
                          type=str,
-                         help=tag_msg,
-                         required=True)
+                         help=tag_msg)
     options.add_argument("-r",
                          "--release",
                          type=str,
@@ -94,15 +130,37 @@ def parse_options() -> Namespace:
     options.add_argument("-t",
                          "--type",
                          type=str,
-                         help="Release type: bug-fix, minor, or major",
-                         default="bug-fix")
+                         help="Release type: bug-fix, minor, or major")
 
     args = options.parse_args()
+
+    release_version = list(int(v) for v in args.release.split("."))
+    if len(release_version) != 3:
+        print("Error: --release must be of form major.minor.patch")
+        sys.exit(-1)
+
+    # Some auto-detection smartness
+    if not args.type:
+        if release_version[2] == 0:
+            args.type = "major" if release_version[1] == 0 else "minor"
+        else:
+            args.type = "bug-fix"
+        # For major/minor releases, skip all fixes with "Pick-to: " since they
+        # appear in bug-fix releases.
+        if args.type != "bug-fix":
+           args.exclude = True
+        print(f'Assuming "{args.type}" version', file=sys.stderr)
+
     if args.type not in ("bug-fix", "minor", "major"):
-        print("Error:"
+        print("Error: "
               "-y/--type needs to be: bug-fix (default), minor, or major")
         sys.exit(-1)
 
+    if not args.versions:
+        args.versions = revision_range(release_version)
+        print(f"Assuming range {args.versions}", file=sys.stderr)
+
+    args.release_version = release_version
     return args
 
 

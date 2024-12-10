@@ -4,7 +4,6 @@ blacklist-failing-tests.patch
 test-with-current-interpreter.patch
 Shiboken-Fix-the-oldest-shiboken-bug-ever.patch
 PyEnum-make-forgiving-duplicates-work-with-Python-3.11.patch
-Fix-tests-sample_privatector-sample_privatedtor-failing-w.patch
 Python-3.12-Fix-the-structure-of-class-property.patch
 Support-running-PySide-on-Python-3.12.patch
 Final-details-to-enable-3.12-wheel-compatibility.patch

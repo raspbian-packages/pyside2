@@ -1,4 +1,4 @@
-pyside2 (5.15.14-1+rpi1) trixie-staging; urgency=medium
+pyside2 (5.15.16-1+rpi1) trixie-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -12,7 +12,16 @@ pyside2 (5.15.14-1+rpi1) trixie-staging; urgency=medium
   * Improve replacement rules for paths
     (still not ideal)
 
- -- Peter Michael Green <plugwash@raspbian.org>  Tue, 30 Jul 2024 00:03:58 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Tue, 10 Dec 2024 23:58:56 +0000
+
+pyside2 (5.15.16-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Drop Fix-tests-sample_privatector-sample_privatedtor-failing-w.patch,
+    included in the new release.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 17 Nov 2024 14:20:58 +0300
 
 pyside2 (5.15.14-1) unstable; urgency=medium
 
