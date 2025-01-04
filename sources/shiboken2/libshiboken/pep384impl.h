@@ -183,6 +183,8 @@ LIBSHIBOKEN_API const char *PepType_GetNameStr(PyTypeObject *type);
  */
 #ifdef Py_LIMITED_API
 LIBSHIBOKEN_API int _PepLong_AsInt(PyObject *);
+#elif PY_VERSION_HEX >= 0x030D0000
+#define _PepLong_AsInt PyLong_AsInt
 #else
 #define _PepLong_AsInt _PyLong_AsInt
 #endif
