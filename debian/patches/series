@@ -16,4 +16,6 @@ shiboken2-clang-Fix-build-with-clang-16.patch
 shiboken2-clang-Record-scope-resolution-of-arguments-func.patch
 shiboken2-clang-Suppress-class-scope-look-up-for-paramete.patch
 shiboken2-clang-Write-scope-resolution-for-all-parameters.patch
-Modify-sendCommand-signatures.patch
+Do-the-transition-to-Python-3.13.patch
+Fix-condition-to-allow-3.13-for-wheel-creation.patch
+Use-public-version-of-PyLong_AsInt-for-Python-3.13.patch
