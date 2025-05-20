@@ -93,7 +93,8 @@ class TestRunner(object):
         Helper for _find_ctest() that finds the ctest binary in a build
         system file (ninja, Makefile).
         """
-        look_for = "--force-new-ctest-process"
+        # Looking for a command ending this way:
+        look_for = "\\ctest.exe" if "win32" in sys.platform else "/ctest"
         line = None
         with open(file_name) as makefile:
             for line in makefile:
@@ -111,7 +112,8 @@ class TestRunner(object):
                 raise RuntimeError(msg)
         # the ctest program is on the left to look_for
         assert line, "Did not find {}".format(look_for)
-        ctest = re.search(r'(\S+|"([^"]+)")\s+' + look_for, line).groups()
+        look = re.escape(look_for)
+        ctest = re.search(fr'(\S+{look}|"([^"]+{look})")', line).groups()
         return ctest[1] or ctest[0]
 
     def _find_ctest(self):
