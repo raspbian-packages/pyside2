@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# Replace build directory value by install directory value
+package="libshiboken2-dev"
+for directory in "cmake/Shiboken2-$MAIN_VERSION_UPSTREAM" "pkgconfig"; do
+        sed -i "s|build.*relwithdebinfo/lib|usr/lib/$DEB_HOST_MULTIARCH|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|build.*relwithdebinfo|usr|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${PACKAGE_PREFIX_DIR}|/usr|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${_IMPORT_PREFIX}/lib|\${_IMPORT_PREFIX}/$DEB_HOST_MULTIARCH|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${_IMPORT_PREFIX}/include|\${_IMPORT_PREFIX}/../include|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|libshiboken2.*\.so|libshiboken2\${PYTHON_CONFIG_SUFFIX}.so|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/Shiboken2Targets-*.cmake;
+done
+
+package="libpyside2-dev"
+for directory in "pkgconfig" "cmake/PySide2-$MAIN_VERSION_UPSTREAM"; do
+        sed -i "s|build.*relwithdebinfo/lib|usr/lib/$DEB_HOST_MULTIARCH|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|build.*relwithdebinfo|usr|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${PACKAGE_PREFIX_DIR}|/usr|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${_IMPORT_PREFIX}/lib|\${_IMPORT_PREFIX}/$DEB_HOST_MULTIARCH|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|\${_IMPORT_PREFIX}/include|\${_IMPORT_PREFIX}/../include|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/*;
+        sed -i "s|libpyside2.*\.so|libpyside2\${PYTHON_CONFIG_SUFFIX}.so|" \
+	    debian/$package/usr/lib/$DEB_HOST_MULTIARCH/$directory/PySide2Targets-*.cmake;
+done
+
+# Set correctly the python path for pyside2 (Python3)
+sed -i "s|^set_and_check(PYSIDE_PYTHONPATH.*|set_and_check(PYSIDE_PYTHONPATH \"/usr/lib/python3/dist-packages/PySide2\")|" \
+    debian/libpyside2-dev/usr/lib/$DEB_HOST_MULTIARCH/cmake/PySide2-$MAIN_VERSION_UPSTREAM/PySide2Config.cpython-3*-$DEB_HOST_MULTIARCH.cmake
+
+# Set correctly the python path for shiboken2 (Python3)
+sed -i "s|^set_and_check(SHIBOKEN_PYTHON_MODULE_DIR.*|set_and_check(SHIBOKEN_PYTHON_MODULE_DIR \"/usr/lib/python3/dist-packages/shiboken2\")|" \
+    debian/libshiboken2-dev/usr/lib/$DEB_HOST_MULTIARCH/cmake/Shiboken2-$MAIN_VERSION_UPSTREAM/Shiboken2Config.cpython-3*-$DEB_HOST_MULTIARCH.cmake

@@ -1,0 +1,35 @@
+From ea351c5d53e34d3d1daf71de5eb73ba6e03e552a Mon Sep 17 00:00:00 2001
+From: Friedemann Kleint <Friedemann.Kleint@qt.io>
+Date: Fri, 21 Oct 2022 08:31:55 +0200
+Subject: Build system: Bump versions
+
+State CMake 3.18+ and Python >= 3.7
+
+Task-number: PYSIDE-2091
+Pick-to: 6.4
+Change-Id: Iad906a48bf4378ceeeebe5a55aeaa3f27ea0a61f
+Reviewed-by: Adrian Herrmann <adrian.herrmann@qt.io>
+Reviewed-by: Christian Tismer <tismer@stackless.com>
+Reviewed-by: Qt CI Bot <qt_ci_bot@qt-project.org>
+Reviewed-by: Cristian Maureira-Fredes <cristian.maureira-fredes@qt.io>
+---
+ CMakeLists.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+(limited to 'CMakeLists.txt')
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index e17f259b1..6f26b15f4 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,5 +1,5 @@
+-cmake_minimum_required(VERSION 3.16)
+-cmake_policy(VERSION 3.16)
++cmake_minimum_required(VERSION 3.18)
++cmake_policy(VERSION 3.18)
+ 
+ set(CMAKE_BUILD_TYPE Release CACHE STRING "Build Type")
+ 
+-- 
+cgit v1.2.3
+
