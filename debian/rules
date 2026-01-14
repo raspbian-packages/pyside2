@@ -60,7 +60,7 @@ override_dh_auto_clean:
 	rm -f build_history/*/build_dir.txt
 
 override_dh_auto_test:
-ifneq (,$(filter $(DEB_HOST_ARCH), mips64el ppc64el))
+ifeq (mips64el,$(DEB_HOST_ARCH))
 	# See https://bugs.debian.org/868745, https://bugs.debian.org/1061679
 	#-QSG_NO_DEPTH_BUFFER=1 xvfb-run -a dh_auto_test -- --system=custom \
 	#	--test-args '{interpreter} testrunner.py test'

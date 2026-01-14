@@ -1,4 +1,4 @@
-pyside2 (5.15.16-3.1+rpi1) trixie-staging; urgency=medium
+pyside2 (5.15.16-4+rpi1) forky-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -12,7 +12,19 @@ pyside2 (5.15.16-3.1+rpi1) trixie-staging; urgency=medium
   * Improve replacement rules for paths
     (still not ideal)
 
- -- Raspbian forward porter <root@raspbian.org>  Sat, 08 Feb 2025 00:05:15 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Wed, 14 Jan 2026 12:38:37 +0000
+
+pyside2 (5.15.16-4) unstable; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Revert making tests non-fatal on ppc64el.
+
+  [ Gianfranco Costamagna ]
+  * Add two upstream patches for cmake 4.0 (Closes: #1113433)
+    - a17f4a90b1af174b38b839fc1b5bc0e933ad1725.patch
+    - ea351c5d53e34d3d1daf71de5eb73ba6e03e552a.patch
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Fri, 03 Oct 2025 17:43:00 +0200
 
 pyside2 (5.15.16-3.1) unstable; urgency=medium
 
