@@ -1,4 +1,4 @@
-pyside2 (5.15.16-4+rpi1) forky-staging; urgency=medium
+pyside2 (5.15.18-1+rpi1) forky-staging; urgency=medium
 
   [changes brought forward from 5.11.2-1+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sun, 23 Dec 2018 23:25:45 +0000]
   * Remove armhf from qtwebengine architecture lists.
@@ -12,7 +12,20 @@ pyside2 (5.15.16-4+rpi1) forky-staging; urgency=medium
   * Improve replacement rules for paths
     (still not ideal)
 
- -- Raspbian forward porter <root@raspbian.org>  Wed, 14 Jan 2026 12:38:37 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Tue, 27 Jan 2026 01:57:47 +0000
+
+pyside2 (5.15.18-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Drop ea351c5d53e34d3d1daf71de5eb73ba6e03e552a.patch, not needed.
+  * Give the other new patch a meaningful name.
+  * Update minimum CMake version in more files (closes: #1125655).
+  * Add a patch to fix finding tests on new cmake versions.
+  * Drop Priority and Rules-Requires-Root fields, they are default now.
+  * Bump Standards-Version to 4.7.3, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 21 Jan 2026 00:26:54 +0300
 
 pyside2 (5.15.16-4) unstable; urgency=medium
 

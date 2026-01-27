@@ -19,5 +19,5 @@ shiboken2-clang-Write-scope-resolution-for-all-parameters.patch
 Do-the-transition-to-Python-3.13.patch
 Fix-condition-to-allow-3.13-for-wheel-creation.patch
 Use-public-version-of-PyLong_AsInt-for-Python-3.13.patch
-a17f4a90b1af174b38b839fc1b5bc0e933ad1725.patch
-ea351c5d53e34d3d1daf71de5eb73ba6e03e552a.patch
+Bump-cmake-version-to-3.16.patch
+testing-fix-finding-tests-on-new-cmake-versions.patch

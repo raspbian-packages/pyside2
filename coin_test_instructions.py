@@ -69,7 +69,11 @@ def call_testrunner(python_ver, buildnro):
     _pExe, _env, env_pip, env_python = get_qtci_virtualEnv(python_ver, CI_HOST_OS, CI_HOST_ARCH, CI_TARGET_ARCH)
     rmtree(_env, True)
     # Pinning the virtualenv before creating one
-    run_instruction(["pip", "install", "--user", "virtualenv==20.7.2"], "Failed to pin virtualenv")
+    python3 = "python3"
+    if sys.platform == "win32":
+        python3 = "python.exe"
+    # Pinning the virtualenv before creating one
+    run_instruction([python3, "-m", "pip", "install", "--user", "virtualenv==20.7.2"], "Failed to pin virtualenv")
     # installing to user base might not be in PATH by default.
     env_path = os.path.join(site.USER_BASE, "bin")
     v_env = os.path.join(env_path, "virtualenv")
@@ -90,7 +94,7 @@ def call_testrunner(python_ver, buildnro):
     elif os.environ.get("HOST_OSVERSION_COIN") == "macos_10_13" and python_ver == "3":
         run_instruction([env_pip, "install", "numpy==1.19.4"], "Failed to install numpy")
     else:
-        run_instruction([env_pip, "install", "numpy"], "Failed to install numpy")
+        run_instruction([env_pip, "install", "numpy<2"], "Failed to install numpy")
 
     cmd = [env_python, "testrunner.py", "test",
                   "--blacklist", "build_history/blacklist.txt",
@@ -128,8 +132,6 @@ def run_test_instructions():
     elif CI_HOST_OS == "MacOS" and CI_TARGET_ARCH=="X86_64-ARM64":
         call_testrunner("3", str(testRun))
     else:
-        call_testrunner("", str(testRun))
-        testRun =+ 1
         call_testrunner("3", str(testRun))
 
 if __name__ == "__main__":

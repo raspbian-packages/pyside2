@@ -1,6 +1,5 @@
 Source: pyside2
 Section: python
-Priority: optional
 Maintainer: Debian Qt/KDE Maintainers <debian-qt-kde@lists.debian.org>
 Uploaders: Kurt Kremitzki <kkremitzki@debian.org>
 Build-Depends: chrpath,
@@ -41,8 +40,7 @@ Build-Depends: chrpath,
                xauth
 Build-Conflicts:
                libshiboken2-dev
-Rules-Requires-Root: no
-Standards-Version: 4.7.0
+Standards-Version: 4.7.3
 Homepage: https://wiki.qt.io/Qt_for_Python
 Vcs-Git: https://salsa.debian.org/qt-kde-team/qt/pyside2.git
 Vcs-Browser: https://salsa.debian.org/qt-kde-team/qt/pyside2

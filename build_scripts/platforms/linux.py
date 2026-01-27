@@ -94,7 +94,7 @@ def prepare_standalone_package_linux(self, vars):
         designer_path = "{st_build_dir}/{st_package_name}/designer".format(**vars)
         rpaths = linux_get_rpaths(designer_path)
         if not rpaths or not rpaths_has_origin(rpaths):
-            rpaths.insert(0, '$ORIGIN/../lib')
+            rpaths.insert(0, '$ORIGIN/Qt/lib')
             new_rpaths_string = ":".join(rpaths)
             linux_set_rpaths(self._patchelf_path, designer_path, new_rpaths_string)
 

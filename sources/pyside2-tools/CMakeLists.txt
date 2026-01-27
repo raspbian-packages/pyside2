@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.16)
 project(pyside2-tools)
 
 # Don't display "up-to-date / install" messages when installing, to reduce visual clutter.
